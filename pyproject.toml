@@ -18,6 +18,7 @@ razin = "razin.cli.main:main"
 [dependency-groups]
 dev = [
   "black>=25.1.0",
+  "isort>=5.13.2",
   "mypy>=1.15.0",
   "pytest>=8.3.4",
   "ruff>=0.9.6",
@@ -31,12 +32,18 @@ packages = ["src/razin"]
 line-length = 120
 target-version = ["py312"]
 
+[tool.isort]
+profile = "black"
+line_length = 120
+py_version = 312
+src_paths = ["src", "tests"]
+
 [tool.ruff]
 line-length = 120
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP", "SIM"]
+select = ["E", "F", "B", "UP", "SIM"]
 
 [tool.pytest.ini_options]
 addopts = "--import-mode=importlib"
