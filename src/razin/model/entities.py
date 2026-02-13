@@ -78,6 +78,7 @@ class DocumentField:
     value: str
     line: int
     snippet: str
+    in_code_block: bool = False
 
 
 @dataclass(frozen=True)

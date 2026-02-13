@@ -11,4 +11,5 @@ match:
   source: fields
   strategy: token_scan
   prefix_source: config.tool_prefixes
+  scan_service_tokens: true
 dedupe: true

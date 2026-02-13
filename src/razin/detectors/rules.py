@@ -30,6 +30,7 @@ from razin.constants.detectors import (
     SECRET_ENV_REF_SCORE,
     SECRET_KEY_SCORE,
     SECRET_KEYWORDS,
+    SECRET_PLACEHOLDER_VALUE_PATTERN,
     TYPOSQUAT_MAX_DISTANCE,
     TYPOSQUAT_MIN_NAME_LENGTH,
     TYPOSQUAT_SCORE,
@@ -120,7 +121,7 @@ class NetUnknownDomainDetector(Detector):
                     )
                     continue
 
-                if is_allowlisted(domain, config.allowlist_domains):
+                if is_allowlisted(domain, config.effective_allowlist_domains):
                     continue
 
                 findings.append(
@@ -154,10 +155,14 @@ class SecretRefDetector(Detector):
         config: RaisinConfig,
     ) -> list[FindingCandidate]:
         findings: list[FindingCandidate] = []
+        fields_by_line = {field.line: field for field in parsed.fields}
 
         for key in parsed.keys:
             normalized_key = key.key.lower()
             if any(keyword in normalized_key for keyword in SECRET_KEYWORDS):
+                field = fields_by_line.get(key.line)
+                if field and _is_placeholder_secret_value(field.value):
+                    continue
                 findings.append(
                     FindingCandidate(
                         rule_id=self.rule_id,
@@ -589,3 +594,7 @@ def _is_non_secret_env_ref(value: str) -> bool:
         # For ${VAR} and $VAR patterns, check if the var name is secret-like
         # If it doesn't match any secret keyword, treat it as non-secret
     return True
+
+
+def _is_placeholder_secret_value(value: str) -> bool:
+    return bool(SECRET_PLACEHOLDER_VALUE_PATTERN.search(value))

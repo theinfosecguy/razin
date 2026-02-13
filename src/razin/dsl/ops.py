@@ -20,9 +20,15 @@ from razin.constants.detectors import (
     LOCAL_DEV_TLDS,
     RESERVED_EXAMPLE_DOMAINS,
     SCRIPT_FILE_EXTENSIONS,
+    SECRET_PLACEHOLDER_VALUE_PATTERN,
     URL_PATTERN,
 )
-from razin.constants.docs import TOOL_TOKEN_PATTERN
+from razin.constants.docs import (
+    DEFAULT_SERVICE_TOOL_PREFIXES,
+    SERVICE_TOOL_MIN_TOTAL_LENGTH,
+    SERVICE_TOOL_TOKEN_PATTERN,
+    TOOL_TOKEN_PATTERN,
+)
 from razin.constants.parsing import SNIPPET_MAX_LENGTH
 from razin.detectors.common import (
     dedupe_candidates,
@@ -202,8 +208,11 @@ def run_key_pattern_match(
     """Scan document keys for keyword matches."""
     keywords: list[str] = match_config.get("keywords", [])
     match_mode: str = match_config.get("match_mode", "contains")
+    skip_placeholder_values: bool = match_config.get("skip_placeholder_values", False)
+    skip_placeholder_values_anywhere: bool = match_config.get("skip_placeholder_values_anywhere", False)
     desc_tpl = metadata.get("description_template", metadata.get("description", ""))
     keyword_set = frozenset(keywords)
+    fields_by_line = {field.line: field for field in ctx.parsed.fields}
 
     findings: list[FindingCandidate] = []
     for key in ctx.parsed.keys:
@@ -215,6 +224,14 @@ def run_key_pattern_match(
             matched = any(kw in normalized_key for kw in keywords)
 
         if matched:
+            field = fields_by_line.get(key.line)
+            if (
+                skip_placeholder_values
+                and field is not None
+                and _is_placeholder_secret_value(field.value)
+                and (field.in_code_block or skip_placeholder_values_anywhere)
+            ):
+                continue
             description = _format_template(desc_tpl, key=key.key)
             findings.append(
                 FindingCandidate(
@@ -397,25 +414,43 @@ def run_token_scan(
     base_score: int,
     do_dedupe: bool,
 ) -> list[FindingCandidate]:
-    """Find uppercase tokens matching configured prefixes."""
+    """Find uppercase tool tokens via prefixes and optional service patterns."""
     prefix_source: str = match_config.get("prefix_source", "config.tool_prefixes")
     token_pattern_str: str | None = match_config.get("token_pattern")
     token_re = re.compile(token_pattern_str) if token_pattern_str else TOOL_TOKEN_PATTERN
+    scan_service_tokens: bool = bool(match_config.get("scan_service_tokens", False))
+    service_pattern_str: str | None = match_config.get("service_token_pattern")
+    service_token_re = re.compile(service_pattern_str) if service_pattern_str else SERVICE_TOOL_TOKEN_PATTERN
+    service_min_total_length = int(match_config.get("service_min_total_length", SERVICE_TOOL_MIN_TOTAL_LENGTH))
+    service_min_segments = int(match_config.get("service_min_segments", 3))
 
     if prefix_source == "config.tool_prefixes":
-        prefixes = tuple(p for p in ctx.config.tool_prefixes if p)
+        prefixes = tuple(p.upper() for p in ctx.config.tool_prefixes if p)
     else:
-        prefixes = tuple(match_config.get("prefixes", []))
+        prefixes = tuple(str(prefix).upper() for prefix in match_config.get("prefixes", []) if str(prefix).strip())
 
-    if not prefixes:
+    if not prefixes and not scan_service_tokens:
         return []
 
+    service_prefixes = _service_prefixes(match_config)
     desc_tpl = metadata.get("description_template", metadata.get("description", ""))
+    seen_tokens: set[str] = set()
     findings: list[FindingCandidate] = []
     for field in ctx.parsed.fields:
         for token in token_re.findall(field.value):
-            if not token.startswith(prefixes):
+            if token in seen_tokens:
                 continue
+            matches_prefix = token.startswith(prefixes)
+            matches_service = scan_service_tokens and _is_service_tool_token(
+                token=token,
+                token_re=service_token_re,
+                service_prefixes=service_prefixes,
+                min_total_length=service_min_total_length,
+                min_segments=service_min_segments,
+            )
+            if not matches_prefix and not matches_service:
+                continue
+            seen_tokens.add(token)
             description = _format_template(desc_tpl, token=token)
             findings.append(
                 FindingCandidate(
@@ -622,7 +657,7 @@ def _not_allowlisted(domain: str, ctx: EvalContext) -> bool | dict[str, Any]:
             "description": f"Configuration references '{domain}', which is denylisted.",
         }
 
-    if is_allowlisted(domain, ctx.config.allowlist_domains):
+    if is_allowlisted(domain, ctx.config.effective_allowlist_domains):
         return False
 
     score = 55 if ctx.config.allowlist_domains else 35
@@ -663,6 +698,44 @@ def _is_non_secret_env_ref(value: str) -> bool:
             continue
         if any(kw in ref for kw in _SECRET_ENV_KEYWORDS):
             return False
+    return True
+
+
+def _is_placeholder_secret_value(value: str) -> bool:
+    return bool(SECRET_PLACEHOLDER_VALUE_PATTERN.search(value))
+
+
+def _service_prefixes(match_config: dict[str, Any]) -> tuple[str, ...]:
+    raw_prefixes = match_config.get("service_prefixes")
+    if not isinstance(raw_prefixes, (list, tuple)):
+        raw_prefixes = list(DEFAULT_SERVICE_TOOL_PREFIXES)
+    prefixes: list[str] = []
+    for value in raw_prefixes:
+        if not isinstance(value, str):
+            continue
+        normalized = value.strip().upper()
+        if normalized:
+            prefixes.append(normalized)
+    return tuple(prefixes)
+
+
+def _is_service_tool_token(
+    *,
+    token: str,
+    token_re: re.Pattern[str],
+    service_prefixes: tuple[str, ...],
+    min_total_length: int,
+    min_segments: int,
+) -> bool:
+    if len(token) < min_total_length:
+        return False
+    if not token_re.fullmatch(token):
+        return False
+    segments = token.split("_")
+    if len(segments) < min_segments:
+        return False
+    if service_prefixes:
+        return segments[0] in service_prefixes
     return True
 
 

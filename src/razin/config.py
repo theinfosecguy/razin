@@ -17,6 +17,7 @@ from razin.constants.config import (
     DEFAULT_SKILL_GLOBS,
     DEFAULT_TOOL_PREFIXES_CONFIG,
 )
+from razin.constants.domains import DEFAULT_ALLOWLISTED_DOMAINS
 from razin.constants.profiles import (
     DEFAULT_PROFILE,
     PROFILE_AGGREGATE_MIN_SCORE,
@@ -43,6 +44,7 @@ class RaisinConfig:
 
     profile: ProfileName = DEFAULT_PROFILE
     allowlist_domains: tuple[str, ...] = ()
+    ignore_default_allowlist: bool = False
     denylist_domains: tuple[str, ...] = ()
     mcp_allowlist_domains: tuple[str, ...] = ()
     mcp_denylist_domains: tuple[str, ...] = ()
@@ -61,6 +63,13 @@ class RaisinConfig:
     def suppress_local_hosts(self) -> bool:
         """Whether to suppress local/dev hosts in domain detectors."""
         return PROFILE_SUPPRESS_LOCAL_HOSTS.get(self.profile, True)
+
+    @property
+    def effective_allowlist_domains(self) -> tuple[str, ...]:
+        """Domain allowlist used by detectors after applying defaults."""
+        if self.ignore_default_allowlist:
+            return self.allowlist_domains
+        return _merge_domains(DEFAULT_ALLOWLISTED_DOMAINS, self.allowlist_domains)
 
     @property
     def high_severity_min(self) -> int:
@@ -110,11 +119,16 @@ def load_config(root: Path, config_path: Path | None = None) -> RaisinConfig:
     if not isinstance(profile_raw, str) or profile_raw not in VALID_PROFILES:
         raise ConfigError(f"profile must be one of {sorted(VALID_PROFILES)}, got {profile_raw!r}")
 
+    ignore_default_allowlist = raw.get("ignore_default_allowlist", False)
+    if not isinstance(ignore_default_allowlist, bool):
+        raise ConfigError("ignore_default_allowlist must be a boolean")
+
     return RaisinConfig(
         profile=profile_raw,  # type: ignore[arg-type]
         allowlist_domains=_normalize_domains(
             _ensure_string_list(raw.get("allowlist_domains", []), "allowlist_domains")
         ),
+        ignore_default_allowlist=ignore_default_allowlist,
         denylist_domains=_normalize_domains(_ensure_string_list(raw.get("denylist_domains", []), "denylist_domains")),
         mcp_allowlist_domains=_normalize_domains(
             _ensure_string_list(raw.get("mcp_allowlist_domains", []), "mcp_allowlist_domains")
@@ -153,6 +167,8 @@ def config_fingerprint(config: RaisinConfig, max_file_mb_override: int | None = 
     payload = {
         "profile": config.profile,
         "allowlist_domains": list(config.allowlist_domains),
+        "effective_allowlist_domains": list(config.effective_allowlist_domains),
+        "ignore_default_allowlist": config.ignore_default_allowlist,
         "denylist_domains": list(config.denylist_domains),
         "mcp_allowlist_domains": list(config.mcp_allowlist_domains),
         "mcp_denylist_domains": list(config.mcp_denylist_domains),
@@ -179,3 +195,10 @@ def _ensure_string_list(value: Any, key_name: str) -> list[str]:
 def _normalize_domains(domains: list[str]) -> tuple[str, ...]:
     normalized = [domain.strip().lower() for domain in domains if domain.strip()]
     return tuple(sorted(set(normalized)))
+
+
+def _merge_domains(*domain_sets: tuple[str, ...]) -> tuple[str, ...]:
+    merged: set[str] = set()
+    for domains in domain_sets:
+        merged.update(domains)
+    return tuple(sorted(merged))

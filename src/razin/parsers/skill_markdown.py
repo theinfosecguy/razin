@@ -8,6 +8,7 @@ from typing import Any
 import yaml
 
 from razin.constants.parsing import (
+    FENCED_CODE_BLOCK_PATTERN,
     FRONTMATTER_ALT_DELIMITER,
     FRONTMATTER_DELIMITER,
     KEY_LINE_EXCLUDE,
@@ -50,9 +51,18 @@ def parse_skill_markdown_file(path: Path) -> ParsedSkillDocument:
     keys: list[DocumentKey] = []
 
     body_start = len(lines) - len(body_lines) + 1
+    active_fence_char: str | None = None
     for offset, line in enumerate(body_lines):
         index = body_start + offset
         stripped = line.strip()
+        fence_char = _extract_fence_char(stripped)
+        in_code_block = active_fence_char is not None
+        if fence_char is not None:
+            in_code_block = True
+            if active_fence_char is None:
+                active_fence_char = fence_char
+            elif fence_char == active_fence_char:
+                active_fence_char = None
         if not stripped:
             continue
         fields.append(
@@ -61,6 +71,7 @@ def parse_skill_markdown_file(path: Path) -> ParsedSkillDocument:
                 value=stripped,
                 line=index,
                 snippet=_line_snippet(stripped),
+                in_code_block=in_code_block,
             )
         )
         key = _extract_key_from_line(stripped)
@@ -105,3 +116,13 @@ def _extract_key_from_line(line: str) -> str | None:
 
 def _line_snippet(line: str) -> str:
     return line[:SNIPPET_MAX_LENGTH]
+
+
+def _extract_fence_char(line: str) -> str | None:
+    match = FENCED_CODE_BLOCK_PATTERN.match(line)
+    if not match:
+        return None
+    marker = match.group(1)
+    if len(marker) < 3:
+        return None
+    return marker[0]

@@ -13,6 +13,10 @@ ENV_REF_PATTERN: Pattern[str] = re.compile(
     re.IGNORECASE,
 )
 BASE64_PATTERN: Pattern[str] = re.compile(r"^[A-Za-z0-9+/=_-]{80,}$")
+SECRET_PLACEHOLDER_VALUE_PATTERN: Pattern[str] = re.compile(
+    r"(?:\byour[-_]|<\s*placeholder\s*>|\bchangeme\b|\btodo\b|\bxxx+\b|\breplace[-_])",
+    re.IGNORECASE,
+)
 
 SECRET_KEYWORDS: tuple[str, ...] = (
     "api_key",

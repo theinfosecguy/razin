@@ -21,7 +21,6 @@ from razin.exceptions import ConfigError, SkillParseError
 from razin.io import file_sha256
 from razin.model import Evidence, Finding, FindingCandidate, ScanResult
 from razin.parsers import parse_skill_markdown_file
-from razin.reporting.writer import write_skill_reports
 from razin.scanner.cache import build_scan_fingerprint, load_cache, new_cache, save_cache
 from razin.scanner.discovery import derive_skill_name, discover_skill_files
 from razin.scanner.score import aggregate_overall_score, aggregate_severity, severity_counts
@@ -53,9 +52,8 @@ def scan_workspace(
         raise ConfigError(f"Scan root does not exist or is not a directory: {root}")
 
     config = load_config(root, config_path)
-    if profile is not None:
-        if profile in VALID_PROFILES:
-            config = replace(config, profile=profile)  # type: ignore[arg-type]
+    if profile is not None and profile in VALID_PROFILES:
+        config = replace(config, profile=profile)  # type: ignore[arg-type]
     if mcp_allowlist:
         config = _apply_mcp_allowlist_override(config, mcp_allowlist)
     resolved_max_file_mb = max_file_mb if max_file_mb is not None else config.max_file_mb
@@ -144,6 +142,7 @@ def scan_workspace(
         findings_by_skill.setdefault(skill_name, [])
 
         candidates = dsl_engine.run_all(skill_name=skill_name, parsed=parsed, config=config)
+        candidates = _suppress_redundant_candidates(candidates)
 
         findings = [
             _candidate_to_finding(
@@ -173,6 +172,8 @@ def scan_workspace(
     for skill_name in sorted(findings_by_skill):
         skill_findings = findings_by_skill[skill_name]
         if out is not None:
+            from razin.reporting.writer import write_skill_reports
+
             write_skill_reports(
                 out,
                 skill_name,
@@ -313,6 +314,26 @@ def _candidate_to_finding(
         rule_id=candidate.rule_id,
         recommendation=candidate.recommendation,
     )
+
+
+def _suppress_redundant_candidates(candidates: list[FindingCandidate]) -> list[FindingCandidate]:
+    """Suppress lower-value findings already covered by stronger MCP evidence."""
+    mcp_evidence = {
+        (candidate.evidence.path, candidate.evidence.line)
+        for candidate in candidates
+        if candidate.rule_id == "MCP_ENDPOINT"
+    }
+    if not mcp_evidence:
+        return candidates
+
+    kept: list[FindingCandidate] = []
+    for candidate in candidates:
+        evidence_key = (candidate.evidence.path, candidate.evidence.line)
+        if candidate.rule_id == "NET_UNKNOWN_DOMAIN" and evidence_key in mcp_evidence:
+            continue
+        kept.append(candidate)
+
+    return kept
 
 
 def _deserialize_findings(payload: object) -> list[Finding]:
