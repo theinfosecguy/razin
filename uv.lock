@@ -303,7 +303,7 @@ wheels = [
 ]
 
 [[package]]
-name = "raisin"
+name = "razin"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
