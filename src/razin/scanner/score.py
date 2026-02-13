@@ -84,9 +84,7 @@ def aggregate_overall_score(
     significant_scores = [score for score in rule_max.values() if score >= min_rule_score]
 
     if not significant_scores:
-        # Fall back to the single highest per-rule score if nothing
-        # crosses the significance threshold.
-        return max(rule_max.values())
+        return 0
 
     representative_scores: set[int] = set(significant_scores)
 

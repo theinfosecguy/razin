@@ -104,12 +104,11 @@ class TestProfileAwareScoring:
         # Strict includes the 25 finding, balanced does not → strict >= balanced
         assert strict >= balanced
 
-    def test_audit_returns_max_rule_score(self) -> None:
-        """With audit min_rule_score=101, nothing is significant → returns max."""
+    def test_audit_returns_zero_when_nothing_significant(self) -> None:
+        """With audit min_rule_score=101, nothing is significant → returns 0."""
         findings = [_finding(70, "MCP_ENDPOINT"), _finding(45, "AUTH_CONNECTION")]
         score = aggregate_overall_score(findings, min_rule_score=101)
-        # Falls back to max per-rule score
-        assert score == 70
+        assert score == 0
 
     def test_balanced_context_signals_excluded(self) -> None:
         """Under balanced (min_rule_score=40), score-20 signals don't inflate."""
@@ -119,5 +118,4 @@ class TestProfileAwareScoring:
             _finding(12, "EXTERNAL_URLS"),
         ]
         score = aggregate_overall_score(findings, min_rule_score=40)
-        # All below threshold → returns max (20)
-        assert score == 20
+        assert score == 0
