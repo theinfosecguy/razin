@@ -11,19 +11,19 @@ from pathlib import Path
 
 import pytest
 
-from raisin.config import RaisinConfig, load_config
-from raisin.detectors.docs.rules import (
+from razin.config import RaisinConfig, load_config
+from razin.detectors.docs.rules import (
     AuthConnectionDetector,
     McpEndpointDetector,
 )
-from raisin.detectors.rules import OpaqueBlobDetector
-from raisin.detectors.yaml_rules.engine import YamlDetector
-from raisin.detectors.yaml_rules.loader import load_yaml_detectors as load_yamls
-from raisin.detectors.yaml_rules.schema import validate_yaml_rule
-from raisin.exceptions import ConfigError
-from raisin.model import FindingCandidate
-from raisin.parsers import parse_skill_markdown_file
-from raisin.scanner.discovery import derive_skill_name
+from razin.detectors.rules import OpaqueBlobDetector
+from razin.detectors.yaml_rules.engine import YamlDetector
+from razin.detectors.yaml_rules.loader import load_yaml_detectors as load_yamls
+from razin.detectors.yaml_rules.schema import validate_yaml_rule
+from razin.exceptions import ConfigError
+from razin.model import FindingCandidate
+from razin.parsers import parse_skill_markdown_file
+from razin.scanner.discovery import derive_skill_name
 
 
 def _skill_file(tmp_path: Path, content: str) -> Path:

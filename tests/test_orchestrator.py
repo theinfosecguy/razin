@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from raisin.exceptions import ConfigError
-from raisin.model import Evidence, FindingCandidate
-from raisin.scanner.orchestrator import (
+from razin.exceptions import ConfigError
+from razin.model import Evidence, FindingCandidate
+from razin.scanner.orchestrator import (
     _candidate_to_finding,
     _deserialize_findings,
     _normalize_domain_or_url,

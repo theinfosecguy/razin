@@ -9,17 +9,17 @@ from typing import Any
 import pytest
 import yaml
 
-from raisin.config import RaisinConfig, effective_detector_ids, load_config
-from raisin.detectors import build_detectors
-from raisin.dsl import DslEngine
-from raisin.dsl.compiler import CompiledRule, compile_rule
-from raisin.dsl.errors import DslRuntimeError, DslSchemaError
-from raisin.dsl.runtime import RULES_DIR
-from raisin.dsl.schema import validate_rule
-from raisin.exceptions import ConfigError
-from raisin.model import FindingCandidate, ParsedSkillDocument
-from raisin.parsers import parse_skill_markdown_file
-from raisin.scanner.discovery import derive_skill_name
+from razin.config import RaisinConfig, effective_detector_ids, load_config
+from razin.detectors import build_detectors
+from razin.dsl import DslEngine
+from razin.dsl.compiler import CompiledRule, compile_rule
+from razin.dsl.errors import DslRuntimeError, DslSchemaError
+from razin.dsl.runtime import RULES_DIR
+from razin.dsl.schema import validate_rule
+from razin.exceptions import ConfigError
+from razin.model import FindingCandidate, ParsedSkillDocument
+from razin.parsers import parse_skill_markdown_file
+from razin.scanner.discovery import derive_skill_name
 
 
 def _skill_file(tmp_path: Path, content: str) -> Path:
@@ -384,35 +384,35 @@ class TestCLIEngineFlag:
     """CLI --engine flag is recognized."""
 
     def test_argparse_default_engine(self) -> None:
-        from raisin.cli.main import build_parser
+        from razin.cli.main import build_parser
 
         parser = build_parser()
         args = parser.parse_args(["scan", "--root", "/tmp"])
         assert args.engine == "dsl"
 
     def test_argparse_dsl_engine(self) -> None:
-        from raisin.cli.main import build_parser
+        from razin.cli.main import build_parser
 
         parser = build_parser()
         args = parser.parse_args(["scan", "--root", "/tmp", "--engine", "dsl"])
         assert args.engine == "dsl"
 
     def test_argparse_rejects_removed_engine_optionc(self) -> None:
-        from raisin.cli.main import build_parser
+        from razin.cli.main import build_parser
 
         parser = build_parser()
         with pytest.raises(SystemExit):
             parser.parse_args(["scan", "--root", "/tmp", "--engine", "optionc"])
 
     def test_argparse_rejects_removed_engine_legacy(self) -> None:
-        from raisin.cli.main import build_parser
+        from razin.cli.main import build_parser
 
         parser = build_parser()
         with pytest.raises(SystemExit):
             parser.parse_args(["scan", "--root", "/tmp", "--engine", "legacy"])
 
     def test_argparse_rejects_invalid_engine(self) -> None:
-        from raisin.cli.main import build_parser
+        from razin.cli.main import build_parser
 
         parser = build_parser()
         with pytest.raises(SystemExit):
@@ -423,7 +423,7 @@ class TestDslIntegrationScan:
     """End-to-end scan behavior for DSL-only runtime."""
 
     def test_dsl_scan_produces_results(self, basic_repo_root: Path, tmp_path: Path) -> None:
-        from raisin.scanner import scan_workspace
+        from razin.scanner import scan_workspace
 
         result = scan_workspace(
             root=basic_repo_root,
@@ -434,7 +434,7 @@ class TestDslIntegrationScan:
         assert result.scanned_files >= 2
 
     def test_dsl_scan_benign_only(self, tmp_path: Path) -> None:
-        from raisin.scanner import scan_workspace
+        from razin.scanner import scan_workspace
 
         skill_dir = tmp_path / "skills" / "safe"
         skill_dir.mkdir(parents=True)
@@ -448,8 +448,8 @@ class TestDslIntegrationScan:
 
     @pytest.mark.parametrize("engine", ["legacy", "optionc", "default"])
     def test_removed_engines_raise_config_error(self, basic_repo_root: Path, tmp_path: Path, engine: str) -> None:
-        from raisin.exceptions import ConfigError
-        from raisin.scanner import scan_workspace
+        from razin.exceptions import ConfigError
+        from razin.scanner import scan_workspace
 
         with pytest.raises(ConfigError, match="supports only 'dsl'"):
             scan_workspace(
@@ -459,7 +459,7 @@ class TestDslIntegrationScan:
             )
 
     def test_scan_with_custom_rules_dir_uses_custom_rules_only(self, tmp_path: Path) -> None:
-        from raisin.scanner import scan_workspace
+        from razin.scanner import scan_workspace
 
         skill_dir = tmp_path / "skills" / "custom"
         skill_dir.mkdir(parents=True)
@@ -481,7 +481,7 @@ class TestDslIntegrationScan:
         assert {finding.rule_id for finding in result.findings} == {"CUSTOM_RULE"}
 
     def test_scan_with_rule_files_uses_selected_subset(self, tmp_path: Path) -> None:
-        from raisin.scanner import scan_workspace
+        from razin.scanner import scan_workspace
 
         skill_dir = tmp_path / "skills" / "subset"
         skill_dir.mkdir(parents=True)
@@ -522,7 +522,7 @@ class TestDslIntegrationScan:
         assert {finding.rule_id for finding in result.findings} == {"COMMAND_RULE"}
 
     def test_scan_rejects_conflicting_rule_source_arguments(self, tmp_path: Path) -> None:
-        from raisin.scanner import scan_workspace
+        from razin.scanner import scan_workspace
 
         skill_dir = tmp_path / "skills" / "conflict"
         skill_dir.mkdir(parents=True)
@@ -543,8 +543,8 @@ class TestCacheFingerprinting:
     """Engine/rulepack-aware cache behavior."""
 
     def test_removed_engine_rejected_without_breaking_dsl_cache(self, basic_repo_root: Path, tmp_path: Path) -> None:
-        from raisin.exceptions import ConfigError
-        from raisin.scanner import scan_workspace
+        from razin.exceptions import ConfigError
+        from razin.scanner import scan_workspace
 
         out = tmp_path / "out"
         first = scan_workspace(root=basic_repo_root, out=out, engine="dsl")
@@ -556,7 +556,7 @@ class TestCacheFingerprinting:
         assert second.cache_hits >= 1
 
     def test_unchanged_engine_and_rulepack_hits_cache(self, basic_repo_root: Path, tmp_path: Path) -> None:
-        from raisin.scanner import scan_workspace
+        from razin.scanner import scan_workspace
 
         out = tmp_path / "out"
         first = scan_workspace(root=basic_repo_root, out=out, engine="dsl")
@@ -566,7 +566,7 @@ class TestCacheFingerprinting:
         assert second.cache_hits >= 1
 
     def test_custom_rule_source_forces_cache_miss(self, basic_repo_root: Path, tmp_path: Path) -> None:
-        from raisin.scanner import scan_workspace
+        from razin.scanner import scan_workspace
 
         custom_rules = tmp_path / "rules"
         shutil.copytree(RULES_DIR, custom_rules)
@@ -582,7 +582,7 @@ class TestCacheFingerprinting:
         assert third.cache_hits >= 1
 
     def test_rulepack_change_forces_cache_miss(self, basic_repo_root: Path, tmp_path: Path) -> None:
-        from raisin.scanner import scan_workspace
+        from razin.scanner import scan_workspace
 
         custom_rules = tmp_path / "rules"
         shutil.copytree(RULES_DIR, custom_rules)

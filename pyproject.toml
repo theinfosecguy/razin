@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [project.scripts]
-raisin = "raisin.cli.main:main"
+razin = "razin.cli.main:main"
 
 [dependency-groups]
 dev = [
@@ -25,7 +25,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/raisin"]
+packages = ["src/razin"]
 
 [tool.black]
 line-length = 120

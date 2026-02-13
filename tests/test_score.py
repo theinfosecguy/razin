@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from raisin.model import Evidence, Finding
-from raisin.scanner.score import aggregate_overall_score, severity_counts, severity_from_score
-from raisin.types import Severity
+from razin.model import Evidence, Finding
+from razin.scanner.score import aggregate_overall_score, severity_counts, severity_from_score
+from razin.types import Severity
 
 
 def _finding(

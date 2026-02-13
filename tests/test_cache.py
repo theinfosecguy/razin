@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from raisin.scanner.cache import build_scan_fingerprint, load_cache, new_cache, save_cache
+from razin.scanner.cache import build_scan_fingerprint, load_cache, new_cache, save_cache
 
 
 def test_cache_roundtrip(tmp_path: Path) -> None:
-    cache_path = tmp_path / ".raisin-cache.json"
+    cache_path = tmp_path / ".razin-cache.json"
     payload = new_cache()
     scan_fingerprint = build_scan_fingerprint(
         config_fingerprint="abc123",
@@ -36,7 +36,7 @@ def test_cache_roundtrip(tmp_path: Path) -> None:
 
 
 def test_cache_invalid_payload_falls_back(tmp_path: Path) -> None:
-    cache_path = tmp_path / ".raisin-cache.json"
+    cache_path = tmp_path / ".razin-cache.json"
     cache_path.write_text('{"version": 999, "namespaces": "bad"}', encoding="utf-8")
 
     loaded = load_cache(cache_path)
@@ -45,7 +45,7 @@ def test_cache_invalid_payload_falls_back(tmp_path: Path) -> None:
 
 
 def test_cache_migrates_v2_payload(tmp_path: Path) -> None:
-    cache_path = tmp_path / ".raisin-cache.json"
+    cache_path = tmp_path / ".razin-cache.json"
     cache_path.write_text(
         (
             '{"version":2,"config_fingerprint":"abc123","files":'

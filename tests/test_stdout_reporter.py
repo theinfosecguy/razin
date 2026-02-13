@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from raisin.model import Evidence, Finding, ScanResult
-from raisin.reporting.stdout import _GREEN, _RED, _RESET, _YELLOW, StdoutReporter
-from raisin.types import Severity
+from razin.model import Evidence, Finding, ScanResult
+from razin.reporting.stdout import _GREEN, _RED, _RESET, _YELLOW, StdoutReporter
+from razin.types import Severity
 
 
 def _make_finding(
