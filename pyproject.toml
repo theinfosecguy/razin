@@ -3,7 +3,7 @@ requires = ["hatchling>=1.24.2"]
 build-backend = "hatchling.build"
 
 [project]
-name = "raisin"
+name = "razin"
 version = "0.1.0"
 description = "Raisin skill risk scanner"
 readme = "README.md"
@@ -23,6 +23,9 @@ dev = [
   "ruff>=0.9.6",
   "types-PyYAML>=6.0.12.20250516",
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/raisin"]
 
 [tool.black]
 line-length = 120
