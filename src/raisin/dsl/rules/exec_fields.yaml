@@ -1,0 +1,20 @@
+rule_id: EXEC_FIELDS
+version: 1
+metadata:
+  title: "Executable field in config"
+  description_template: "Field '{key}' declares command-like behavior."
+  recommendation: "Review and constrain command execution fields."
+  confidence: high
+scoring:
+  base_score: 72
+match:
+  source: keys
+  strategy: key_pattern_match
+  keywords:
+    - "command"
+    - "script"
+    - "exec"
+    - "shell"
+    - "run"
+  match_mode: exact
+dedupe: true

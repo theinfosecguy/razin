@@ -1,0 +1,15 @@
+rule_id: NET_UNKNOWN_DOMAIN
+version: 1
+metadata:
+  title: "Non-allowlisted domain in config"
+  description_template: "Configuration references external domain '{domain}'."
+  recommendation: "Restrict outbound domains with allowlists and verify ownership."
+  confidence: medium
+scoring:
+  base_score: 55
+match:
+  source: fields
+  strategy: url_domain_filter
+  url_filter: skip_ip_addresses
+  domain_check: not_allowlisted
+dedupe: true
