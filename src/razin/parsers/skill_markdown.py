@@ -49,7 +49,9 @@ def parse_skill_markdown_file(path: Path) -> ParsedSkillDocument:
     fields: list[DocumentField] = []
     keys: list[DocumentKey] = []
 
-    for index, line in enumerate(lines, start=1):
+    body_start = len(lines) - len(body_lines) + 1
+    for offset, line in enumerate(body_lines):
+        index = body_start + offset
         stripped = line.strip()
         if not stripped:
             continue
@@ -77,8 +79,8 @@ def parse_skill_markdown_file(path: Path) -> ParsedSkillDocument:
         raw_text=raw_text,
         frontmatter=frontmatter,
         body="\n".join(body_lines).strip(),
-        fields=fields,
-        keys=keys,
+        fields=tuple(fields),
+        keys=tuple(keys),
     )
 
 

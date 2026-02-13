@@ -488,8 +488,8 @@ class TestSecretRefPrecision:
         findings = detector.run(skill_name="test", parsed=parsed, config=RaisinConfig())
         assert not findings
 
-    def test_secret_key_in_frontmatter_still_flagged(self, tmp_path: Path) -> None:
-        """Keys named 'api_key' are still detected."""
+    def test_secret_key_in_frontmatter_not_in_body_fields(self, tmp_path: Path) -> None:
+        """Keys in frontmatter are not extracted as body fields after B1 fix."""
         f = _skill_file(
             tmp_path,
             "---\nname: test\napi_key: placeholder\n---\n# Docs\n",
@@ -497,8 +497,7 @@ class TestSecretRefPrecision:
         parsed = parse_skill_markdown_file(f)
         detector = SecretRefDetector()
         findings = detector.run(skill_name="test", parsed=parsed, config=RaisinConfig())
-        assert findings
-        assert findings[0].rule_id == "SECRET_REF"
+        assert not findings  # frontmatter keys no longer appear in body-scanned fields
 
 
 class TestAuthConnectionStrongHints:

@@ -13,7 +13,7 @@ def test_parse_skill_extracts_fields_with_lines(basic_repo_root: Path) -> None:
     parsed = parse_skill_markdown_file(fixture_file)
 
     values = {field.value for field in parsed.fields}
-    assert "name: opena1-helper" in values
+    assert "name: opena1-helper" not in values  # frontmatter excluded from body fields
     assert "token: ${API_TOKEN}" in values
 
     token_field = next(field for field in parsed.fields if "token: ${API_TOKEN}" in field.value)

@@ -11,4 +11,26 @@ FRONTMATTER_DELIMITER: str = "---"
 FRONTMATTER_ALT_DELIMITER: str = "..."
 
 KEY_LINE_PATTERN: Pattern[str] = re.compile(r"^\s*([A-Za-z0-9_-]{2,})\s*:")
-KEY_LINE_EXCLUDE: frozenset[str] = frozenset({"http", "https"})
+KEY_LINE_EXCLUDE: frozenset[str] = frozenset({
+    "http",
+    "https",
+    "note",
+    "warning",
+    "example",
+    "important",
+    "tip",
+    "caution",
+    "info",
+    "summary",
+    "details",
+    "see",
+    "usage",
+    "step",
+    "output",
+    "input",
+    "result",
+    "returns",
+    "default",
+    "reference",
+    "description",
+})
