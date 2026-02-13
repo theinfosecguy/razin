@@ -7,15 +7,22 @@ import logging
 import sys
 from pathlib import Path
 
+from razin.constants.branding import ASCII_LOGO_LINES, BRAND_NAME
 from razin.constants.engines import CLI_ENGINE_CHOICES, ENGINE_DSL
 from razin.exceptions import ConfigError, RaisinError
 from razin.reporting.stdout import StdoutReporter
 from razin.scanner import scan_workspace
 
+CLI_DESCRIPTION: str = "\n".join((*ASCII_LOGO_LINES, "", f"{BRAND_NAME} skill scanner"))
+
 
 def build_parser() -> argparse.ArgumentParser:
     """Build top-level CLI parser."""
-    parser = argparse.ArgumentParser(prog="razin", description="Raisin skill scanner")
+    parser = argparse.ArgumentParser(
+        prog="razin",
+        description=CLI_DESCRIPTION,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     scan = subparsers.add_parser("scan", help="Scan a workspace for risky skill patterns")
