@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from raisin.io import write_json_atomic
+from razin.io import write_json_atomic
 
 
 def test_write_json_atomic_cleans_temp_file_on_error(tmp_path: Path) -> None:

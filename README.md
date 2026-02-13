@@ -1,26 +1,23 @@
-# Raisin
+# Razin
 
-Raisin is a local scanner for SKILL.md-defined agent skills.
+Razin is a local scanner for SKILL.md-defined agent skills.
 
 It performs static analysis only (no execution) and writes deterministic JSON reports.
 
 ## Requirements
 
 - Python `3.12+`
-- `uv` (recommended for development workflows)
 
 ## Install
 
-Development install:
-
 ```bash
-uv sync --dev
+pip install razin
 ```
 
-Run via `uv`:
+Verify:
 
 ```bash
-uv run raisin --help
+razin --help
 ```
 
 ## Usage
@@ -28,25 +25,25 @@ uv run raisin --help
 Basic scan:
 
 ```bash
-uv run raisin scan --root . --output-dir output/
+razin scan --root . --output-dir output/
 ```
 
 Custom rules directory:
 
 ```bash
-uv run raisin scan --root . --rules-dir ./enterprise-rules --output-dir output/
+razin scan --root . --rules-dir ./enterprise-rules --output-dir output/
 ```
 
 Single rule file:
 
 ```bash
-uv run raisin scan --root . --rule-file ./enterprise-rules/net_unknown_domain.yaml --output-dir output/
+razin scan --root . --rule-file ./enterprise-rules/net_unknown_domain.yaml --output-dir output/
 ```
 
 Specific rule files:
 
 ```bash
-uv run raisin scan --root . \
+razin scan --root . \
   --rule-file ./enterprise-rules/net_unknown_domain.yaml \
   --rule-file ./enterprise-rules/mcp_endpoint.yaml \
   --output-dir output/
@@ -56,7 +53,7 @@ CLI flags:
 
 - `--root <path>`: workspace root to scan
 - `--output-dir <path>`: output root for findings and summaries
-- `--config <file>`: optional config file path (defaults to `<root>/raisin.yaml`)
+- `--config <file>`: optional config file path (defaults to `<root>/razin.yaml`)
 - `--mcp-allowlist <domain-or-url>`: optional repeatable MCP endpoint/domain allowlist override
 - `--engine <dsl>`: detector engine (`dsl` only; removed values: `legacy`, `optionc`, `default`)
 - `--rules-dir <path>`: load all custom `*.yaml` DSL rules from this directory
@@ -67,7 +64,7 @@ CLI flags:
 
 Rules source behavior:
 
-- Default mode (no custom flags): bundled rules under `src/raisin/dsl/rules/`
+- Default mode (no custom flags): bundled rules under `src/razin/dsl/rules/`
 - Custom directory mode: `--rules-dir` replaces bundled rules for that scan
 - Custom file mode: one or more `--rule-file` values replace bundled rules for that scan
 - `--rules-dir` and `--rule-file` are mutually exclusive
@@ -75,7 +72,7 @@ Rules source behavior:
 
 ## Config File
 
-Create `raisin.yaml` in scan root (or pass with `--config`):
+Create `razin.yaml` in scan root (or pass with `--config`):
 
 ```yaml
 allowlist_domains:
@@ -116,14 +113,14 @@ max_file_mb: 2
 
 ## Outputs
 
-Per skill, Raisin writes:
+Per skill, Razin writes:
 
 - `output/<skill-name>/findings.json`
 - `output/<skill-name>/summary.json`
 
 Cache file:
 
-- `output/.raisin-cache.json`
+- `output/.razin-cache.json`
 
 Skill name derivation precedence:
 

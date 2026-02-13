@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from raisin.cli.main import build_parser, main
-from raisin.exceptions import ConfigError
-from raisin.model import ScanResult
+from razin.cli.main import build_parser, main
+from razin.exceptions import ConfigError
+from razin.model import ScanResult
 
 
 def test_build_parser_accepts_scan_flags(tmp_path: Path) -> None:
@@ -105,7 +105,7 @@ def test_main_returns_config_error_code(monkeypatch) -> None:  # type: ignore[no
     def _raise(**_: object) -> ScanResult:
         raise ConfigError("bad config")
 
-    monkeypatch.setattr("raisin.cli.main.scan_workspace", _raise)
+    monkeypatch.setattr("razin.cli.main.scan_workspace", _raise)
 
     code = main(["scan", "--root", "."])
 
@@ -127,7 +127,7 @@ def test_main_success_prints_rich_summary(monkeypatch, capsys) -> None:  # type:
             cache_misses=1,
         )
 
-    monkeypatch.setattr("raisin.cli.main.scan_workspace", _result)
+    monkeypatch.setattr("razin.cli.main.scan_workspace", _result)
 
     code = main(["scan", "--root", "."])
     captured = capsys.readouterr()
@@ -152,7 +152,7 @@ def test_main_no_stdout_flag(monkeypatch, capsys) -> None:  # type: ignore[no-un
             cache_misses=1,
         )
 
-    monkeypatch.setattr("raisin.cli.main.scan_workspace", _result)
+    monkeypatch.setattr("razin.cli.main.scan_workspace", _result)
 
     code = main(["scan", "--root", ".", "--no-stdout"])
     captured = capsys.readouterr()
@@ -179,7 +179,7 @@ def test_main_passes_rule_source_arguments(monkeypatch) -> None:  # type: ignore
             cache_misses=0,
         )
 
-    monkeypatch.setattr("raisin.cli.main.scan_workspace", _result)
+    monkeypatch.setattr("razin.cli.main.scan_workspace", _result)
 
     code = main(
         [

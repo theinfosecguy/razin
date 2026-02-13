@@ -6,15 +6,15 @@ from pathlib import Path
 
 import pytest
 
-from raisin.config import (
+from razin.config import (
     DetectorConfig,
     RaisinConfig,
     config_fingerprint,
     effective_detector_ids,
     load_config,
 )
-from raisin.constants.config import DEFAULT_DETECTORS
-from raisin.exceptions import ConfigError
+from razin.constants.config import DEFAULT_DETECTORS
+from razin.exceptions import ConfigError
 
 
 def test_load_config_defaults_when_missing(tmp_path: Path) -> None:
@@ -25,7 +25,7 @@ def test_load_config_defaults_when_missing(tmp_path: Path) -> None:
 
 
 def test_load_config_rejects_bool_max_file_mb(tmp_path: Path) -> None:
-    config_path = tmp_path / "raisin.yaml"
+    config_path = tmp_path / "razin.yaml"
     config_path.write_text("max_file_mb: true\n", encoding="utf-8")
 
     with pytest.raises(ConfigError, match="max_file_mb"):
@@ -33,7 +33,7 @@ def test_load_config_rejects_bool_max_file_mb(tmp_path: Path) -> None:
 
 
 def test_load_config_error_includes_key_name(tmp_path: Path) -> None:
-    config_path = tmp_path / "raisin.yaml"
+    config_path = tmp_path / "razin.yaml"
     config_path.write_text("allowlist_domains: 123\n", encoding="utf-8")
 
     with pytest.raises(ConfigError, match="allowlist_domains"):
@@ -69,7 +69,7 @@ def test_config_fingerprint_is_stable() -> None:
 
 
 def test_load_config_reads_mcp_and_tool_prefixes(tmp_path: Path) -> None:
-    config_path = tmp_path / "raisin.yaml"
+    config_path = tmp_path / "razin.yaml"
     config_path.write_text(
         "\n".join(
             [
@@ -99,14 +99,14 @@ def test_default_profile_is_balanced() -> None:
 
 
 def test_load_config_reads_profile(tmp_path: Path) -> None:
-    config_path = tmp_path / "raisin.yaml"
+    config_path = tmp_path / "razin.yaml"
     config_path.write_text("profile: strict\n", encoding="utf-8")
     loaded = load_config(tmp_path, config_path)
     assert loaded.profile == "strict"
 
 
 def test_load_config_rejects_invalid_profile(tmp_path: Path) -> None:
-    config_path = tmp_path / "raisin.yaml"
+    config_path = tmp_path / "razin.yaml"
     config_path.write_text("profile: paranoid\n", encoding="utf-8")
     with pytest.raises(ConfigError, match="profile"):
         load_config(tmp_path, config_path)

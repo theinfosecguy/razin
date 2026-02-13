@@ -3,9 +3,9 @@
 import json
 from pathlib import Path
 
-from raisin.config import RaisinConfig, effective_detector_ids, load_config
-from raisin.detectors import build_detectors
-from raisin.detectors.docs.rules import (
+from razin.config import RaisinConfig, effective_detector_ids, load_config
+from razin.detectors import build_detectors
+from razin.detectors.docs.rules import (
     AuthConnectionDetector,
     DynamicSchemaDetector,
     ExternalUrlsDetector,
@@ -14,15 +14,15 @@ from raisin.detectors.docs.rules import (
     McpRequiredDetector,
     ToolInvocationDetector,
 )
-from raisin.detectors.rules import (
+from razin.detectors.rules import (
     NetRawIpDetector,
     NetUnknownDomainDetector,
     OpaqueBlobDetector,
     SecretRefDetector,
     TyposquatDetector,
 )
-from raisin.parsers import parse_skill_markdown_file
-from raisin.scanner.discovery import derive_skill_name
+from razin.parsers import parse_skill_markdown_file
+from razin.scanner.discovery import derive_skill_name
 
 
 def _skill_file(tmp_path: Path, content: str) -> Path:

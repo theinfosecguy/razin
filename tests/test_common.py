@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from raisin.detectors.common import extract_domain, normalize_url
+from razin.detectors.common import extract_domain, normalize_url
 
 
 class TestUrlNormalization:

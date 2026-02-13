@@ -3,9 +3,9 @@
 import json
 from pathlib import Path
 
-from raisin.parsers import parse_skill_markdown_file
-from raisin.scanner import scan_workspace
-from raisin.scanner.discovery import derive_skill_name
+from razin.parsers import parse_skill_markdown_file
+from razin.scanner import scan_workspace
+from razin.scanner.discovery import derive_skill_name
 
 
 def test_scan_writes_reports_and_is_deterministic(tmp_path: Path, basic_repo_root: Path) -> None:

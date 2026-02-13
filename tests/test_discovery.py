@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from raisin.parsers import parse_skill_markdown_file
-from raisin.scanner.discovery import derive_skill_name, sanitize_skill_name
+from razin.parsers import parse_skill_markdown_file
+from razin.scanner.discovery import derive_skill_name, sanitize_skill_name
 
 
 def test_frontmatter_name_takes_precedence(fixtures_root: Path) -> None:

@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from raisin.exceptions import SkillParseError
-from raisin.parsers import parse_skill_markdown_file
+from razin.exceptions import SkillParseError
+from razin.parsers import parse_skill_markdown_file
 
 
 def test_parse_skill_extracts_fields_with_lines(basic_repo_root: Path) -> None:
