@@ -70,6 +70,16 @@ Rules source behavior:
 - `--rules-dir` and `--rule-file` are mutually exclusive
 - Invalid path, invalid extension, duplicate `rule_id`, and invalid YAML fail fast
 
+## Quality Checks
+
+```bash
+uv run isort --check-only src tests
+uv run black --check src tests
+uv run ruff check src tests
+uv run mypy src tests
+uv run pytest -q
+```
+
 ## Config File
 
 Create `razin.yaml` in scan root (or pass with `--config`):
