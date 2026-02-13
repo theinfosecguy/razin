@@ -145,9 +145,7 @@ def test_suppress_redundant_candidates_keeps_mcp_and_removes_overlapping_unknown
 
     assert len(suppressed) == 2
     assert any(candidate.rule_id == "MCP_ENDPOINT" for candidate in suppressed)
-    assert any(
-        candidate.rule_id == "NET_UNKNOWN_DOMAIN" and candidate.evidence.line == 12 for candidate in suppressed
-    )
+    assert any(candidate.rule_id == "NET_UNKNOWN_DOMAIN" and candidate.evidence.line == 12 for candidate in suppressed)
 
 
 def test_resolve_engine_accepts_dsl() -> None:

@@ -705,10 +705,7 @@ class TestEdgeCases:
     def test_tool_invocation_detects_service_tokens(self, tmp_path: Path) -> None:
         path = _skill_file(
             tmp_path,
-            "---\nname: tool-test\n---\n"
-            "SLACK_SEND_MESSAGE\n"
-            "STRIPE_CREATE_CHARGE\n"
-            "USE_THIS_FORMAT\n",
+            "---\nname: tool-test\n---\n" "SLACK_SEND_MESSAGE\n" "STRIPE_CREATE_CHARGE\n" "USE_THIS_FORMAT\n",
         )
         parsed = parse_skill_markdown_file(path)
         config = RaisinConfig()
@@ -745,8 +742,7 @@ class TestEdgeCases:
     def test_net_unknown_domain_uses_default_allowlist(self, tmp_path: Path) -> None:
         path = _skill_file(
             tmp_path,
-            "---\nname: domains\n---\n"
-            "See https://github.com/example/repo for docs.\n",
+            "---\nname: domains\n---\n" "See https://github.com/example/repo for docs.\n",
         )
         parsed = parse_skill_markdown_file(path)
         engine = DslEngine(rule_ids=frozenset({"NET_UNKNOWN_DOMAIN"}))
@@ -757,8 +753,7 @@ class TestEdgeCases:
     def test_net_unknown_domain_can_ignore_default_allowlist(self, tmp_path: Path) -> None:
         path = _skill_file(
             tmp_path,
-            "---\nname: domains\n---\n"
-            "See https://github.com/example/repo for docs.\n",
+            "---\nname: domains\n---\n" "See https://github.com/example/repo for docs.\n",
         )
         parsed = parse_skill_markdown_file(path)
         engine = DslEngine(rule_ids=frozenset({"NET_UNKNOWN_DOMAIN"}))

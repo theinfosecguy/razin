@@ -143,8 +143,7 @@ def test_default_allowlist_applies_when_not_ignored() -> None:
 def test_load_config_merges_custom_allowlist_with_defaults(tmp_path: Path) -> None:
     config_path = tmp_path / "razin.yaml"
     config_path.write_text(
-        "allowlist_domains:\n"
-        "  - internal.example.com\n",
+        "allowlist_domains:\n" "  - internal.example.com\n",
         encoding="utf-8",
     )
 
@@ -158,9 +157,7 @@ def test_load_config_merges_custom_allowlist_with_defaults(tmp_path: Path) -> No
 def test_load_config_can_ignore_default_allowlist(tmp_path: Path) -> None:
     config_path = tmp_path / "razin.yaml"
     config_path.write_text(
-        "ignore_default_allowlist: true\n"
-        "allowlist_domains:\n"
-        "  - internal.example.com\n",
+        "ignore_default_allowlist: true\n" "allowlist_domains:\n" "  - internal.example.com\n",
         encoding="utf-8",
     )
 

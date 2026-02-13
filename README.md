@@ -9,6 +9,15 @@ RAZIN is a local scanner for SKILL.md-defined agent skills.
 
 It performs static analysis only (no execution) and writes deterministic JSON reports.
 
+## Table of Contents
+
+- [Requirements](#requirements)
+- [Install](#install)
+- [Usage](#usage)
+- [Quality Checks](#quality-checks)
+- [Config File](#config-file)
+- [Outputs](#outputs)
+
 ## Requirements
 
 - Python `3.12+`
@@ -74,6 +83,16 @@ Rules source behavior:
 - Custom file mode: one or more `--rule-file` values replace bundled rules for that scan
 - `--rules-dir` and `--rule-file` are mutually exclusive
 - Invalid path, invalid extension, duplicate `rule_id`, and invalid YAML fail fast
+
+## Quality Checks
+
+```bash
+uv run isort --check-only src tests
+uv run black --check src tests
+uv run ruff check src tests
+uv run mypy src tests
+uv run pytest -q
+```
 
 ## Config File
 
