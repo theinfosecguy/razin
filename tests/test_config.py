@@ -14,6 +14,7 @@ from razin.config import (
     load_config,
 )
 from razin.constants.config import DEFAULT_DETECTORS
+from razin.constants.domains import DEFAULT_ALLOWLISTED_DOMAINS
 from razin.exceptions import ConfigError
 
 
@@ -131,3 +132,47 @@ def test_profile_suppress_local_hosts() -> None:
     balanced = RaisinConfig(profile="balanced")
     assert strict.suppress_local_hosts is False
     assert balanced.suppress_local_hosts is True
+
+
+def test_default_allowlist_applies_when_not_ignored() -> None:
+    config = RaisinConfig()
+    assert "github.com" in config.effective_allowlist_domains
+    assert set(DEFAULT_ALLOWLISTED_DOMAINS).issubset(set(config.effective_allowlist_domains))
+
+
+def test_load_config_merges_custom_allowlist_with_defaults(tmp_path: Path) -> None:
+    config_path = tmp_path / "razin.yaml"
+    config_path.write_text(
+        "allowlist_domains:\n"
+        "  - internal.example.com\n",
+        encoding="utf-8",
+    )
+
+    loaded = load_config(tmp_path, config_path)
+
+    assert loaded.allowlist_domains == ("internal.example.com",)
+    assert "internal.example.com" in loaded.effective_allowlist_domains
+    assert "github.com" in loaded.effective_allowlist_domains
+
+
+def test_load_config_can_ignore_default_allowlist(tmp_path: Path) -> None:
+    config_path = tmp_path / "razin.yaml"
+    config_path.write_text(
+        "ignore_default_allowlist: true\n"
+        "allowlist_domains:\n"
+        "  - internal.example.com\n",
+        encoding="utf-8",
+    )
+
+    loaded = load_config(tmp_path, config_path)
+
+    assert loaded.ignore_default_allowlist is True
+    assert loaded.effective_allowlist_domains == ("internal.example.com",)
+
+
+def test_load_config_rejects_non_bool_ignore_default_allowlist(tmp_path: Path) -> None:
+    config_path = tmp_path / "razin.yaml"
+    config_path.write_text("ignore_default_allowlist: maybe\n", encoding="utf-8")
+
+    with pytest.raises(ConfigError, match="ignore_default_allowlist"):
+        load_config(tmp_path, config_path)

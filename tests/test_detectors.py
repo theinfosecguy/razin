@@ -245,6 +245,30 @@ Use RUBE_SEARCH and MCP_LIST_TOOLS and SOMETHING_ELSE.
     assert all("SOMETHING_ELSE" not in finding.description for finding in findings)
 
 
+def test_tool_invocation_detector_detects_service_tokens(tmp_path: Path) -> None:
+    sample_file = tmp_path / "SKILL.md"
+    sample_file.write_text(
+        """---
+name: tool-check
+---
+Use SLACK_SEND_MESSAGE and STRIPE_CREATE_CHARGE and USE_THIS_FORMAT.
+""",
+        encoding="utf-8",
+    )
+    parsed = parse_skill_markdown_file(sample_file)
+    detector = ToolInvocationDetector()
+
+    findings = detector.run(
+        skill_name="sample",
+        parsed=parsed,
+        config=RaisinConfig(tool_prefixes=("RUBE_", "MCP_")),
+    )
+
+    assert any("SLACK_SEND_MESSAGE" in finding.description for finding in findings)
+    assert any("STRIPE_CREATE_CHARGE" in finding.description for finding in findings)
+    assert all("USE_THIS_FORMAT" not in finding.description for finding in findings)
+
+
 def test_dynamic_schema_detector_is_low_confidence(tmp_path: Path) -> None:
     sample_file = tmp_path / "SKILL.md"
     sample_file.write_text(
@@ -499,6 +523,26 @@ class TestSecretRefPrecision:
         findings = detector.run(skill_name="test", parsed=parsed, config=RaisinConfig())
         assert not findings  # frontmatter keys no longer appear in body-scanned fields
 
+    def test_placeholder_secret_value_not_flagged(self, tmp_path: Path) -> None:
+        f = _skill_file(
+            tmp_path,
+            "---\nname: test\n---\npassword: CHANGEME\n",
+        )
+        parsed = parse_skill_markdown_file(f)
+        detector = SecretRefDetector()
+        findings = detector.run(skill_name="test", parsed=parsed, config=RaisinConfig())
+        assert not findings
+
+    def test_secret_placeholder_in_code_block_not_flagged(self, tmp_path: Path) -> None:
+        f = _skill_file(
+            tmp_path,
+            "---\nname: test\n---\n~~~yaml\napiKey: your-api-key\n~~~\n",
+        )
+        parsed = parse_skill_markdown_file(f)
+        detector = SecretRefDetector()
+        findings = detector.run(skill_name="test", parsed=parsed, config=RaisinConfig())
+        assert not findings
+
 
 class TestAuthConnectionStrongHints:
     """AUTH_CONNECTION must require at least one strong (auth-specific) hint."""
@@ -607,3 +651,28 @@ class TestDomainLocalSuppression:
         detector = NetUnknownDomainDetector()
         findings = detector.run(skill_name="test", parsed=parsed, config=RaisinConfig(profile="balanced"))
         assert not findings
+
+    def test_github_suppressed_by_default_allowlist(self, tmp_path: Path) -> None:
+        f = _skill_file(
+            tmp_path,
+            "---\nname: test\n---\n" "See https://github.com/example/repo for docs.\n",
+        )
+        parsed = parse_skill_markdown_file(f)
+        detector = NetUnknownDomainDetector()
+        findings = detector.run(skill_name="test", parsed=parsed, config=RaisinConfig())
+        assert not findings
+
+    def test_ignore_default_allowlist_reenables_github_signal(self, tmp_path: Path) -> None:
+        f = _skill_file(
+            tmp_path,
+            "---\nname: test\n---\n" "See https://github.com/example/repo for docs.\n",
+        )
+        parsed = parse_skill_markdown_file(f)
+        detector = NetUnknownDomainDetector()
+        findings = detector.run(
+            skill_name="test",
+            parsed=parsed,
+            config=RaisinConfig(ignore_default_allowlist=True),
+        )
+        assert findings
+        assert any("github.com" in finding.description for finding in findings)

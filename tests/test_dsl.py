@@ -683,6 +683,94 @@ class TestEdgeCases:
         assert len(findings) == 1
         assert findings[0].score == 15
 
+    def test_tool_invocation_dedupes_by_token(self, tmp_path: Path) -> None:
+        path = _skill_file(
+            tmp_path,
+            "---\nname: tool-test\n---\n"
+            "RUBE_SEARCH_TOOLS\n"
+            "RUBE_SEARCH_TOOLS\n"
+            "MCP_LIST_TOOLS\n"
+            "RUBE_SEARCH_TOOLS\n",
+        )
+        parsed = parse_skill_markdown_file(path)
+        config = RaisinConfig()
+        engine = DslEngine(rule_ids=frozenset({"TOOL_INVOCATION"}))
+
+        findings = engine.run_all(skill_name="tool-test", parsed=parsed, config=config)
+
+        assert len(findings) == 2
+        assert any("RUBE_SEARCH_TOOLS" in finding.description and finding.evidence.line == 4 for finding in findings)
+        assert any("MCP_LIST_TOOLS" in finding.description and finding.evidence.line == 6 for finding in findings)
+
+    def test_tool_invocation_detects_service_tokens(self, tmp_path: Path) -> None:
+        path = _skill_file(
+            tmp_path,
+            "---\nname: tool-test\n---\n"
+            "SLACK_SEND_MESSAGE\n"
+            "STRIPE_CREATE_CHARGE\n"
+            "USE_THIS_FORMAT\n",
+        )
+        parsed = parse_skill_markdown_file(path)
+        config = RaisinConfig()
+        engine = DslEngine(rule_ids=frozenset({"TOOL_INVOCATION"}))
+
+        findings = engine.run_all(skill_name="tool-test", parsed=parsed, config=config)
+
+        assert len(findings) == 2
+        assert any("SLACK_SEND_MESSAGE" in finding.description for finding in findings)
+        assert any("STRIPE_CREATE_CHARGE" in finding.description for finding in findings)
+        assert all("USE_THIS_FORMAT" not in finding.description for finding in findings)
+
+    def test_secret_ref_ignores_placeholder_values(self, tmp_path: Path) -> None:
+        path = _skill_file(
+            tmp_path,
+            "---\nname: secret-test\n---\n"
+            "~~~yaml\n"
+            "apiKey: your-api-key\n"
+            "~~~\n"
+            "password: CHANGEME\n"
+            "apiKey: sk-live-abc123def456\n",
+        )
+        parsed = parse_skill_markdown_file(path)
+        config = RaisinConfig()
+        engine = DslEngine(rule_ids=frozenset({"SECRET_REF"}))
+
+        findings = engine.run_all(skill_name="secret-test", parsed=parsed, config=config)
+
+        assert len(findings) == 1
+        assert findings[0].rule_id == "SECRET_REF"
+        assert findings[0].evidence.line == 8
+        assert "apiKey" in findings[0].description
+
+    def test_net_unknown_domain_uses_default_allowlist(self, tmp_path: Path) -> None:
+        path = _skill_file(
+            tmp_path,
+            "---\nname: domains\n---\n"
+            "See https://github.com/example/repo for docs.\n",
+        )
+        parsed = parse_skill_markdown_file(path)
+        engine = DslEngine(rule_ids=frozenset({"NET_UNKNOWN_DOMAIN"}))
+
+        findings = engine.run_all(skill_name="domains", parsed=parsed, config=RaisinConfig())
+        assert len(findings) == 0
+
+    def test_net_unknown_domain_can_ignore_default_allowlist(self, tmp_path: Path) -> None:
+        path = _skill_file(
+            tmp_path,
+            "---\nname: domains\n---\n"
+            "See https://github.com/example/repo for docs.\n",
+        )
+        parsed = parse_skill_markdown_file(path)
+        engine = DslEngine(rule_ids=frozenset({"NET_UNKNOWN_DOMAIN"}))
+
+        findings = engine.run_all(
+            skill_name="domains",
+            parsed=parsed,
+            config=RaisinConfig(ignore_default_allowlist=True),
+        )
+        assert len(findings) == 1
+        assert "github.com" in findings[0].description
+
     def test_mcp_required_fires_when_present(self, tmp_path: Path) -> None:
         path = _skill_file(
             tmp_path,
@@ -719,6 +807,17 @@ class TestEdgeCases:
         path = _skill_file(
             tmp_path,
             "---\nname: safe\n---\n# Safe\ncommander: no match\n",
+        )
+        parsed = parse_skill_markdown_file(path)
+        config = RaisinConfig()
+        engine = DslEngine(rule_ids=frozenset({"EXEC_FIELDS"}))
+        findings = engine.run_all(skill_name="safe", parsed=parsed, config=config)
+        assert len(findings) == 0
+
+    def test_exec_fields_run_prose_line_not_flagged(self, tmp_path: Path) -> None:
+        path = _skill_file(
+            tmp_path,
+            "---\nname: safe\n---\n# Safe\nrun: this is a prose instruction\n",
         )
         parsed = parse_skill_markdown_file(path)
         config = RaisinConfig()

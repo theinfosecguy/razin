@@ -14,6 +14,7 @@ from razin.scanner.orchestrator import (
     _normalize_domain_or_url,
     _resolve_engine,
     _resolve_rule_sources,
+    _suppress_redundant_candidates,
 )
 
 
@@ -86,6 +87,67 @@ def test_candidate_to_finding_id_uses_public_rule_id() -> None:
     finding_b = _candidate_to_finding("skill-a", env_split)
 
     assert finding_a.id == finding_b.id
+
+
+def test_candidate_to_finding_uses_profile_thresholds() -> None:
+    candidate = FindingCandidate(
+        rule_id="SECRET_REF",
+        score=75,
+        confidence="high",
+        title="Secret-like key in config",
+        description="Key 'token' appears to store or reference sensitive credentials.",
+        evidence=Evidence(path="/tmp/SKILL.md", line=7, snippet="token: ${API_TOKEN}"),
+        recommendation="Store secrets in secret managers and avoid embedding them in config.",
+    )
+
+    balanced = _candidate_to_finding("skill-a", candidate, high_severity_min=80, medium_severity_min=50)
+    strict = _candidate_to_finding("skill-a", candidate, high_severity_min=70, medium_severity_min=40)
+
+    assert balanced.severity == "medium"
+    assert strict.severity == "high"
+
+
+def test_suppress_redundant_candidates_keeps_mcp_and_removes_overlapping_unknown_domain() -> None:
+    shared_evidence = Evidence(path="/tmp/SKILL.md", line=9, snippet="https://rube.app/mcp")
+    other_evidence = Evidence(path="/tmp/SKILL.md", line=12, snippet="https://evil.example.net/docs")
+
+    candidates = [
+        FindingCandidate(
+            rule_id="MCP_ENDPOINT",
+            score=70,
+            confidence="high",
+            title="MCP endpoint in docs",
+            description="Documentation references MCP endpoint 'https://rube.app/mcp'.",
+            evidence=shared_evidence,
+            recommendation="Constrain MCP endpoints with allowlists.",
+        ),
+        FindingCandidate(
+            rule_id="NET_UNKNOWN_DOMAIN",
+            score=35,
+            confidence="low",
+            title="Non-allowlisted domain in config",
+            description="Configuration references external domain 'rube.app'.",
+            evidence=shared_evidence,
+            recommendation="Restrict outbound domains with allowlists.",
+        ),
+        FindingCandidate(
+            rule_id="NET_UNKNOWN_DOMAIN",
+            score=35,
+            confidence="low",
+            title="Non-allowlisted domain in config",
+            description="Configuration references external domain 'evil.example.net'.",
+            evidence=other_evidence,
+            recommendation="Restrict outbound domains with allowlists.",
+        ),
+    ]
+
+    suppressed = _suppress_redundant_candidates(candidates)
+
+    assert len(suppressed) == 2
+    assert any(candidate.rule_id == "MCP_ENDPOINT" for candidate in suppressed)
+    assert any(
+        candidate.rule_id == "NET_UNKNOWN_DOMAIN" and candidate.evidence.line == 12 for candidate in suppressed
+    )
 
 
 def test_resolve_engine_accepts_dsl() -> None:

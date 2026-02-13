@@ -91,3 +91,18 @@ def test_scan_applies_mcp_allowlist_cli_override(tmp_path: Path, basic_repo_root
     rule_ids = {finding["rule_id"] for finding in findings_payload}
 
     assert "MCP_ENDPOINT" not in rule_ids
+
+
+def test_scan_suppresses_unknown_domain_when_mcp_endpoint_covers_same_line(tmp_path: Path) -> None:
+    skill_dir = tmp_path / "skills" / "mcp"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text(
+        "---\nname: mcp-overlap\n---\nUse https://rube.app/mcp in this skill.\n",
+        encoding="utf-8",
+    )
+
+    result = scan_workspace(root=tmp_path)
+    rule_ids = [finding.rule_id for finding in result.findings]
+
+    assert "MCP_ENDPOINT" in rule_ids
+    assert "NET_UNKNOWN_DOMAIN" not in rule_ids
