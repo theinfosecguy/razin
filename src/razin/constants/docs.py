@@ -17,6 +17,8 @@ EXTERNAL_URLS_SCORE: int = 12
 AUTH_MIN_HINT_COUNT: int = 2
 
 TOOL_TOKEN_PATTERN: Pattern[str] = re.compile(r"\b[A-Z][A-Z0-9_]{3,}\b")
+SERVICE_TOOL_TOKEN_PATTERN: Pattern[str] = re.compile(r"\b[A-Z][A-Z0-9]+(?:_[A-Z0-9]+){2,}\b")
+SERVICE_TOOL_MIN_TOTAL_LENGTH: int = 15
 
 DYNAMIC_SCHEMA_HINTS: tuple[str, ...] = (
     "discover tools",
@@ -53,3 +55,27 @@ AUTH_WEAK_HINTS: tuple[str, ...] = (
 AUTH_CONNECTION_HINTS: tuple[str, ...] = AUTH_STRONG_HINTS + AUTH_WEAK_HINTS
 
 DEFAULT_TOOL_PREFIXES: tuple[str, ...] = ("RUBE_", "MCP_")
+DEFAULT_SERVICE_TOOL_PREFIXES: tuple[str, ...] = (
+    "AIRTABLE",
+    "AWS",
+    "AZURE",
+    "DISCORD",
+    "GITHUB",
+    "GITLAB",
+    "GOOGLE",
+    "HUBSPOT",
+    "JIRA",
+    "LINEAR",
+    "MAILCHIMP",
+    "NOTION",
+    "OPENAI",
+    "SALESFORCE",
+    "SENDGRID",
+    "SHOPIFY",
+    "SLACK",
+    "STRIPE",
+    "SUPABASE",
+    "TELEGRAM",
+    "TWILIO",
+    "ZENDESK",
+)

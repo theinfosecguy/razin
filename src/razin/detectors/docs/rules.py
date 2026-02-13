@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from urllib.parse import urlparse
 
 from razin.config import RaisinConfig
@@ -12,6 +13,7 @@ from razin.constants.docs import (
     AUTH_MIN_HINT_COUNT,
     AUTH_STRONG_HINTS,
     AUTH_WEAK_HINTS,
+    DEFAULT_SERVICE_TOOL_PREFIXES,
     DYNAMIC_SCHEMA_HINTS,
     DYNAMIC_SCHEMA_SCORE,
     EXTERNAL_URLS_SCORE,
@@ -19,6 +21,8 @@ from razin.constants.docs import (
     MCP_ENDPOINT_SCORE,
     MCP_PATH_TOKEN,
     MCP_REQUIRED_SCORE,
+    SERVICE_TOOL_MIN_TOTAL_LENGTH,
+    SERVICE_TOOL_TOKEN_PATTERN,
     TOOL_INVOCATION_SCORE,
     TOOL_TOKEN_PATTERN,
 )
@@ -156,15 +160,24 @@ class ToolInvocationDetector(Detector):
         parsed: ParsedSkillDocument,
         config: RaisinConfig,
     ) -> list[FindingCandidate]:
-        prefixes = tuple(prefix for prefix in config.tool_prefixes if prefix)
+        prefixes = tuple(prefix.upper() for prefix in config.tool_prefixes if prefix)
         if not prefixes:
             return []
 
+        service_prefixes = tuple(prefix.upper() for prefix in DEFAULT_SERVICE_TOOL_PREFIXES)
+        seen_tokens: set[str] = set()
         findings: list[FindingCandidate] = []
         for field in parsed.fields:
             for token in TOOL_TOKEN_PATTERN.findall(field.value):
-                if not token.startswith(prefixes):
+                if token in seen_tokens:
                     continue
+                if not token.startswith(prefixes) and not _matches_service_tool_token(
+                    token,
+                    service_prefixes=service_prefixes,
+                    token_re=SERVICE_TOOL_TOKEN_PATTERN,
+                ):
+                    continue
+                seen_tokens.add(token)
 
                 findings.append(
                     FindingCandidate(
@@ -416,3 +429,19 @@ def _hint_is_negated(lowered_text: str, hint: str) -> bool:
         if not negated:
             return False  # found at least one non-negated occurrence
     return True
+
+
+def _matches_service_tool_token(
+    token: str,
+    *,
+    service_prefixes: tuple[str, ...],
+    token_re: re.Pattern[str],
+) -> bool:
+    if len(token) < SERVICE_TOOL_MIN_TOTAL_LENGTH:
+        return False
+    if not token_re.fullmatch(token):
+        return False
+    segments = token.split("_")
+    if len(segments) < 3:
+        return False
+    return segments[0] in service_prefixes
