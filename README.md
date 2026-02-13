@@ -1,26 +1,23 @@
-# Raisin
+# Razin
 
-Raisin is a local scanner for SKILL.md-defined agent skills.
+Razin is a local scanner for SKILL.md-defined agent skills.
 
 It performs static analysis only (no execution) and writes deterministic JSON reports.
 
 ## Requirements
 
 - Python `3.12+`
-- `uv` (recommended for development workflows)
 
 ## Install
 
-Development install:
-
 ```bash
-uv sync --dev
+pip install razin
 ```
 
-Run via `uv`:
+Verify:
 
 ```bash
-uv run raisin --help
+raisin --help
 ```
 
 ## Usage
@@ -28,25 +25,25 @@ uv run raisin --help
 Basic scan:
 
 ```bash
-uv run raisin scan --root . --output-dir output/
+raisin scan --root . --output-dir output/
 ```
 
 Custom rules directory:
 
 ```bash
-uv run raisin scan --root . --rules-dir ./enterprise-rules --output-dir output/
+raisin scan --root . --rules-dir ./enterprise-rules --output-dir output/
 ```
 
 Single rule file:
 
 ```bash
-uv run raisin scan --root . --rule-file ./enterprise-rules/net_unknown_domain.yaml --output-dir output/
+raisin scan --root . --rule-file ./enterprise-rules/net_unknown_domain.yaml --output-dir output/
 ```
 
 Specific rule files:
 
 ```bash
-uv run raisin scan --root . \
+raisin scan --root . \
   --rule-file ./enterprise-rules/net_unknown_domain.yaml \
   --rule-file ./enterprise-rules/mcp_endpoint.yaml \
   --output-dir output/
@@ -116,7 +113,7 @@ max_file_mb: 2
 
 ## Outputs
 
-Per skill, Raisin writes:
+Per skill, Razin writes:
 
 - `output/<skill-name>/findings.json`
 - `output/<skill-name>/summary.json`
