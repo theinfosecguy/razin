@@ -1,0 +1,28 @@
+allowlist_domains:
+  - api.openai.com
+mcp_allowlist_domains:
+  - rube.app
+mcp_denylist_domains:
+  - blocked.example.com
+tool_prefixes:
+  - RUBE_
+  - MCP_
+detectors:
+  enabled:
+    - NET_RAW_IP
+    - NET_UNKNOWN_DOMAIN
+    - SECRET_REF
+    - EXEC_FIELDS
+    - OPAQUE_BLOB
+    - TYPOSQUAT
+    - BUNDLED_SCRIPTS
+    - MCP_REQUIRED
+    - MCP_ENDPOINT
+    - MCP_DENYLIST
+    - TOOL_INVOCATION
+    - DYNAMIC_SCHEMA
+    - AUTH_CONNECTION
+    - EXTERNAL_URLS
+typosquat:
+  baseline:
+    - openai-helper

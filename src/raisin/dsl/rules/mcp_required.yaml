@@ -1,0 +1,15 @@
+rule_id: MCP_REQUIRED
+version: 1
+metadata:
+  title: "MCP requirement declared"
+  description: "Frontmatter requires MCP connectivity for this skill."
+  recommendation: "Restrict MCP server access to approved endpoints and least-privilege tooling."
+  confidence: high
+scoring:
+  base_score: 28
+match:
+  source: frontmatter
+  strategy: frontmatter_check
+  path: requires.mcp
+  empty_check: true
+dedupe: false

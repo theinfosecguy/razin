@@ -1,0 +1,20 @@
+# MCP Endpoint detector: YAML-defined heuristic (Option B hybrid)
+rule_id: MCP_ENDPOINT
+version: 1
+
+metadata:
+  title: "MCP endpoint in docs"
+  description_template: "Documentation references MCP endpoint '{url}'."
+  recommendation: "Constrain MCP endpoints with allowlists and verify endpoint ownership."
+  confidence: high
+
+scoring:
+  base_score: 70
+
+match:
+  source: fields
+  strategy: url_domain_filter
+  url_filter: is_mcp_endpoint
+  domain_check: not_mcp_allowlisted
+
+dedupe: true

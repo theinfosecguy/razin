@@ -1,0 +1,15 @@
+rule_id: NET_RAW_IP
+version: 1
+metadata:
+  title: "Raw IP endpoint in config"
+  description_template: "Configuration references a raw IP address."
+  recommendation: "Replace raw IP endpoints with approved DNS domains and allowlist checks."
+  confidence: high
+scoring:
+  base_score: 82
+match:
+  source: fields
+  strategy: ip_address_scan
+  score_public: 82
+  score_non_public: 50
+dedupe: true

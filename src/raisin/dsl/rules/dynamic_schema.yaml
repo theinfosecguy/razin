@@ -1,0 +1,24 @@
+rule_id: DYNAMIC_SCHEMA
+version: 1
+metadata:
+  title: "Dynamic schema discovery guidance"
+  description: "Docs suggest discovering tools/schema at runtime before execution."
+  recommendation: "Review runtime-discovery flows and pin trusted schemas where possible."
+  confidence: low
+scoring:
+  base_score: 15
+match:
+  source: raw_text
+  strategy: keyword_in_text
+  hints:
+    - "discover tools"
+    - "list tools"
+    - "tool discovery"
+    - "schema discovery"
+    - "inspect schema"
+    - "describe schema"
+    - "before executing"
+    - "before execution"
+    - "dynamic schema"
+  first_match_only: true
+dedupe: false

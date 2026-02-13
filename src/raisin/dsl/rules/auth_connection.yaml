@@ -1,0 +1,27 @@
+rule_id: AUTH_CONNECTION
+version: 1
+metadata:
+  title: "Auth/connection requirements in docs"
+  description: "Docs include authentication or connection setup requirements."
+  recommendation: "Validate auth flows, secret handling, and connection policies before enabling skill."
+  confidence: medium
+scoring:
+  base_score: 45
+match:
+  source: raw_text
+  strategy: hint_count
+  strong_hints:
+    - "authenticate"
+    - "authentication"
+    - "oauth"
+    - "login"
+  weak_hints:
+    - "api key"
+    - "token"
+    - "connect"
+    - "connection"
+    - "secret"
+  min_hint_count: 2
+  require_strong: true
+  negation_aware: true
+dedupe: false

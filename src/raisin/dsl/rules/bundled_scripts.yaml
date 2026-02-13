@@ -1,0 +1,27 @@
+rule_id: BUNDLED_SCRIPTS
+version: 1
+metadata:
+  title: "Bundled executable scripts detected"
+  description: "Skill package includes executable script files alongside SKILL.md. Review for hidden execution or data access risks."
+  recommendation: "Audit bundled scripts before use; avoid running unreviewed code."
+  confidence: medium
+scoring:
+  base_score: 58
+match:
+  source: file_system
+  strategy: bundled_scripts_check
+  extensions:
+    - ".sh"
+    - ".bash"
+    - ".py"
+    - ".js"
+    - ".ts"
+    - ".tsx"
+    - ".jsx"
+    - ".ps1"
+    - ".rb"
+    - ".php"
+    - ".go"
+    - ".rs"
+    - ".java"
+dedupe: false

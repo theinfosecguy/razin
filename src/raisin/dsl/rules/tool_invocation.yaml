@@ -1,0 +1,14 @@
+rule_id: TOOL_INVOCATION
+version: 1
+metadata:
+  title: "Tool invocation token in docs"
+  description_template: "Documentation references tool token '{token}'."
+  recommendation: "Verify tool token permissions and enforce explicit invocation policies."
+  confidence: medium
+scoring:
+  base_score: 20
+match:
+  source: fields
+  strategy: token_scan
+  prefix_source: config.tool_prefixes
+dedupe: true

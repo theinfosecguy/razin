@@ -1,0 +1,15 @@
+rule_id: EXTERNAL_URLS
+version: 1
+metadata:
+  title: "External URL in docs"
+  description_template: "Documentation references external URL '{url}'."
+  recommendation: "Review external URLs and constrain network access where possible."
+  confidence: low
+scoring:
+  base_score: 12
+match:
+  source: fields
+  strategy: url_domain_filter
+  url_filter: any_url
+  domain_check: is_allowlisted_only
+dedupe: true

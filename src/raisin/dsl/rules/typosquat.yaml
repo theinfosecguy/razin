@@ -1,0 +1,16 @@
+rule_id: TYPOSQUAT
+version: 1
+metadata:
+  title: "Potential typosquat skill name"
+  description_template: "Skill name '{name}' is close to baseline '{value}'."
+  recommendation: "Verify package origin and exact spelling before trust or deployment."
+  confidence: medium
+scoring:
+  base_score: 76
+match:
+  source: frontmatter
+  strategy: typosquat_check
+  max_distance: 2
+  min_name_length: 5
+  baseline_source: config.typosquat_baseline
+dedupe: false

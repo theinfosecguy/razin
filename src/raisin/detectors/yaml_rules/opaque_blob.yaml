@@ -1,0 +1,23 @@
+# Opaque Blob detector: YAML-defined heuristic (Option B hybrid)
+rule_id: OPAQUE_BLOB
+version: 1
+
+metadata:
+  title: "Opaque or encoded blob detected"
+  description: "Long or high-entropy value may hide encoded payloads."
+  recommendation: "Replace opaque inline blobs with reviewed external artifacts."
+  confidence: medium
+
+scoring:
+  base_score: 54
+
+match:
+  source: fields
+  strategy: entropy_check
+  min_length: 80
+  min_entropy: 4.5
+  base64_pattern: "^[A-Za-z0-9+/=_-]{80,}$"
+  skip_prose: true
+  prose_min_words: 3
+
+dedupe: true
