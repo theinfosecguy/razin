@@ -106,7 +106,7 @@ def test_build_parser_help_includes_ascii_banner() -> None:
     help_text = parser.format_help()
 
     assert ">_ RAZIN" in help_text
-    assert "static scanner for SKILL.md" in help_text
+    assert "// static analysis for LLM skills" in help_text
 
 
 def test_main_returns_config_error_code(monkeypatch) -> None:  # type: ignore[no-untyped-def]
@@ -127,7 +127,7 @@ def test_main_help_shows_ascii_banner(capsys) -> None:  # type: ignore[no-untype
     captured = capsys.readouterr()
     assert exc_info.value.code == 0
     assert ">_ RAZIN" in captured.out
-    assert "static scanner for SKILL.md" in captured.out
+    assert "// static analysis for LLM skills" in captured.out
 
 
 def test_main_success_prints_rich_summary(monkeypatch, capsys) -> None:  # type: ignore[no-untyped-def]

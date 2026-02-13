@@ -2,7 +2,7 @@
 
 ```text
 >_ RAZIN
-     static scanner for SKILL.md
+     // static analysis for LLM skills
 ```
 
 RAZIN is a local scanner for SKILL.md-defined agent skills.

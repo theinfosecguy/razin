@@ -62,7 +62,7 @@ class TestStdoutReporterHeader:
         result = _make_result()
         output = StdoutReporter(result, color=False).render()
         assert ">_ RAZIN" in output
-        assert "static scanner for SKILL.md" in output
+        assert "// static analysis for LLM skills" in output
         assert "Scan summary" in output
 
     def test_header_shows_risk_score(self) -> None:
@@ -237,7 +237,7 @@ class TestStdoutReporterGolden:
 
         # Verify header content
         assert ">_ RAZIN" in output
-        assert "static scanner for SKILL.md" in output
+        assert "// static analysis for LLM skills" in output
         assert "Scan summary" in output
         assert "─" in output  # separator line
         assert "Risk Score" in output
