@@ -1,6 +1,11 @@
-# Razin
+# RAZIN
 
-Razin is a local scanner for SKILL.md-defined agent skills.
+```text
+>_ RAZIN
+     static scanner for SKILL.md
+```
+
+RAZIN is a local scanner for SKILL.md-defined agent skills.
 
 It performs static analysis only (no execution) and writes deterministic JSON reports.
 
@@ -113,7 +118,7 @@ max_file_mb: 2
 
 ## Outputs
 
-Per skill, Razin writes:
+Per skill, RAZIN writes:
 
 - `output/<skill-name>/findings.json`
 - `output/<skill-name>/summary.json`

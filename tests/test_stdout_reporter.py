@@ -61,7 +61,9 @@ class TestStdoutReporterHeader:
     def test_header_contains_summary_title(self) -> None:
         result = _make_result()
         output = StdoutReporter(result, color=False).render()
-        assert "Raisin Scan Summary" in output
+        assert ">_ RAZIN" in output
+        assert "static scanner for SKILL.md" in output
+        assert "Scan summary" in output
 
     def test_header_shows_risk_score(self) -> None:
         result = _make_result(aggregate_score=94, aggregate_severity="high")
@@ -234,7 +236,9 @@ class TestStdoutReporterGolden:
         output = StdoutReporter(result, color=False).render()
 
         # Verify header content
-        assert "Raisin Scan Summary" in output
+        assert ">_ RAZIN" in output
+        assert "static scanner for SKILL.md" in output
+        assert "Scan summary" in output
         assert "─" in output  # separator line
         assert "Risk Score" in output
         assert "94" in output

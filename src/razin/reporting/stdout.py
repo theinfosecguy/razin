@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from razin.constants.branding import ASCII_LOGO_LINES, SCAN_SUMMARY_TITLE
 from razin.model import ScanResult
 from razin.types import Severity
 
@@ -84,7 +85,9 @@ class StdoutReporter:
 
         lines = [
             "",
-            "  Raisin Scan Summary",
+            f"  {ASCII_LOGO_LINES[0]}",
+            f"  {ASCII_LOGO_LINES[1]}",
+            f"  {SCAN_SUMMARY_TITLE}",
             sep,
             "",
             f"  Risk Score  {score_str:>{14 + score_pad}}" f"              {sev_str}{' ' * sev_pad}",

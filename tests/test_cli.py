@@ -133,7 +133,8 @@ def test_main_success_prints_rich_summary(monkeypatch, capsys) -> None:  # type:
     captured = capsys.readouterr()
 
     assert code == 0
-    assert "Raisin Scan Summary" in captured.out
+    assert ">_ RAZIN" in captured.out
+    assert "Scan summary" in captured.out
     assert "1" in captured.out
 
 
