@@ -106,5 +106,5 @@ def build_summary(
         overall_severity=overall_severity,
         finding_count=len(findings),
         counts_by_severity=counts,
-        top_risks=top_risks,
+        top_risks=tuple(top_risks),
     )

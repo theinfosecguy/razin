@@ -14,13 +14,17 @@ from razin.config import RaisinConfig, config_fingerprint, load_config
 from razin.constants.cache import CACHE_FILENAME
 from razin.constants.engines import ENGINE_DSL, REMOVED_ENGINE_CHOICES
 from razin.constants.ids import FINDING_ID_HEX_LENGTH
+from razin.constants.profiles import VALID_PROFILES
+from razin.dsl import DslEngine
+from razin.dsl.errors import DslError
 from razin.exceptions import ConfigError, SkillParseError
 from razin.io import file_sha256
 from razin.model import Evidence, Finding, FindingCandidate, ScanResult
 from razin.parsers import parse_skill_markdown_file
+from razin.reporting.writer import write_skill_reports
 from razin.scanner.cache import build_scan_fingerprint, load_cache, new_cache, save_cache
 from razin.scanner.discovery import derive_skill_name, discover_skill_files
-from razin.scanner.score import aggregate_overall_score, aggregate_severity, severity_counts, severity_from_score
+from razin.scanner.score import aggregate_overall_score, aggregate_severity, severity_counts
 from razin.types import CacheNamespace, CachePayload, Confidence, Severity
 
 logger = logging.getLogger(__name__)
@@ -50,8 +54,6 @@ def scan_workspace(
 
     config = load_config(root, config_path)
     if profile is not None:
-        from razin.constants.profiles import VALID_PROFILES
-
         if profile in VALID_PROFILES:
             config = replace(config, profile=profile)  # type: ignore[arg-type]
     if mcp_allowlist:
@@ -66,8 +68,6 @@ def scan_workspace(
     )
 
     skill_files = discover_skill_files(root, config.skill_globs, resolved_max_file_mb)
-    from razin.dsl import DslEngine
-    from razin.dsl.errors import DslError
 
     try:
         dsl_engine = DslEngine(
@@ -145,7 +145,15 @@ def scan_workspace(
 
         candidates = dsl_engine.run_all(skill_name=skill_name, parsed=parsed, config=config)
 
-        findings = [_candidate_to_finding(skill_name, candidate) for candidate in candidates]
+        findings = [
+            _candidate_to_finding(
+                skill_name,
+                candidate,
+                high_severity_min=config.high_severity_min,
+                medium_severity_min=config.medium_severity_min,
+            )
+            for candidate in candidates
+        ]
         findings_by_skill[skill_name].extend(findings)
 
         cache_files[cache_key] = {
@@ -165,8 +173,6 @@ def scan_workspace(
     for skill_name in sorted(findings_by_skill):
         skill_findings = findings_by_skill[skill_name]
         if out is not None:
-            from razin.reporting.writer import write_skill_reports
-
             write_skill_reports(
                 out,
                 skill_name,
@@ -202,9 +208,9 @@ def scan_workspace(
         aggregate_score=agg_score,
         aggregate_severity=agg_severity,
         counts_by_severity=counts,
-        findings=sorted_findings,
+        findings=tuple(sorted_findings),
         duration_seconds=duration_seconds,
-        warnings=warnings,
+        warnings=tuple(warnings),
         cache_hits=cache_hits,
         cache_misses=cache_misses,
     )
@@ -232,48 +238,28 @@ def _get_or_create_cache_namespace(
     engine: str,
     rulepack_fingerprint: str,
 ) -> CacheNamespace:
+    """Return an existing cache namespace or create a fresh one.
+
+    The scan_fingerprint is derived from config_fingerprint, engine, and
+    rulepack_fingerprint so a matching key guarantees all components match.
+    """
     namespaces = cache_payload["namespaces"]
     namespace = namespaces.get(scan_fingerprint)
-    if namespace is None:
-        return _new_namespace(
-            scan_fingerprint=scan_fingerprint,
-            config_fingerprint=config_fingerprint,
-            engine=engine,
-            rulepack_fingerprint=rulepack_fingerprint,
-        )
+    if namespace is not None:
+        return {
+            "scan_fingerprint": scan_fingerprint,
+            "config_fingerprint": config_fingerprint,
+            "engine": engine,
+            "rulepack_fingerprint": rulepack_fingerprint,
+            "files": namespace["files"],
+        }
 
-    cached_config_fingerprint = namespace.get("config_fingerprint")
-    cached_engine = namespace.get("engine")
-    cached_rulepack_fingerprint = namespace.get("rulepack_fingerprint")
-    if cached_config_fingerprint != config_fingerprint:
-        return _new_namespace(
-            scan_fingerprint=scan_fingerprint,
-            config_fingerprint=config_fingerprint,
-            engine=engine,
-            rulepack_fingerprint=rulepack_fingerprint,
-        )
-    if cached_engine != engine:
-        return _new_namespace(
-            scan_fingerprint=scan_fingerprint,
-            config_fingerprint=config_fingerprint,
-            engine=engine,
-            rulepack_fingerprint=rulepack_fingerprint,
-        )
-    if cached_rulepack_fingerprint != rulepack_fingerprint:
-        return _new_namespace(
-            scan_fingerprint=scan_fingerprint,
-            config_fingerprint=config_fingerprint,
-            engine=engine,
-            rulepack_fingerprint=rulepack_fingerprint,
-        )
-
-    return {
-        "scan_fingerprint": scan_fingerprint,
-        "config_fingerprint": config_fingerprint,
-        "engine": engine,
-        "rulepack_fingerprint": rulepack_fingerprint,
-        "files": namespace["files"],
-    }
+    return _new_namespace(
+        scan_fingerprint=scan_fingerprint,
+        config_fingerprint=config_fingerprint,
+        engine=engine,
+        rulepack_fingerprint=rulepack_fingerprint,
+    )
 
 
 def _new_namespace(
@@ -292,9 +278,15 @@ def _new_namespace(
     }
 
 
-def _candidate_to_finding(skill_name: str, candidate: FindingCandidate) -> Finding:
+def _candidate_to_finding(
+    skill_name: str,
+    candidate: FindingCandidate,
+    *,
+    high_severity_min: int = 70,
+    medium_severity_min: int = 40,
+) -> Finding:
     score = max(0, min(100, int(candidate.score)))
-    severity = severity_from_score(score)
+    severity = aggregate_severity(score, high_min=high_severity_min, medium_min=medium_severity_min)
 
     identity = "|".join(
         [
@@ -325,11 +317,13 @@ def _candidate_to_finding(skill_name: str, candidate: FindingCandidate) -> Findi
 
 def _deserialize_findings(payload: object) -> list[Finding]:
     if not isinstance(payload, list):
+        logger.debug("Cache entry findings is not a list, skipping")
         return []
 
     findings: list[Finding] = []
     for item in payload:
         if not isinstance(item, dict):
+            logger.debug("Skipping malformed cache finding entry: %s", type(item).__name__)
             continue
 
         evidence_payload = item.get("evidence", {})

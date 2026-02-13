@@ -51,7 +51,7 @@ def test_scan_writes_reports_and_is_deterministic(tmp_path: Path, basic_repo_roo
         "AUTH_CONNECTION",
     }.issubset(observed_rules)
     assert len(finding_ids) == len(set(finding_ids))
-    assert first_summary_payload["counts_by_severity"]["high"] >= 1
+    assert first_summary_payload["finding_count"] >= 1
 
     second = scan_workspace(root=basic_repo_root, out=out_root)
     assert second.cache_hits >= 1

@@ -63,7 +63,7 @@ class Summary:
     overall_severity: Severity
     finding_count: int
     counts_by_severity: dict[Severity, int]
-    top_risks: list[dict[str, object]]
+    top_risks: tuple[dict[str, object], ...]
 
     def to_dict(self) -> dict[str, Any]:
         """Convert summary to a JSON-serializable dictionary."""
@@ -98,8 +98,8 @@ class ParsedSkillDocument:
     raw_text: str
     frontmatter: FrontmatterData
     body: str
-    fields: list[DocumentField]
-    keys: list[DocumentKey]
+    fields: tuple[DocumentField, ...]
+    keys: tuple[DocumentKey, ...]
 
 
 @dataclass(frozen=True)
@@ -111,8 +111,8 @@ class ScanResult:
     aggregate_score: int
     aggregate_severity: Severity
     counts_by_severity: dict[Severity, int]
-    findings: list[Finding]
+    findings: tuple[Finding, ...]
     duration_seconds: float
-    warnings: list[str]
+    warnings: tuple[str, ...]
     cache_hits: int
     cache_misses: int
