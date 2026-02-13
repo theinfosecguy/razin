@@ -17,7 +17,7 @@ pip install razin
 Verify:
 
 ```bash
-raisin --help
+razin --help
 ```
 
 ## Usage
@@ -25,25 +25,25 @@ raisin --help
 Basic scan:
 
 ```bash
-raisin scan --root . --output-dir output/
+razin scan --root . --output-dir output/
 ```
 
 Custom rules directory:
 
 ```bash
-raisin scan --root . --rules-dir ./enterprise-rules --output-dir output/
+razin scan --root . --rules-dir ./enterprise-rules --output-dir output/
 ```
 
 Single rule file:
 
 ```bash
-raisin scan --root . --rule-file ./enterprise-rules/net_unknown_domain.yaml --output-dir output/
+razin scan --root . --rule-file ./enterprise-rules/net_unknown_domain.yaml --output-dir output/
 ```
 
 Specific rule files:
 
 ```bash
-raisin scan --root . \
+razin scan --root . \
   --rule-file ./enterprise-rules/net_unknown_domain.yaml \
   --rule-file ./enterprise-rules/mcp_endpoint.yaml \
   --output-dir output/
@@ -53,7 +53,7 @@ CLI flags:
 
 - `--root <path>`: workspace root to scan
 - `--output-dir <path>`: output root for findings and summaries
-- `--config <file>`: optional config file path (defaults to `<root>/raisin.yaml`)
+- `--config <file>`: optional config file path (defaults to `<root>/razin.yaml`)
 - `--mcp-allowlist <domain-or-url>`: optional repeatable MCP endpoint/domain allowlist override
 - `--engine <dsl>`: detector engine (`dsl` only; removed values: `legacy`, `optionc`, `default`)
 - `--rules-dir <path>`: load all custom `*.yaml` DSL rules from this directory
@@ -64,7 +64,7 @@ CLI flags:
 
 Rules source behavior:
 
-- Default mode (no custom flags): bundled rules under `src/raisin/dsl/rules/`
+- Default mode (no custom flags): bundled rules under `src/razin/dsl/rules/`
 - Custom directory mode: `--rules-dir` replaces bundled rules for that scan
 - Custom file mode: one or more `--rule-file` values replace bundled rules for that scan
 - `--rules-dir` and `--rule-file` are mutually exclusive
@@ -72,7 +72,7 @@ Rules source behavior:
 
 ## Config File
 
-Create `raisin.yaml` in scan root (or pass with `--config`):
+Create `razin.yaml` in scan root (or pass with `--config`):
 
 ```yaml
 allowlist_domains:
@@ -120,7 +120,7 @@ Per skill, Razin writes:
 
 Cache file:
 
-- `output/.raisin-cache.json`
+- `output/.razin-cache.json`
 
 Skill name derivation precedence:
 
