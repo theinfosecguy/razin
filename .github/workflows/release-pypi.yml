@@ -1,0 +1,145 @@
+name: Release to PyPI
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  PACKAGE_NAME: razin
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  release:
+    name: Build and publish to PyPI
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/razin/
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Extract version
+        id: version
+        uses: actions/github-script@v7
+        with:
+          result-encoding: string
+          script: |
+            const fs = require('fs');
+            const content = fs.readFileSync('pyproject.toml', 'utf8');
+            const match = content.match(/^version\s*=\s*"([^"]+)"/m);
+            if (!match) {
+              core.setFailed('Could not read version from pyproject.toml');
+              return;
+            }
+            const version = match[1];
+            core.setOutput('value', version);
+            core.info(`Detected version: ${version}`);
+            return version;
+
+      - name: Version guard
+        uses: actions/github-script@v7
+        env:
+          PKG_VERSION: ${{ steps.version.outputs.value }}
+          GITHUB_REF_NAME: ${{ github.ref }}
+        with:
+          script: |
+            const version = process.env.PKG_VERSION;
+            const ref = process.env.GITHUB_REF_NAME;
+            const pkg = process.env.PACKAGE_NAME;
+
+            if (!version) {
+              core.setFailed('Could not read version from pyproject.toml');
+              return;
+            }
+
+            // Tag/version alignment check
+            if (ref.startsWith('refs/tags/v')) {
+              const tagVersion = ref.replace('refs/tags/v', '');
+              if (tagVersion !== version) {
+                core.setFailed(`Tag v${tagVersion} does not match pyproject.toml version ${version}`);
+                return;
+              }
+              core.info(`OK: tag v${tagVersion} matches pyproject.toml version ${version}`);
+            }
+
+            // PyPI duplicate check
+            const url = `https://pypi.org/pypi/${pkg}/json`;
+            let releases;
+            try {
+              const resp = await fetch(url);
+              if (resp.status === 404) {
+                core.info(`Package ${pkg} not yet on PyPI; version ${version} is safe to publish`);
+                return;
+              }
+              if (!resp.ok) {
+                core.setFailed(`PyPI API returned HTTP ${resp.status}`);
+                return;
+              }
+              const data = await resp.json();
+              releases = Object.keys(data.releases || {});
+            } catch (err) {
+              core.setFailed(`Failed to reach PyPI API: ${err.message}`);
+              return;
+            }
+
+            if (releases.includes(version)) {
+              core.setFailed(`Version ${version} is already published on PyPI`);
+              return;
+            }
+            core.info(`OK: version ${version} is not yet on PyPI (${releases.length} existing releases)`);
+
+      - name: Install build dependencies
+        run: pip install --upgrade build twine
+
+      - name: Build package
+        run: python -m build
+
+      - name: Check artifacts
+        run: python -m twine check dist/*
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+      - name: Verify publication
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          echo "Waiting for PyPI to index version ${VERSION}..."
+          for i in 1 2 3 4 5; do
+            sleep 10
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://pypi.org/pypi/${PACKAGE_NAME}/${VERSION}/json")
+            if [ "$STATUS" = "200" ]; then
+              echo "OK: ${PACKAGE_NAME}==${VERSION} is live on PyPI"
+              exit 0
+            fi
+            echo "Attempt ${i}: not yet available (HTTP ${STATUS}), retrying..."
+          done
+          echo "WARNING: version ${VERSION} not yet visible after 50s (may still be indexing)"
+          exit 0
+
+      - name: Smoke install
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          pip install "${PACKAGE_NAME}==${VERSION}"
+          OUTPUT=$(razin --version)
+          echo "${OUTPUT}"
+          if echo "${OUTPUT}" | grep -q "${VERSION}"; then
+            echo "OK: razin --version reports ${VERSION}"
+          else
+            echo "ERROR: razin --version output does not contain ${VERSION}"
+            exit 1
+          fi

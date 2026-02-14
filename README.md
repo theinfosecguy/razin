@@ -15,6 +15,7 @@ Razin is a local scanner for SKILL.md-defined agent skills. It performs static a
 - [Python (Primary)](#python-primary)
 - [Docker (Optional)](#docker-optional)
 - [Config File](#config-file)
+- [Releasing](#releasing)
 - [Outputs](#outputs)
 
 ## Requirements

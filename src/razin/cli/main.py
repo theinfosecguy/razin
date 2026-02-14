@@ -7,6 +7,7 @@ import logging
 import sys
 from pathlib import Path
 
+from razin import __version__
 from razin.constants.branding import ASCII_LOGO_LINES, BRAND_NAME
 from razin.exceptions import ConfigError, RaisinError
 from razin.reporting.stdout import StdoutReporter
@@ -22,6 +23,7 @@ def build_parser() -> argparse.ArgumentParser:
         description=CLI_DESCRIPTION,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     scan = subparsers.add_parser("scan", help="Scan a workspace for risky skill patterns")
