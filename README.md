@@ -18,6 +18,9 @@ Razin is a local scanner for SKILL.md-defined agent skills. It performs static a
 - [Output Formats](#output-formats)
 - [Releasing](#releasing)
 - [Outputs](#outputs)
+- [Contributing](#contributing)
+- [Security](#security)
+- [License](#license)
 
 ## Requirements
 
@@ -254,3 +257,15 @@ Skill name derivation precedence:
 1. Frontmatter `name` (if present)
 2. Nearest folder containing `SKILL.md`
 3. Sanitized relative path from scan root
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, quality checks, and PR guidelines.
+
+## Security
+
+To report a vulnerability, see [SECURITY.md](SECURITY.md).
+
+## License
+
+[MIT](LICENSE)
