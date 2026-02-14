@@ -65,6 +65,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="Custom DSL rule file path (repeat for multiple files; replaces bundled rules)",
     )
     scan.add_argument("-n", "--no-cache", action="store_true", help="Disable cache reads/writes")
+    scan.add_argument(
+        "--rules-mode",
+        choices=["replace", "overlay"],
+        default="replace",
+        help="Rule composition mode: replace (custom replaces bundled, default) or overlay (merge bundled + custom)",
+    )
+    scan.add_argument(
+        "--duplicate-policy",
+        choices=["error", "override"],
+        default="error",
+        help="Duplicate rule_id policy for overlay mode: error (fail fast, default) or override (custom wins)",
+    )
     scan.add_argument("--max-file-mb", type=int, help="Skip SKILL.md files larger than this size")
     scan.add_argument(
         "--output-format",
@@ -100,6 +112,8 @@ def main(argv: list[str] | None = None) -> int:
             profile=args.profile,
             rules_dir=args.rules_dir,
             rule_files=(tuple(args.rule_file) if args.rule_file else None),
+            rules_mode=args.rules_mode,
+            duplicate_policy=args.duplicate_policy,
         )
     except ConfigError as exc:
         print(f"Configuration error: {exc}", file=sys.stderr)

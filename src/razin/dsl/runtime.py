@@ -39,9 +39,13 @@ class DslEngine:
         rules_dir: Path | None = None,
         rule_files: tuple[Path, ...] | None = None,
         rule_ids: frozenset[str] | None = None,
+        rules_mode: str = "replace",
+        duplicate_policy: str = "error",
     ) -> None:
         self._rules_dir = rules_dir
         self._rule_files = rule_files
+        self._rules_mode = rules_mode
+        self._duplicate_policy = duplicate_policy
         self._compiled: list[CompiledRule] = []
         self._raw_rules: list[dict[str, Any]] = []
         self._load(rule_ids)
@@ -67,8 +71,13 @@ class DslEngine:
 
             previous_source = loaded_rule_sources.get(compiled.rule_id)
             if previous_source is not None:
+                if self._rules_mode == "overlay" and self._duplicate_policy == "override":
+                    self._override_rule(compiled, raw, previous_source, yaml_path)
+                    loaded_rule_sources[compiled.rule_id] = yaml_path
+                    continue
                 raise ConfigError(
-                    f"Duplicate rule_id '{compiled.rule_id}' loaded from {previous_source} and {yaml_path}"
+                    f"Duplicate rule_id '{compiled.rule_id}' loaded from {previous_source} and {yaml_path}. "
+                    f"To let the custom rule win, use --duplicate-policy override."
                 )
             loaded_rule_sources[compiled.rule_id] = yaml_path
 
@@ -77,6 +86,31 @@ class DslEngine:
             logger.debug("Loaded DSL rule: %s v%d", compiled.rule_id, compiled.version)
 
         self._compiled.sort(key=lambda r: (r.rule_id, r.public_rule_id, r.source_path))
+
+    def _override_rule(
+        self,
+        compiled: CompiledRule,
+        raw: dict[str, Any],
+        previous_source: Path,
+        new_source: Path,
+    ) -> None:
+        """Replace a previously loaded rule with the new one (custom wins)."""
+        new_compiled: list[CompiledRule] = []
+        new_raw: list[dict[str, Any]] = []
+        for existing_rule, existing_raw in zip(self._compiled, self._raw_rules, strict=True):
+            if existing_rule.rule_id != compiled.rule_id:
+                new_compiled.append(existing_rule)
+                new_raw.append(existing_raw)
+        new_compiled.append(compiled)
+        new_raw.append(raw)
+        self._compiled = new_compiled
+        self._raw_rules = new_raw
+        logger.info(
+            "Override: rule '%s' from %s replaced by %s",
+            compiled.rule_id,
+            previous_source,
+            new_source,
+        )
 
     @staticmethod
     def _load_rule(path: Path) -> dict[str, Any]:
@@ -95,6 +129,11 @@ class DslEngine:
         if self._rules_dir is not None and self._rule_files is not None:
             raise ConfigError("Rules source conflict: choose either rules_dir or rule_files, not both.")
 
+        has_custom = self._rules_dir is not None or self._rule_files is not None
+
+        if has_custom and self._rules_mode == "overlay":
+            return self._collect_overlay_paths()
+
         if self._rule_files is not None:
             return self._collect_explicit_rule_files(self._rule_files)
 
@@ -106,6 +145,27 @@ class DslEngine:
             raise ConfigError(f"Rules directory is not a directory: {rules_dir}")
 
         return tuple(sorted(path.resolve() for path in rules_dir.glob("*.yaml")))
+
+    def _collect_overlay_paths(self) -> tuple[Path, ...]:
+        """Collect bundled paths first, then custom paths for overlay merging."""
+        bundled_dir = RULES_DIR.resolve()
+        if not bundled_dir.exists() or not bundled_dir.is_dir():
+            raise ConfigError(f"Bundled rules directory missing: {bundled_dir}")
+
+        bundled = tuple(sorted(path.resolve() for path in bundled_dir.glob("*.yaml")))
+
+        if self._rule_files is not None:
+            custom = self._collect_explicit_rule_files(self._rule_files)
+        else:
+            assert self._rules_dir is not None
+            custom_dir = self._rules_dir.resolve()
+            if not custom_dir.exists():
+                raise ConfigError(f"Rules directory does not exist: {custom_dir}")
+            if not custom_dir.is_dir():
+                raise ConfigError(f"Rules directory is not a directory: {custom_dir}")
+            custom = tuple(sorted(path.resolve() for path in custom_dir.glob("*.yaml")))
+
+        return bundled + custom
 
     @staticmethod
     def _collect_explicit_rule_files(rule_files: tuple[Path, ...]) -> tuple[Path, ...]:

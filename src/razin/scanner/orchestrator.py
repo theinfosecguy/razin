@@ -41,6 +41,8 @@ def scan_workspace(
     engine: str = ENGINE_DSL,
     rules_dir: Path | None = None,
     rule_files: tuple[Path, ...] | None = None,
+    rules_mode: str = "replace",
+    duplicate_policy: str = "error",
 ) -> ScanResult:
     """Scan a workspace and optionally write per-skill findings and summaries."""
     started_at = time.perf_counter()
@@ -72,6 +74,8 @@ def scan_workspace(
             rule_ids=None,
             rules_dir=resolved_rules_dir,
             rule_files=resolved_rule_files,
+            rules_mode=rules_mode,
+            duplicate_policy=duplicate_policy,
         )
     except DslError as exc:
         raise ConfigError(str(exc)) from exc
