@@ -9,6 +9,17 @@ RAZIN is a local scanner for SKILL.md-defined agent skills.
 
 It performs static analysis only (no execution) and writes deterministic JSON reports.
 
+## Table of Contents
+
+- [Requirements](#requirements)
+- [Install](#install)
+- [Usage](#usage)
+- [Workflow](#workflow)
+- [Python (Primary)](#python-primary)
+- [Docker (Optional)](#docker-optional)
+- [Config File](#config-file)
+- [Outputs](#outputs)
+
 ## Requirements
 
 - Python `3.12+`
@@ -74,6 +85,50 @@ Rules source behavior:
 - Custom file mode: one or more `--rule-file` values replace bundled rules for that scan
 - `--rules-dir` and `--rule-file` are mutually exclusive
 - Invalid path, invalid extension, duplicate `rule_id`, and invalid YAML fail fast
+
+## Workflow
+
+### Python (Primary)
+
+Use the local Python/uv workflow for day-to-day development:
+
+```bash
+uv run razin scan --root . --output-dir output/
+uv run pytest -q
+uv run ruff check src tests
+uv run mypy src tests
+```
+
+### Docker (Optional)
+
+Prerequisites:
+
+- Docker Desktop (macOS/Windows) or Docker Engine (Linux)
+
+Build runtime image:
+
+```bash
+docker build -t razin:local .
+```
+
+Run scanner in Docker:
+
+```bash
+docker run --rm razin:local --help
+docker run --rm razin:local scan --help
+
+docker run --rm \
+  -v "$(pwd)":/work \
+  -w /work \
+  razin:local \
+  scan --root /work --output-dir /work/output/docker
+```
+
+Build optional dev image for QA:
+
+```bash
+docker build --target dev -t razin:dev .
+```
 
 ## Config File
 
