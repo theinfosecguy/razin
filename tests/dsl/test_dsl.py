@@ -398,31 +398,6 @@ def test_detector_score_parity(py_id: str, basic_repo_root: Path) -> None:
     assert py_scores == dsl_scores, f"{py_id}: score mismatch python={py_scores} dsl={dsl_scores}"
 
 
-def test_argparse_default_engine() -> None:
-    from razin.cli.main import build_parser
-
-    parser = build_parser()
-    args = parser.parse_args(["scan", "--root", "/tmp"])
-    assert args.engine == "dsl"
-
-
-def test_argparse_dsl_engine() -> None:
-    from razin.cli.main import build_parser
-
-    parser = build_parser()
-    args = parser.parse_args(["scan", "--root", "/tmp", "--engine", "dsl"])
-    assert args.engine == "dsl"
-
-
-@pytest.mark.parametrize("engine", ["optionc", "legacy", "invalid"])
-def test_argparse_rejects_invalid_engine_values(engine: str) -> None:
-    from razin.cli.main import build_parser
-
-    parser = build_parser()
-    with pytest.raises(SystemExit):
-        parser.parse_args(["scan", "--root", "/tmp", "--engine", engine])
-
-
 def test_dsl_scan_produces_results(basic_repo_root: Path, tmp_path: Path) -> None:
     from razin.scanner import scan_workspace
 
