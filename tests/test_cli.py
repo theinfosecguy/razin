@@ -135,6 +135,14 @@ def test_duplicate_policy_rejects_invalid(tmp_path: Path) -> None:
         parser.parse_args(["scan", "--root", str(tmp_path), "--duplicate-policy", "skip"])
 
 
+def test_duplicate_policy_rejected_without_overlay(capsys) -> None:  # type: ignore[no-untyped-def]
+    """--duplicate-policy override requires --rules-mode overlay."""
+    code = main(["scan", "--root", ".", "--duplicate-policy", "override", "--no-stdout"])
+    captured = capsys.readouterr()
+    assert code == 2
+    assert "only valid with --rules-mode overlay" in captured.err
+
+
 def test_build_parser_output_dir_optional(tmp_path: Path) -> None:
     parser = build_parser()
 

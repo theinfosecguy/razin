@@ -1033,3 +1033,14 @@ def test_overlay_cache_miss_when_mode_changes(tmp_path: Path) -> None:
 
     assert first.cache_misses >= 1
     assert second.cache_misses >= 1
+
+
+def test_overlay_override_rejects_custom_vs_custom_duplicate(tmp_path: Path) -> None:
+    """Override only applies to bundled-vs-custom; custom-vs-custom always errors."""
+    rules_dir = tmp_path / "rules"
+    rules_dir.mkdir()
+    _write_rule_file(rules_dir / "a.yaml", rule_id="SAME_ID")
+    _write_rule_file(rules_dir / "b.yaml", rule_id="SAME_ID", scoring={"base_score": 99})
+
+    with pytest.raises(ConfigError, match="Duplicate rule_id 'SAME_ID'"):
+        DslEngine(rules_dir=rules_dir, rules_mode="overlay", duplicate_policy="override")
