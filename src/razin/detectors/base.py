@@ -7,7 +7,7 @@ import re
 from abc import ABC, abstractmethod
 from typing import ClassVar
 
-from razin.config import RaisinConfig
+from razin.config import RazinConfig
 from razin.model import FindingCandidate, ParsedSkillDocument
 
 _RULE_ID_PATTERN: re.Pattern[str] = re.compile(r"^[A-Z][A-Z0-9_]+$")
@@ -36,6 +36,6 @@ class Detector(ABC):
         *,
         skill_name: str,
         parsed: ParsedSkillDocument,
-        config: RaisinConfig,
+        config: RazinConfig,
     ) -> list[FindingCandidate]:
         """Run detector on a parsed skill document."""

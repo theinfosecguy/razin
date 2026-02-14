@@ -14,7 +14,7 @@ from typing import Any
 
 import yaml
 
-from razin.config import RaisinConfig
+from razin.config import RazinConfig
 from razin.dsl.compiler import CompiledRule, compile_rule
 from razin.dsl.context import EvalContext
 from razin.dsl.errors import DslCompileError, DslRuntimeError, DslSchemaError
@@ -231,7 +231,7 @@ class DslEngine:
         *,
         skill_name: str,
         parsed: ParsedSkillDocument,
-        config: RaisinConfig,
+        config: RazinConfig,
     ) -> list[FindingCandidate]:
         """Execute all compiled rules against a parsed skill document."""
         ctx = EvalContext(skill_name=skill_name, parsed=parsed, config=config)
@@ -249,7 +249,7 @@ class DslEngine:
         *,
         skill_name: str,
         parsed: ParsedSkillDocument,
-        config: RaisinConfig,
+        config: RazinConfig,
     ) -> list[FindingCandidate]:
         """Execute a single rule by ID."""
         ctx = EvalContext(skill_name=skill_name, parsed=parsed, config=config)

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from razin.exceptions.base import RaisinError
+from razin.exceptions.base import RazinError
 
 
-class DslError(RaisinError):
+class DslError(RazinError):
     """Base class for DSL-related errors."""
 
 

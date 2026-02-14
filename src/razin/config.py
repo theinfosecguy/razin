@@ -1,4 +1,4 @@
-"""Configuration loading and normalization for Raisin scans."""
+"""Configuration loading and normalization for Razin scans."""
 
 from __future__ import annotations
 
@@ -39,7 +39,7 @@ class DetectorConfig:
 
 
 @dataclass(frozen=True)
-class RaisinConfig:
+class RazinConfig:
     """Resolved scanner config."""
 
     profile: ProfileName = DEFAULT_PROFILE
@@ -82,12 +82,12 @@ class RaisinConfig:
         return PROFILE_MEDIUM_SEVERITY_MIN.get(self.profile, 40)
 
 
-def load_config(root: Path, config_path: Path | None = None) -> RaisinConfig:
+def load_config(root: Path, config_path: Path | None = None) -> RazinConfig:
     """Load and validate scanner config from `razin.yaml` or an explicit path."""
     root = root.resolve()
     path = config_path.resolve() if config_path else (root / CONFIG_FILENAME)
     if not path.exists():
-        return RaisinConfig()
+        return RazinConfig()
 
     try:
         raw = yaml.safe_load(path.read_text(encoding="utf-8"))
@@ -123,7 +123,7 @@ def load_config(root: Path, config_path: Path | None = None) -> RaisinConfig:
     if not isinstance(ignore_default_allowlist, bool):
         raise ConfigError("ignore_default_allowlist must be a boolean")
 
-    return RaisinConfig(
+    return RazinConfig(
         profile=profile_raw,  # type: ignore[arg-type]
         allowlist_domains=_normalize_domains(
             _ensure_string_list(raw.get("allowlist_domains", []), "allowlist_domains")
@@ -154,7 +154,7 @@ def load_config(root: Path, config_path: Path | None = None) -> RaisinConfig:
     )
 
 
-def effective_detector_ids(config: RaisinConfig) -> tuple[str, ...]:
+def effective_detector_ids(config: RazinConfig) -> tuple[str, ...]:
     """Resolve enabled detectors with config overrides."""
     enabled = list(config.detectors.enabled or DEFAULT_DETECTORS)
     disabled = set(config.detectors.disabled)
@@ -162,7 +162,7 @@ def effective_detector_ids(config: RaisinConfig) -> tuple[str, ...]:
     return tuple(resolved)
 
 
-def config_fingerprint(config: RaisinConfig, max_file_mb_override: int | None = None) -> str:
+def config_fingerprint(config: RazinConfig, max_file_mb_override: int | None = None) -> str:
     """Return a stable hash fingerprint for cache invalidation."""
     payload = {
         "profile": config.profile,

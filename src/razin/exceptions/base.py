@@ -1,7 +1,7 @@
-"""Base exception type for Raisin."""
+"""Base exception type for Razin."""
 
 from __future__ import annotations
 
 
-class RaisinError(Exception):
+class RazinError(Exception):
     """Base class for scanner errors."""

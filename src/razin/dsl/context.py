@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from razin.config import RaisinConfig
+from razin.config import RazinConfig
 from razin.model import ParsedSkillDocument
 
 
@@ -14,4 +14,4 @@ class EvalContext:
 
     skill_name: str
     parsed: ParsedSkillDocument
-    config: RaisinConfig
+    config: RazinConfig

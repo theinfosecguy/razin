@@ -1,9 +1,9 @@
-"""Shared exception hierarchy for Raisin."""
+"""Shared exception hierarchy for Razin."""
 
 from __future__ import annotations
 
-from .base import RaisinError
+from .base import RazinError
 from .config import ConfigError
 from .parsing import SkillParseError
 
-__all__ = ["ConfigError", "RaisinError", "SkillParseError"]
+__all__ = ["ConfigError", "RazinError", "SkillParseError"]

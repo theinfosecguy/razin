@@ -1,4 +1,4 @@
-"""Detector package for Raisin."""
+"""Detector package for Razin."""
 
 from .base import Detector
 from .rules import build_detectors
