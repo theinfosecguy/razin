@@ -99,6 +99,42 @@ def test_engine_flag_rejected() -> None:
         parser.parse_args(["scan", "--root", ".", "--engine", "dsl"])
 
 
+def test_rules_mode_defaults_to_replace(tmp_path: Path) -> None:
+    parser = build_parser()
+    args = parser.parse_args(["scan", "--root", str(tmp_path)])
+    assert args.rules_mode == "replace"
+
+
+def test_rules_mode_accepts_overlay(tmp_path: Path) -> None:
+    parser = build_parser()
+    args = parser.parse_args(["scan", "--root", str(tmp_path), "--rules-mode", "overlay"])
+    assert args.rules_mode == "overlay"
+
+
+def test_rules_mode_rejects_invalid(tmp_path: Path) -> None:
+    parser = build_parser()
+    with pytest.raises(SystemExit):
+        parser.parse_args(["scan", "--root", str(tmp_path), "--rules-mode", "merge"])
+
+
+def test_duplicate_policy_defaults_to_error(tmp_path: Path) -> None:
+    parser = build_parser()
+    args = parser.parse_args(["scan", "--root", str(tmp_path)])
+    assert args.duplicate_policy == "error"
+
+
+def test_duplicate_policy_accepts_override(tmp_path: Path) -> None:
+    parser = build_parser()
+    args = parser.parse_args(["scan", "--root", str(tmp_path), "--duplicate-policy", "override"])
+    assert args.duplicate_policy == "override"
+
+
+def test_duplicate_policy_rejects_invalid(tmp_path: Path) -> None:
+    parser = build_parser()
+    with pytest.raises(SystemExit):
+        parser.parse_args(["scan", "--root", str(tmp_path), "--duplicate-policy", "skip"])
+
+
 def test_build_parser_output_dir_optional(tmp_path: Path) -> None:
     parser = build_parser()
 
