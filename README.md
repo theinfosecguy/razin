@@ -79,6 +79,8 @@ CLI flags:
 - `-f`, `--rule-file <path>`: load specific custom `*.yaml` DSL rule file (repeatable)
 - `-n`, `--no-cache`: disable cache reads/writes
 - `-v`, `--verbose`: show cache stats and diagnostics
+- `--rules-mode <replace|overlay>`: rule composition mode (default: `replace`)
+- `--duplicate-policy <error|override>`: duplicate rule_id handling in overlay mode (default: `error`)
 - `--max-file-mb <n>`: skip files larger than `n` MB
 - `--output-format json`: reserved for future formats (currently only `json`)
 - `--no-stdout`: silence stdout output
@@ -91,6 +93,26 @@ Rules source behavior:
 - Custom file mode: one or more `--rule-file` values replace bundled rules for that scan
 - `--rules-dir` and `--rule-file` are mutually exclusive
 - Invalid path, invalid extension, duplicate `rule_id`, and invalid YAML fail fast
+
+Rule composition with `--rules-mode`:
+
+- `replace` (default): custom source replaces bundled rules entirely
+- `overlay`: bundled rules are loaded first, then custom rules are merged in
+
+Overlay duplicate handling:
+
+- By default (`--duplicate-policy error`), a custom rule with the same `rule_id` as a bundled rule causes a clear error
+- With `--duplicate-policy override`, the custom rule replaces the bundled rule
+
+Overlay examples:
+
+```bash
+# Merge enterprise rules on top of bundled rules
+razin scan -r . -R ./enterprise-rules --rules-mode overlay -o output/
+
+# Override a specific bundled rule
+razin scan -r . -f ./custom_auth.yaml --rules-mode overlay --duplicate-policy override -o output/
+```
 
 ## Workflow
 
