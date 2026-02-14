@@ -1,0 +1,44 @@
+name: Smoke Scan
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  UV_VERSION: "0.7"
+
+jobs:
+  smoke-scan:
+    name: smoke-scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Verify CLI version
+        run: uv run razin --version
+
+      - name: Run smoke scan
+        run: uv run razin scan --root tests/fixtures/repos/basic --output-dir output/ci-smoke --no-color
+
+      - name: Verify output
+        run: test -d output/ci-smoke && find output/ci-smoke -name '*.json' | head -5

@@ -72,14 +72,8 @@ class DslEngine:
 
             previous_source = loaded_rule_sources.get(compiled.rule_id)
             if previous_source is not None:
-                is_bundled_vs_custom = (
-                    previous_source in bundled_paths and yaml_path not in bundled_paths
-                )
-                if (
-                    self._rules_mode == "overlay"
-                    and self._duplicate_policy == "override"
-                    and is_bundled_vs_custom
-                ):
+                is_bundled_vs_custom = previous_source in bundled_paths and yaml_path not in bundled_paths
+                if self._rules_mode == "overlay" and self._duplicate_policy == "override" and is_bundled_vs_custom:
                     self._override_rule(compiled, raw, previous_source, yaml_path)
                     loaded_rule_sources[compiled.rule_id] = yaml_path
                     continue

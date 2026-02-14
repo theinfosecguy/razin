@@ -136,7 +136,7 @@ class TestCsvWriter:
             score=10,
             confidence="low",
             title="Test, with comma",
-            description="Value contains, commas and \"quotes\"",
+            description='Value contains, commas and "quotes"',
             evidence=Evidence(path="SKILL.md", line=1, snippet="s"),
             skill="test",
             rule_id="TEST",
