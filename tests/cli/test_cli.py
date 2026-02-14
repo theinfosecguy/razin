@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -109,12 +110,8 @@ def test_build_parser_help_includes_ascii_banner() -> None:
     assert "// static analysis for LLM skills" in help_text
 
 
-def test_main_returns_config_error_code(monkeypatch) -> None:  # type: ignore[no-untyped-def]
-    def _raise(**_: object) -> ScanResult:
-        raise ConfigError("bad config")
-
-    monkeypatch.setattr("razin.cli.main.scan_workspace", _raise)
-
+@patch("razin.cli.main.scan_workspace", side_effect=ConfigError("bad config"))
+def test_main_returns_config_error_code(mock_scan: MagicMock) -> None:
     code = main(["scan", "--root", "."])
 
     assert code == 2
@@ -130,23 +127,22 @@ def test_main_help_shows_ascii_banner(capsys) -> None:  # type: ignore[no-untype
     assert "// static analysis for LLM skills" in captured.out
 
 
-def test_main_success_prints_rich_summary(monkeypatch, capsys) -> None:  # type: ignore[no-untyped-def]
-    def _result(**_: object) -> ScanResult:
-        return ScanResult(
-            scanned_files=1,
-            total_findings=0,
-            aggregate_score=0,
-            aggregate_severity="low",
-            counts_by_severity={"high": 0, "medium": 0, "low": 0},
-            findings=(),
-            duration_seconds=0.1,
-            warnings=(),
-            cache_hits=0,
-            cache_misses=1,
-        )
-
-    monkeypatch.setattr("razin.cli.main.scan_workspace", _result)
-
+@patch(
+    "razin.cli.main.scan_workspace",
+    return_value=ScanResult(
+        scanned_files=1,
+        total_findings=0,
+        aggregate_score=0,
+        aggregate_severity="low",
+        counts_by_severity={"high": 0, "medium": 0, "low": 0},
+        findings=(),
+        duration_seconds=0.1,
+        warnings=(),
+        cache_hits=0,
+        cache_misses=1,
+    ),
+)
+def test_main_success_prints_rich_summary(mock_scan: MagicMock, capsys: pytest.CaptureFixture[str]) -> None:
     code = main(["scan", "--root", "."])
     captured = capsys.readouterr()
 
@@ -156,23 +152,22 @@ def test_main_success_prints_rich_summary(monkeypatch, capsys) -> None:  # type:
     assert "1" in captured.out
 
 
-def test_main_no_stdout_flag(monkeypatch, capsys) -> None:  # type: ignore[no-untyped-def]
-    def _result(**_: object) -> ScanResult:
-        return ScanResult(
-            scanned_files=1,
-            total_findings=0,
-            aggregate_score=0,
-            aggregate_severity="low",
-            counts_by_severity={"high": 0, "medium": 0, "low": 0},
-            findings=(),
-            duration_seconds=0.1,
-            warnings=(),
-            cache_hits=0,
-            cache_misses=1,
-        )
-
-    monkeypatch.setattr("razin.cli.main.scan_workspace", _result)
-
+@patch(
+    "razin.cli.main.scan_workspace",
+    return_value=ScanResult(
+        scanned_files=1,
+        total_findings=0,
+        aggregate_score=0,
+        aggregate_severity="low",
+        counts_by_severity={"high": 0, "medium": 0, "low": 0},
+        findings=(),
+        duration_seconds=0.1,
+        warnings=(),
+        cache_hits=0,
+        cache_misses=1,
+    ),
+)
+def test_main_no_stdout_flag(mock_scan: MagicMock, capsys: pytest.CaptureFixture[str]) -> None:
     code = main(["scan", "--root", ".", "--no-stdout"])
     captured = capsys.readouterr()
 
@@ -180,25 +175,20 @@ def test_main_no_stdout_flag(monkeypatch, capsys) -> None:  # type: ignore[no-un
     assert captured.out == ""
 
 
-def test_main_passes_rule_source_arguments(monkeypatch) -> None:  # type: ignore[no-untyped-def]
-    captured_kwargs: dict[str, object] = {}
-
-    def _result(**kwargs: object) -> ScanResult:
-        captured_kwargs.update(kwargs)
-        return ScanResult(
-            scanned_files=0,
-            total_findings=0,
-            aggregate_score=0,
-            aggregate_severity="low",
-            counts_by_severity={"high": 0, "medium": 0, "low": 0},
-            findings=(),
-            duration_seconds=0.0,
-            warnings=(),
-            cache_hits=0,
-            cache_misses=0,
-        )
-
-    monkeypatch.setattr("razin.cli.main.scan_workspace", _result)
+@patch("razin.cli.main.scan_workspace")
+def test_main_passes_rule_source_arguments(mock_scan: MagicMock) -> None:
+    mock_scan.return_value = ScanResult(
+        scanned_files=0,
+        total_findings=0,
+        aggregate_score=0,
+        aggregate_severity="low",
+        counts_by_severity={"high": 0, "medium": 0, "low": 0},
+        findings=(),
+        duration_seconds=0.0,
+        warnings=(),
+        cache_hits=0,
+        cache_misses=0,
+    )
 
     code = main(
         [
@@ -214,5 +204,6 @@ def test_main_passes_rule_source_arguments(monkeypatch) -> None:  # type: ignore
     )
 
     assert code == 0
-    assert captured_kwargs["rules_dir"] is None
-    assert captured_kwargs["rule_files"] == (Path("a.yaml"), Path("b.yaml"))
+    call_kwargs = mock_scan.call_args[1]
+    assert call_kwargs["rules_dir"] is None
+    assert call_kwargs["rule_files"] == (Path("a.yaml"), Path("b.yaml"))
