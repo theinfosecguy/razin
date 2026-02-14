@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from razin.config import RaisinConfig, effective_detector_ids, load_config
+from razin.config import RazinConfig, effective_detector_ids, load_config
 from razin.detectors import build_detectors
 from razin.detectors.docs.rules import (
     AuthConnectionDetector,
@@ -84,8 +84,8 @@ endpoint2: https://api.openai.com/v1
     parsed = parse_skill_markdown_file(sample_file)
     detector = NetUnknownDomainDetector()
 
-    allowlist_config = RaisinConfig(allowlist_domains=("api.openai.com",), denylist_domains=())
-    denylist_config = RaisinConfig(allowlist_domains=(), denylist_domains=("evil.example.net",))
+    allowlist_config = RazinConfig(allowlist_domains=("api.openai.com",), denylist_domains=())
+    denylist_config = RazinConfig(allowlist_domains=(), denylist_domains=("evil.example.net",))
 
     allow_findings = detector.run(
         skill_name="sample",
@@ -115,7 +115,7 @@ name: abc
     )
     parsed = parse_skill_markdown_file(sample_file)
     detector = TyposquatDetector()
-    config = RaisinConfig(typosquat_baseline=("abd",))
+    config = RazinConfig(typosquat_baseline=("abd",))
 
     findings = detector.run(skill_name="abc", parsed=parsed, config=config)
 
@@ -135,7 +135,7 @@ endpoint: http://[2001:db8::1]/hook
     parsed = parse_skill_markdown_file(sample_file)
     detector = NetRawIpDetector()
 
-    findings = detector.run(skill_name="ipv6", parsed=parsed, config=RaisinConfig())
+    findings = detector.run(skill_name="ipv6", parsed=parsed, config=RazinConfig())
 
     assert findings
     assert findings[0].rule_id == "NET_RAW_IP"
@@ -146,7 +146,7 @@ def test_mcp_required_detector_finds_frontmatter_requirement(basic_repo_root: Pa
     parsed = parse_skill_markdown_file(risky_file)
     detector = McpRequiredDetector()
 
-    findings = detector.run(skill_name="risky", parsed=parsed, config=RaisinConfig())
+    findings = detector.run(skill_name="risky", parsed=parsed, config=RazinConfig())
 
     assert findings
     assert findings[0].rule_id == "MCP_REQUIRED"
@@ -168,7 +168,7 @@ Use https://rube.app/mcp and https://evil.example.net/mcp
     findings = detector.run(
         skill_name="sample",
         parsed=parsed,
-        config=RaisinConfig(mcp_allowlist_domains=("rube.app",)),
+        config=RazinConfig(mcp_allowlist_domains=("rube.app",)),
     )
 
     assert findings
@@ -192,7 +192,7 @@ Endpoint: https://blocked.example.com/mcp
     findings = detector.run(
         skill_name="sample",
         parsed=parsed,
-        config=RaisinConfig(mcp_denylist_domains=("blocked.example.com",)),
+        config=RazinConfig(mcp_denylist_domains=("blocked.example.com",)),
     )
 
     assert findings
@@ -215,7 +215,7 @@ Endpoint: https://any.example.com/mcp
     findings = detector.run(
         skill_name="sample",
         parsed=parsed,
-        config=RaisinConfig(mcp_denylist_domains=("*",)),
+        config=RazinConfig(mcp_denylist_domains=("*",)),
     )
 
     assert findings
@@ -238,7 +238,7 @@ Use RUBE_SEARCH and MCP_LIST_TOOLS and SOMETHING_ELSE.
     findings = detector.run(
         skill_name="sample",
         parsed=parsed,
-        config=RaisinConfig(tool_prefixes=("RUBE_", "MCP_")),
+        config=RazinConfig(tool_prefixes=("RUBE_", "MCP_")),
     )
 
     assert findings
@@ -263,7 +263,7 @@ Use SLACK_SEND_MESSAGE and STRIPE_CREATE_CHARGE and USE_THIS_FORMAT.
     findings = detector.run(
         skill_name="sample",
         parsed=parsed,
-        config=RaisinConfig(tool_prefixes=("RUBE_", "MCP_")),
+        config=RazinConfig(tool_prefixes=("RUBE_", "MCP_")),
     )
 
     assert any("SLACK_SEND_MESSAGE" in finding.description for finding in findings)
@@ -284,7 +284,7 @@ Before executing any tool, list tools and inspect schema first.
     parsed = parse_skill_markdown_file(sample_file)
     detector = DynamicSchemaDetector()
 
-    findings = detector.run(skill_name="sample", parsed=parsed, config=RaisinConfig())
+    findings = detector.run(skill_name="sample", parsed=parsed, config=RazinConfig())
 
     assert findings
     assert findings[0].confidence == "low"
@@ -304,7 +304,7 @@ Authenticate with API key and complete connection setup.
     parsed = parse_skill_markdown_file(sample_file)
     detector = AuthConnectionDetector()
 
-    findings = detector.run(skill_name="sample", parsed=parsed, config=RaisinConfig())
+    findings = detector.run(skill_name="sample", parsed=parsed, config=RazinConfig())
 
     assert findings
     assert findings[0].rule_id == "AUTH_CONNECTION"
@@ -328,7 +328,7 @@ See https://rube.app/docs and https://evil.example.net/collect.
     findings = detector.run(
         skill_name="sample",
         parsed=parsed,
-        config=RaisinConfig(allowlist_domains=("rube.app",)),
+        config=RazinConfig(allowlist_domains=("rube.app",)),
     )
 
     # rube.app is allowlisted → EXTERNAL_URLS fires for it as context
@@ -346,7 +346,7 @@ def test_backtick_mcp_url_detected(tmp_path: Path) -> None:
     )
     parsed = parse_skill_markdown_file(f)
     detector = McpEndpointDetector()
-    findings = detector.run(skill_name="test", parsed=parsed, config=RaisinConfig())
+    findings = detector.run(skill_name="test", parsed=parsed, config=RazinConfig())
     assert findings
     assert findings[0].rule_id == "MCP_ENDPOINT"
     assert "evil.example.net/mcp" in findings[0].description
@@ -360,7 +360,7 @@ def test_paren_mcp_url_detected(tmp_path: Path) -> None:
     )
     parsed = parse_skill_markdown_file(f)
     detector = McpEndpointDetector()
-    findings = detector.run(skill_name="test", parsed=parsed, config=RaisinConfig())
+    findings = detector.run(skill_name="test", parsed=parsed, config=RazinConfig())
     assert findings
     assert findings[0].rule_id == "MCP_ENDPOINT"
 
@@ -375,7 +375,7 @@ def test_prose_with_tool_names_not_flagged(tmp_path: Path) -> None:
     )
     parsed = parse_skill_markdown_file(f)
     detector = OpaqueBlobDetector()
-    findings = detector.run(skill_name="test", parsed=parsed, config=RaisinConfig())
+    findings = detector.run(skill_name="test", parsed=parsed, config=RazinConfig())
     assert not findings
 
 
@@ -389,7 +389,7 @@ def test_markdown_table_row_not_flagged(tmp_path: Path) -> None:
     )
     parsed = parse_skill_markdown_file(f)
     detector = OpaqueBlobDetector()
-    findings = detector.run(skill_name="test", parsed=parsed, config=RaisinConfig())
+    findings = detector.run(skill_name="test", parsed=parsed, config=RazinConfig())
     assert not findings
 
 
@@ -402,7 +402,7 @@ def test_actual_base64_blob_still_flagged(tmp_path: Path) -> None:
     )
     parsed = parse_skill_markdown_file(f)
     detector = OpaqueBlobDetector()
-    findings = detector.run(skill_name="test", parsed=parsed, config=RaisinConfig())
+    findings = detector.run(skill_name="test", parsed=parsed, config=RazinConfig())
     assert findings
     assert findings[0].rule_id == "OPAQUE_BLOB"
 
@@ -416,7 +416,7 @@ def test_high_entropy_no_spaces_still_flagged(tmp_path: Path) -> None:
     )
     parsed = parse_skill_markdown_file(f)
     detector = OpaqueBlobDetector()
-    findings = detector.run(skill_name="test", parsed=parsed, config=RaisinConfig())
+    findings = detector.run(skill_name="test", parsed=parsed, config=RazinConfig())
     assert findings
     assert findings[0].rule_id == "OPAQUE_BLOB"
 
@@ -429,7 +429,7 @@ def test_short_value_ignored(tmp_path: Path) -> None:
     )
     parsed = parse_skill_markdown_file(f)
     detector = OpaqueBlobDetector()
-    findings = detector.run(skill_name="test", parsed=parsed, config=RaisinConfig())
+    findings = detector.run(skill_name="test", parsed=parsed, config=RazinConfig())
     assert not findings
 
 
@@ -443,7 +443,7 @@ def test_negated_no_api_keys_skipped(tmp_path: Path) -> None:
     )
     parsed = parse_skill_markdown_file(f)
     detector = AuthConnectionDetector()
-    findings = detector.run(skill_name="test", parsed=parsed, config=RaisinConfig())
+    findings = detector.run(skill_name="test", parsed=parsed, config=RazinConfig())
     assert not findings
 
 
@@ -455,7 +455,7 @@ def test_affirmative_auth_still_fires(tmp_path: Path) -> None:
     )
     parsed = parse_skill_markdown_file(f)
     detector = AuthConnectionDetector()
-    findings = detector.run(skill_name="test", parsed=parsed, config=RaisinConfig())
+    findings = detector.run(skill_name="test", parsed=parsed, config=RazinConfig())
     assert findings
     assert findings[0].rule_id == "AUTH_CONNECTION"
 
@@ -470,7 +470,7 @@ def test_mixed_negated_and_affirmative(tmp_path: Path) -> None:
     )
     parsed = parse_skill_markdown_file(f)
     detector = AuthConnectionDetector()
-    findings = detector.run(skill_name="test", parsed=parsed, config=RaisinConfig())
+    findings = detector.run(skill_name="test", parsed=parsed, config=RazinConfig())
     assert findings
     assert findings[0].rule_id == "AUTH_CONNECTION"
 
@@ -483,7 +483,7 @@ def test_api_token_env_ref_flagged(tmp_path: Path) -> None:
     )
     parsed = parse_skill_markdown_file(f)
     detector = SecretRefDetector()
-    findings = detector.run(skill_name="test", parsed=parsed, config=RaisinConfig())
+    findings = detector.run(skill_name="test", parsed=parsed, config=RazinConfig())
     assert findings
     assert any(f.rule_id == "SECRET_REF" for f in findings)
 
@@ -496,7 +496,7 @@ def test_dollar_add_operator_not_flagged(tmp_path: Path) -> None:
     )
     parsed = parse_skill_markdown_file(f)
     detector = SecretRefDetector()
-    findings = detector.run(skill_name="test", parsed=parsed, config=RaisinConfig())
+    findings = detector.run(skill_name="test", parsed=parsed, config=RazinConfig())
     assert not findings
 
 
@@ -508,7 +508,7 @@ def test_dollar_set_operator_not_flagged(tmp_path: Path) -> None:
     )
     parsed = parse_skill_markdown_file(f)
     detector = SecretRefDetector()
-    findings = detector.run(skill_name="test", parsed=parsed, config=RaisinConfig())
+    findings = detector.run(skill_name="test", parsed=parsed, config=RazinConfig())
     assert not findings
 
 
@@ -520,7 +520,7 @@ def test_secret_key_in_frontmatter_not_in_body_fields(tmp_path: Path) -> None:
     )
     parsed = parse_skill_markdown_file(f)
     detector = SecretRefDetector()
-    findings = detector.run(skill_name="test", parsed=parsed, config=RaisinConfig())
+    findings = detector.run(skill_name="test", parsed=parsed, config=RazinConfig())
     assert not findings  # frontmatter keys no longer appear in body-scanned fields
 
 
@@ -531,7 +531,7 @@ def test_placeholder_secret_value_not_flagged(tmp_path: Path) -> None:
     )
     parsed = parse_skill_markdown_file(f)
     detector = SecretRefDetector()
-    findings = detector.run(skill_name="test", parsed=parsed, config=RaisinConfig())
+    findings = detector.run(skill_name="test", parsed=parsed, config=RazinConfig())
     assert not findings
 
 
@@ -542,7 +542,7 @@ def test_secret_placeholder_in_code_block_not_flagged(tmp_path: Path) -> None:
     )
     parsed = parse_skill_markdown_file(f)
     detector = SecretRefDetector()
-    findings = detector.run(skill_name="test", parsed=parsed, config=RaisinConfig())
+    findings = detector.run(skill_name="test", parsed=parsed, config=RazinConfig())
     assert not findings
 
 
@@ -556,7 +556,7 @@ def test_weak_hints_only_does_not_fire(tmp_path: Path) -> None:
     )
     parsed = parse_skill_markdown_file(f)
     detector = AuthConnectionDetector()
-    findings = detector.run(skill_name="test", parsed=parsed, config=RaisinConfig())
+    findings = detector.run(skill_name="test", parsed=parsed, config=RazinConfig())
     assert not findings
 
 
@@ -568,7 +568,7 @@ def test_strong_plus_weak_fires(tmp_path: Path) -> None:
     )
     parsed = parse_skill_markdown_file(f)
     detector = AuthConnectionDetector()
-    findings = detector.run(skill_name="test", parsed=parsed, config=RaisinConfig())
+    findings = detector.run(skill_name="test", parsed=parsed, config=RazinConfig())
     assert findings
     assert findings[0].rule_id == "AUTH_CONNECTION"
 
@@ -581,7 +581,7 @@ def test_two_strong_hints_fires(tmp_path: Path) -> None:
     )
     parsed = parse_skill_markdown_file(f)
     detector = AuthConnectionDetector()
-    findings = detector.run(skill_name="test", parsed=parsed, config=RaisinConfig())
+    findings = detector.run(skill_name="test", parsed=parsed, config=RazinConfig())
     assert findings
 
 
@@ -593,7 +593,7 @@ def test_evidence_points_to_strong_hint_line(tmp_path: Path) -> None:
     )
     parsed = parse_skill_markdown_file(f)
     detector = AuthConnectionDetector()
-    findings = detector.run(skill_name="test", parsed=parsed, config=RaisinConfig())
+    findings = detector.run(skill_name="test", parsed=parsed, config=RazinConfig())
     assert findings
     assert "authenticate" in findings[0].evidence.snippet.lower()
 
@@ -614,7 +614,7 @@ def test_local_dev_host_suppressed_balanced(tmp_path: Path, url_line: str) -> No
     )
     parsed = parse_skill_markdown_file(f)
     detector = NetUnknownDomainDetector()
-    findings = detector.run(skill_name="test", parsed=parsed, config=RaisinConfig(profile="balanced"))
+    findings = detector.run(skill_name="test", parsed=parsed, config=RazinConfig(profile="balanced"))
     assert not findings
 
 
@@ -625,7 +625,7 @@ def test_localhost_not_suppressed_strict(tmp_path: Path) -> None:
     )
     parsed = parse_skill_markdown_file(f)
     detector = NetUnknownDomainDetector()
-    findings = detector.run(skill_name="test", parsed=parsed, config=RaisinConfig(profile="strict"))
+    findings = detector.run(skill_name="test", parsed=parsed, config=RazinConfig(profile="strict"))
     assert findings
     assert any("localhost" in f.description for f in findings)
 
@@ -637,7 +637,7 @@ def test_real_domain_not_suppressed(tmp_path: Path) -> None:
     )
     parsed = parse_skill_markdown_file(f)
     detector = NetUnknownDomainDetector()
-    findings = detector.run(skill_name="test", parsed=parsed, config=RaisinConfig(profile="balanced"))
+    findings = detector.run(skill_name="test", parsed=parsed, config=RazinConfig(profile="balanced"))
     assert findings
 
 
@@ -648,7 +648,7 @@ def test_github_suppressed_by_default_allowlist(tmp_path: Path) -> None:
     )
     parsed = parse_skill_markdown_file(f)
     detector = NetUnknownDomainDetector()
-    findings = detector.run(skill_name="test", parsed=parsed, config=RaisinConfig())
+    findings = detector.run(skill_name="test", parsed=parsed, config=RazinConfig())
     assert not findings
 
 
@@ -662,7 +662,7 @@ def test_ignore_default_allowlist_reenables_github_signal(tmp_path: Path) -> Non
     findings = detector.run(
         skill_name="test",
         parsed=parsed,
-        config=RaisinConfig(ignore_default_allowlist=True),
+        config=RazinConfig(ignore_default_allowlist=True),
     )
     assert findings
     assert any("github.com" in finding.description for finding in findings)

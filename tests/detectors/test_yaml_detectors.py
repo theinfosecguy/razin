@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from razin.config import RaisinConfig, load_config
+from razin.config import RazinConfig, load_config
 from razin.detectors.docs.rules import (
     AuthConnectionDetector,
     McpEndpointDetector,
@@ -103,7 +103,7 @@ endpoint: https://unknown-server.io/mcp
 """
     path = _skill_file(tmp_path, content)
     parsed = parse_skill_markdown_file(path)
-    config = RaisinConfig()
+    config = RazinConfig()
 
     py_det = McpEndpointDetector()
     yaml_det = _get_yaml_detector("MCP_ENDPOINT")
@@ -125,7 +125,7 @@ endpoint: https://rube.app/mcp
 """
     path = _skill_file(tmp_path, content)
     parsed = parse_skill_markdown_file(path)
-    config = RaisinConfig(mcp_allowlist_domains=("rube.app",))
+    config = RazinConfig(mcp_allowlist_domains=("rube.app",))
 
     py_det = McpEndpointDetector()
     yaml_det = _get_yaml_detector("MCP_ENDPOINT")
@@ -179,7 +179,7 @@ Provide your API key for connection setup.
 """
     path = _skill_file(tmp_path, content)
     parsed = parse_skill_markdown_file(path)
-    config = RaisinConfig()
+    config = RazinConfig()
 
     py_det = AuthConnectionDetector()
     yaml_det = _get_yaml_detector("AUTH_CONNECTION")
@@ -201,7 +201,7 @@ Use your API key and token for pagination.
 """
     path = _skill_file(tmp_path, content)
     parsed = parse_skill_markdown_file(path)
-    config = RaisinConfig()
+    config = RazinConfig()
 
     py_det = AuthConnectionDetector()
     yaml_det = _get_yaml_detector("AUTH_CONNECTION")
@@ -224,7 +224,7 @@ No need for API key or token.
 """
     path = _skill_file(tmp_path, content)
     parsed = parse_skill_markdown_file(path)
-    config = RaisinConfig()
+    config = RazinConfig()
 
     py_det = AuthConnectionDetector()
     yaml_det = _get_yaml_detector("AUTH_CONNECTION")
@@ -279,7 +279,7 @@ name: blob-test
 """
     path = _skill_file(tmp_path, content)
     parsed = parse_skill_markdown_file(path)
-    config = RaisinConfig()
+    config = RazinConfig()
 
     py_det = OpaqueBlobDetector()
     yaml_det = _get_yaml_detector("OPAQUE_BLOB")
@@ -301,7 +301,7 @@ data: abc123
 """
     path = _skill_file(tmp_path, content)
     parsed = parse_skill_markdown_file(path)
-    config = RaisinConfig()
+    config = RazinConfig()
 
     py_det = OpaqueBlobDetector()
     yaml_det = _get_yaml_detector("OPAQUE_BLOB")
@@ -325,7 +325,7 @@ note: {prose}
 """
     path = _skill_file(tmp_path, content)
     parsed = parse_skill_markdown_file(path)
-    config = RaisinConfig()
+    config = RazinConfig()
 
     py_det = OpaqueBlobDetector()
     yaml_det = _get_yaml_detector("OPAQUE_BLOB")

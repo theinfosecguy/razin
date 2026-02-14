@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 import yaml
 
-from razin.config import RaisinConfig, effective_detector_ids, load_config
+from razin.config import RazinConfig, effective_detector_ids, load_config
 from razin.detectors import build_detectors
 from razin.dsl import DslEngine
 from razin.dsl.compiler import CompiledRule, compile_rule
@@ -262,7 +262,7 @@ def test_fingerprint_is_deterministic_for_rule_file_order(tmp_path: Path) -> Non
 def test_run_rule_raises_for_unknown_id(tmp_path: Path) -> None:
     engine = DslEngine()
     parsed = parse_skill_markdown_file(_skill_file(tmp_path, "---\nname: test\n---\n# Hello\n"))
-    config = RaisinConfig()
+    config = RazinConfig()
     with pytest.raises(DslRuntimeError, match="not loaded"):
         engine.run_rule("NONEXISTENT_RULE", skill_name="test", parsed=parsed, config=config)
 
@@ -359,7 +359,7 @@ PYTHON_DSL_MAP: dict[str, list[str]] = {
 
 
 def _run_python_detector(
-    py_id: str, skill_name: str, parsed: ParsedSkillDocument, config: RaisinConfig
+    py_id: str, skill_name: str, parsed: ParsedSkillDocument, config: RazinConfig
 ) -> list[FindingCandidate]:
     detectors = build_detectors((py_id,))
     results: list[FindingCandidate] = []
@@ -372,7 +372,7 @@ def _run_dsl_rules(
     dsl_ids: list[str],
     skill_name: str,
     parsed: ParsedSkillDocument,
-    config: RaisinConfig,
+    config: RazinConfig,
 ) -> list[FindingCandidate]:
     engine = DslEngine(rule_ids=frozenset(dsl_ids))
     return engine.run_all(skill_name=skill_name, parsed=parsed, config=config)
@@ -597,7 +597,7 @@ def test_ip_address_scoring(tmp_path: Path, ip: str, expected_score: int) -> Non
         f"---\nname: ip-test\n---\n# IP\nurl: http://{ip}/hook\n",
     )
     parsed = parse_skill_markdown_file(path)
-    config = RaisinConfig()
+    config = RazinConfig()
     engine = DslEngine(rule_ids=frozenset({"NET_RAW_IP"}))
     findings = engine.run_all(skill_name="ip-test", parsed=parsed, config=config)
     assert len(findings) == 1
@@ -610,7 +610,7 @@ def test_entropy_check_skips_short_values(tmp_path: Path) -> None:
         "---\nname: entropy-test\n---\n# Entropy\nshort: abc\n",
     )
     parsed = parse_skill_markdown_file(path)
-    config = RaisinConfig()
+    config = RazinConfig()
     engine = DslEngine(rule_ids=frozenset({"OPAQUE_BLOB"}))
     findings = engine.run_all(skill_name="entropy-test", parsed=parsed, config=config)
     assert len(findings) == 0
@@ -622,7 +622,7 @@ def test_typosquat_with_baseline(tmp_path: Path) -> None:
         "---\nname: opena1-helper\n---\n# Typo\nA skill.\n",
     )
     parsed = parse_skill_markdown_file(path)
-    config = RaisinConfig(typosquat_baseline=("openai-helper",))
+    config = RazinConfig(typosquat_baseline=("openai-helper",))
     engine = DslEngine(rule_ids=frozenset({"TYPOSQUAT"}))
     findings = engine.run_all(skill_name="opena1-helper", parsed=parsed, config=config)
     assert len(findings) == 1
@@ -632,7 +632,7 @@ def test_typosquat_with_baseline(tmp_path: Path) -> None:
 def test_typosquat_no_baseline(tmp_path: Path) -> None:
     path = _skill_file(tmp_path, "---\nname: test\n---\n# Test\nA skill.\n")
     parsed = parse_skill_markdown_file(path)
-    config = RaisinConfig()
+    config = RazinConfig()
     engine = DslEngine(rule_ids=frozenset({"TYPOSQUAT"}))
     findings = engine.run_all(skill_name="test", parsed=parsed, config=config)
     assert len(findings) == 0
@@ -644,7 +644,7 @@ def test_auth_requires_strong_hint(tmp_path: Path) -> None:
         "---\nname: auth-test\n---\n# Auth\nConnect to the service and set up credentials.\n",
     )
     parsed = parse_skill_markdown_file(path)
-    config = RaisinConfig()
+    config = RazinConfig()
     engine = DslEngine(rule_ids=frozenset({"AUTH_CONNECTION"}))
     findings = engine.run_all(skill_name="auth-test", parsed=parsed, config=config)
     assert len(findings) == 0
@@ -656,7 +656,7 @@ def test_dynamic_schema_single_hit(tmp_path: Path) -> None:
         "---\nname: dyn-test\n---\n# Dynamic\nBefore executing any tool, discover tools.\n",
     )
     parsed = parse_skill_markdown_file(path)
-    config = RaisinConfig()
+    config = RazinConfig()
     engine = DslEngine(rule_ids=frozenset({"DYNAMIC_SCHEMA"}))
     findings = engine.run_all(skill_name="dyn-test", parsed=parsed, config=config)
     assert len(findings) == 1
@@ -673,7 +673,7 @@ def test_tool_invocation_dedupes_by_token(tmp_path: Path) -> None:
         "RUBE_SEARCH_TOOLS\n",
     )
     parsed = parse_skill_markdown_file(path)
-    config = RaisinConfig()
+    config = RazinConfig()
     engine = DslEngine(rule_ids=frozenset({"TOOL_INVOCATION"}))
 
     findings = engine.run_all(skill_name="tool-test", parsed=parsed, config=config)
@@ -689,7 +689,7 @@ def test_tool_invocation_detects_service_tokens(tmp_path: Path) -> None:
         "---\nname: tool-test\n---\n" "SLACK_SEND_MESSAGE\n" "STRIPE_CREATE_CHARGE\n" "USE_THIS_FORMAT\n",
     )
     parsed = parse_skill_markdown_file(path)
-    config = RaisinConfig()
+    config = RazinConfig()
     engine = DslEngine(rule_ids=frozenset({"TOOL_INVOCATION"}))
 
     findings = engine.run_all(skill_name="tool-test", parsed=parsed, config=config)
@@ -711,7 +711,7 @@ def test_secret_ref_ignores_placeholder_values(tmp_path: Path) -> None:
         "apiKey: sk-live-abc123def456\n",
     )
     parsed = parse_skill_markdown_file(path)
-    config = RaisinConfig()
+    config = RazinConfig()
     engine = DslEngine(rule_ids=frozenset({"SECRET_REF"}))
 
     findings = engine.run_all(skill_name="secret-test", parsed=parsed, config=config)
@@ -730,7 +730,7 @@ def test_net_unknown_domain_uses_default_allowlist(tmp_path: Path) -> None:
     parsed = parse_skill_markdown_file(path)
     engine = DslEngine(rule_ids=frozenset({"NET_UNKNOWN_DOMAIN"}))
 
-    findings = engine.run_all(skill_name="domains", parsed=parsed, config=RaisinConfig())
+    findings = engine.run_all(skill_name="domains", parsed=parsed, config=RazinConfig())
     assert len(findings) == 0
 
 
@@ -745,7 +745,7 @@ def test_net_unknown_domain_can_ignore_default_allowlist(tmp_path: Path) -> None
     findings = engine.run_all(
         skill_name="domains",
         parsed=parsed,
-        config=RaisinConfig(ignore_default_allowlist=True),
+        config=RazinConfig(ignore_default_allowlist=True),
     )
     assert len(findings) == 1
     assert "github.com" in findings[0].description
@@ -757,7 +757,7 @@ def test_mcp_required_fires_when_present(tmp_path: Path) -> None:
         "---\nname: mcp-test\nrequires:\n  mcp: [server1]\n---\n# MCP\nDocs.\n",
     )
     parsed = parse_skill_markdown_file(path)
-    config = RaisinConfig()
+    config = RazinConfig()
     engine = DslEngine(rule_ids=frozenset({"MCP_REQUIRED"}))
     findings = engine.run_all(skill_name="mcp-test", parsed=parsed, config=config)
     assert len(findings) == 1
@@ -767,7 +767,7 @@ def test_mcp_required_fires_when_present(tmp_path: Path) -> None:
 def test_mcp_required_silent_when_absent(tmp_path: Path) -> None:
     path = _skill_file(tmp_path, "---\nname: no-mcp\n---\n# Test\nDocs.\n")
     parsed = parse_skill_markdown_file(path)
-    config = RaisinConfig()
+    config = RazinConfig()
     engine = DslEngine(rule_ids=frozenset({"MCP_REQUIRED"}))
     findings = engine.run_all(skill_name="no-mcp", parsed=parsed, config=config)
     assert len(findings) == 0
@@ -779,7 +779,7 @@ def test_exec_fields_exact_match(tmp_path: Path) -> None:
         "---\nname: exec-test\n---\n# Exec\ncommand: run me\n",
     )
     parsed = parse_skill_markdown_file(path)
-    config = RaisinConfig()
+    config = RazinConfig()
     engine = DslEngine(rule_ids=frozenset({"EXEC_FIELDS"}))
     findings = engine.run_all(skill_name="exec-test", parsed=parsed, config=config)
     assert len(findings) == 1
@@ -792,7 +792,7 @@ def test_exec_fields_no_false_positive(tmp_path: Path) -> None:
         "---\nname: safe\n---\n# Safe\ncommander: no match\n",
     )
     parsed = parse_skill_markdown_file(path)
-    config = RaisinConfig()
+    config = RazinConfig()
     engine = DslEngine(rule_ids=frozenset({"EXEC_FIELDS"}))
     findings = engine.run_all(skill_name="safe", parsed=parsed, config=config)
     assert len(findings) == 0
@@ -804,7 +804,7 @@ def test_exec_fields_run_prose_line_not_flagged(tmp_path: Path) -> None:
         "---\nname: safe\n---\n# Safe\nrun: this is a prose instruction\n",
     )
     parsed = parse_skill_markdown_file(path)
-    config = RaisinConfig()
+    config = RazinConfig()
     engine = DslEngine(rule_ids=frozenset({"EXEC_FIELDS"}))
     findings = engine.run_all(skill_name="safe", parsed=parsed, config=config)
     assert len(findings) == 0
@@ -886,17 +886,17 @@ def test_profile_override_changes_score(tmp_path: Path) -> None:
     engine = DslEngine(rules_dir=rules_dir)
     assert engine.rule_count == 1
 
-    balanced_config = RaisinConfig(profile="balanced")
+    balanced_config = RazinConfig(profile="balanced")
     balanced_findings = engine.run_all(skill_name="test", parsed=parsed, config=balanced_config)
     assert len(balanced_findings) == 1
     assert balanced_findings[0].score == 50
 
-    strict_config = RaisinConfig(profile="strict")
+    strict_config = RazinConfig(profile="strict")
     strict_findings = engine.run_all(skill_name="test", parsed=parsed, config=strict_config)
     assert len(strict_findings) == 1
     assert strict_findings[0].score == 90
 
-    audit_config = RaisinConfig(profile="audit")
+    audit_config = RazinConfig(profile="audit")
     audit_findings = engine.run_all(skill_name="test", parsed=parsed, config=audit_config)
     assert len(audit_findings) == 1
     assert audit_findings[0].score == 0

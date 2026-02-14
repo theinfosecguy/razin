@@ -41,8 +41,8 @@ def test_build_parser_accepts_scan_flags(tmp_path: Path) -> None:
             id="root-and-output-dir",
         ),
         pytest.param(
-            ["scan", "-r", ".", "-c", "raisin.yaml"],
-            ["scan", "--root", ".", "--config", "raisin.yaml"],
+            ["scan", "-r", ".", "-c", "razin.yaml"],
+            ["scan", "--root", ".", "--config", "razin.yaml"],
             id="config",
         ),
         pytest.param(
