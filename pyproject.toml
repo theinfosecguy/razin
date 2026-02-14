@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "razin"
-version = "0.1.0"
-description = "Raisin skill risk scanner"
+version = "1.0.0"
+description = "Static Analysis for LLM Agent Skills"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

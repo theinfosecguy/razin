@@ -41,6 +41,22 @@ def test_load_config_error_includes_key_name(tmp_path: Path) -> None:
         load_config(tmp_path, config_path)
 
 
+@pytest.mark.parametrize(
+    ("yaml_content", "expected_match"),
+    [
+        ("profile: paranoid\n", "profile"),
+        ("ignore_default_allowlist: maybe\n", "ignore_default_allowlist"),
+    ],
+    ids=["invalid_profile", "non_bool_ignore_allowlist"],
+)
+def test_load_config_rejects_invalid_field_values(tmp_path: Path, yaml_content: str, expected_match: str) -> None:
+    config_path = tmp_path / "razin.yaml"
+    config_path.write_text(yaml_content, encoding="utf-8")
+
+    with pytest.raises(ConfigError, match=expected_match):
+        load_config(tmp_path, config_path)
+
+
 def test_effective_detector_ids_respects_disabled() -> None:
     config = RaisinConfig(detectors=DetectorConfig(enabled=DEFAULT_DETECTORS, disabled=("SECRET_REF",)))
 
@@ -106,13 +122,6 @@ def test_load_config_reads_profile(tmp_path: Path) -> None:
     assert loaded.profile == "strict"
 
 
-def test_load_config_rejects_invalid_profile(tmp_path: Path) -> None:
-    config_path = tmp_path / "razin.yaml"
-    config_path.write_text("profile: paranoid\n", encoding="utf-8")
-    with pytest.raises(ConfigError, match="profile"):
-        load_config(tmp_path, config_path)
-
-
 def test_profile_changes_fingerprint() -> None:
     strict = RaisinConfig(profile="strict")
     balanced = RaisinConfig(profile="balanced")
@@ -165,11 +174,3 @@ def test_load_config_can_ignore_default_allowlist(tmp_path: Path) -> None:
 
     assert loaded.ignore_default_allowlist is True
     assert loaded.effective_allowlist_domains == ("internal.example.com",)
-
-
-def test_load_config_rejects_non_bool_ignore_default_allowlist(tmp_path: Path) -> None:
-    config_path = tmp_path / "razin.yaml"
-    config_path.write_text("ignore_default_allowlist: maybe\n", encoding="utf-8")
-
-    with pytest.raises(ConfigError, match="ignore_default_allowlist"):
-        load_config(tmp_path, config_path)
