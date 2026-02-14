@@ -1,4 +1,4 @@
-"""Engine identifiers for Raisin runtime."""
+"""Engine identifiers for Razin runtime."""
 
 from __future__ import annotations
 

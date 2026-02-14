@@ -1,4 +1,4 @@
-"""Centralized constants for Raisin."""
+"""Centralized constants for Razin."""
 
 from __future__ import annotations
 

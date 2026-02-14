@@ -1,6 +1,6 @@
 """Policy profile constants and presets.
 
-Raisin supports three policy profiles that control scoring thresholds
+Razin supports three policy profiles that control scoring thresholds
 and aggregate behavior without changing which detectors run:
 
 - ``strict``: All findings contribute to aggregate; no domain suppression

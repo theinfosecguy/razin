@@ -1,4 +1,4 @@
-"""Core data models for Raisin."""
+"""Core data models for Razin."""
 
 from .entities import (
     DocumentField,

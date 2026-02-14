@@ -1,1 +1,1 @@
-"""CLI package for Raisin."""
+"""CLI package for Razin."""

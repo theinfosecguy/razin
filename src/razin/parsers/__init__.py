@@ -1,4 +1,4 @@
-"""Parser package for Raisin."""
+"""Parser package for Razin."""
 
 from .skill_markdown import parse_skill_markdown_file
 
