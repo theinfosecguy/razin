@@ -6,7 +6,7 @@ import logging
 import re
 from urllib.parse import urlparse
 
-from razin.config import RaisinConfig
+from razin.config import RazinConfig
 from razin.constants.detectors import URL_PATTERN
 from razin.constants.docs import (
     AUTH_CONNECTION_SCORE,
@@ -50,7 +50,7 @@ class McpRequiredDetector(Detector):
         *,
         skill_name: str,
         parsed: ParsedSkillDocument,
-        config: RaisinConfig,
+        config: RazinConfig,
     ) -> list[FindingCandidate]:
         if not isinstance(parsed.frontmatter, dict):
             return []
@@ -87,7 +87,7 @@ class McpEndpointDetector(Detector):
         *,
         skill_name: str,
         parsed: ParsedSkillDocument,
-        config: RaisinConfig,
+        config: RazinConfig,
     ) -> list[FindingCandidate]:
         findings: list[FindingCandidate] = []
         for field, url, domain in _iter_urls(parsed):
@@ -121,7 +121,7 @@ class McpDenylistDetector(Detector):
         *,
         skill_name: str,
         parsed: ParsedSkillDocument,
-        config: RaisinConfig,
+        config: RazinConfig,
     ) -> list[FindingCandidate]:
         if not config.mcp_denylist_domains:
             return []
@@ -158,7 +158,7 @@ class ToolInvocationDetector(Detector):
         *,
         skill_name: str,
         parsed: ParsedSkillDocument,
-        config: RaisinConfig,
+        config: RazinConfig,
     ) -> list[FindingCandidate]:
         prefixes = tuple(prefix.upper() for prefix in config.tool_prefixes if prefix)
         if not prefixes:
@@ -204,7 +204,7 @@ class DynamicSchemaDetector(Detector):
         *,
         skill_name: str,
         parsed: ParsedSkillDocument,
-        config: RaisinConfig,
+        config: RazinConfig,
     ) -> list[FindingCandidate]:
         lowered = parsed.raw_text.lower()
         for hint in DYNAMIC_SCHEMA_HINTS:
@@ -237,7 +237,7 @@ class AuthConnectionDetector(Detector):
         *,
         skill_name: str,
         parsed: ParsedSkillDocument,
-        config: RaisinConfig,
+        config: RazinConfig,
     ) -> list[FindingCandidate]:
         lowered = parsed.raw_text.lower()
 
@@ -290,7 +290,7 @@ class ExternalUrlsDetector(Detector):
         *,
         skill_name: str,
         parsed: ParsedSkillDocument,
-        config: RaisinConfig,
+        config: RazinConfig,
     ) -> list[FindingCandidate]:
         findings: list[FindingCandidate] = []
 

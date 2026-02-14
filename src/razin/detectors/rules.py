@@ -6,7 +6,7 @@ import ipaddress
 import logging
 import math
 
-from razin.config import RaisinConfig
+from razin.config import RazinConfig
 from razin.constants.detectors import (
     BASE64_PATTERN,
     BRACKET_IPV6_PATTERN,
@@ -63,7 +63,7 @@ class NetRawIpDetector(Detector):
         *,
         skill_name: str,
         parsed: ParsedSkillDocument,
-        config: RaisinConfig,
+        config: RazinConfig,
     ) -> list[FindingCandidate]:
         findings: list[FindingCandidate] = []
         for field in parsed.fields:
@@ -93,7 +93,7 @@ class NetUnknownDomainDetector(Detector):
         *,
         skill_name: str,
         parsed: ParsedSkillDocument,
-        config: RaisinConfig,
+        config: RazinConfig,
     ) -> list[FindingCandidate]:
         findings: list[FindingCandidate] = []
         for field in parsed.fields:
@@ -152,7 +152,7 @@ class SecretRefDetector(Detector):
         *,
         skill_name: str,
         parsed: ParsedSkillDocument,
-        config: RaisinConfig,
+        config: RazinConfig,
     ) -> list[FindingCandidate]:
         findings: list[FindingCandidate] = []
         fields_by_line = {field.line: field for field in parsed.fields}
@@ -209,7 +209,7 @@ class ExecFieldsDetector(Detector):
         *,
         skill_name: str,
         parsed: ParsedSkillDocument,
-        config: RaisinConfig,
+        config: RazinConfig,
     ) -> list[FindingCandidate]:
         findings: list[FindingCandidate] = []
 
@@ -244,7 +244,7 @@ class OpaqueBlobDetector(Detector):
         *,
         skill_name: str,
         parsed: ParsedSkillDocument,
-        config: RaisinConfig,
+        config: RazinConfig,
     ) -> list[FindingCandidate]:
         findings: list[FindingCandidate] = []
 
@@ -287,7 +287,7 @@ class TyposquatDetector(Detector):
         *,
         skill_name: str,
         parsed: ParsedSkillDocument,
-        config: RaisinConfig,
+        config: RazinConfig,
     ) -> list[FindingCandidate]:
         if not config.typosquat_baseline:
             return []
@@ -337,7 +337,7 @@ class BundledScriptsDetector(Detector):
         *,
         skill_name: str,
         parsed: ParsedSkillDocument,
-        config: RaisinConfig,
+        config: RazinConfig,
     ) -> list[FindingCandidate]:
         skill_dir = parsed.file_path.parent
         bundled: list[str] = []

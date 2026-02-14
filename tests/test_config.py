@@ -8,7 +8,7 @@ import pytest
 
 from razin.config import (
     DetectorConfig,
-    RaisinConfig,
+    RazinConfig,
     config_fingerprint,
     effective_detector_ids,
     load_config,
@@ -58,7 +58,7 @@ def test_load_config_rejects_invalid_field_values(tmp_path: Path, yaml_content: 
 
 
 def test_effective_detector_ids_respects_disabled() -> None:
-    config = RaisinConfig(detectors=DetectorConfig(enabled=DEFAULT_DETECTORS, disabled=("SECRET_REF",)))
+    config = RazinConfig(detectors=DetectorConfig(enabled=DEFAULT_DETECTORS, disabled=("SECRET_REF",)))
 
     detector_ids = effective_detector_ids(config)
 
@@ -67,7 +67,7 @@ def test_effective_detector_ids_respects_disabled() -> None:
 
 
 def test_config_fingerprint_is_stable() -> None:
-    config = RaisinConfig(
+    config = RazinConfig(
         allowlist_domains=("api.openai.com",),
         denylist_domains=("evil.example.net",),
         mcp_allowlist_domains=("rube.app",),
@@ -111,7 +111,7 @@ def test_load_config_reads_mcp_and_tool_prefixes(tmp_path: Path) -> None:
 
 
 def test_default_profile_is_balanced() -> None:
-    config = RaisinConfig()
+    config = RazinConfig()
     assert config.profile == "balanced"
 
 
@@ -123,28 +123,28 @@ def test_load_config_reads_profile(tmp_path: Path) -> None:
 
 
 def test_profile_changes_fingerprint() -> None:
-    strict = RaisinConfig(profile="strict")
-    balanced = RaisinConfig(profile="balanced")
+    strict = RazinConfig(profile="strict")
+    balanced = RazinConfig(profile="balanced")
     assert config_fingerprint(strict) != config_fingerprint(balanced)
 
 
 def test_profile_aggregate_min_rule_score() -> None:
-    strict = RaisinConfig(profile="strict")
-    balanced = RaisinConfig(profile="balanced")
-    audit = RaisinConfig(profile="audit")
+    strict = RazinConfig(profile="strict")
+    balanced = RazinConfig(profile="balanced")
+    audit = RazinConfig(profile="audit")
     assert strict.aggregate_min_rule_score < balanced.aggregate_min_rule_score
     assert audit.aggregate_min_rule_score > 100  # nothing contributes
 
 
 def test_profile_suppress_local_hosts() -> None:
-    strict = RaisinConfig(profile="strict")
-    balanced = RaisinConfig(profile="balanced")
+    strict = RazinConfig(profile="strict")
+    balanced = RazinConfig(profile="balanced")
     assert strict.suppress_local_hosts is False
     assert balanced.suppress_local_hosts is True
 
 
 def test_default_allowlist_applies_when_not_ignored() -> None:
-    config = RaisinConfig()
+    config = RazinConfig()
     assert "github.com" in config.effective_allowlist_domains
     assert set(DEFAULT_ALLOWLISTED_DOMAINS).issubset(set(config.effective_allowlist_domains))
 

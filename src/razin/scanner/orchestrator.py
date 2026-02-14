@@ -1,4 +1,4 @@
-"""End-to-end scan orchestration for Raisin."""
+"""End-to-end scan orchestration for Razin."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import cast
 from urllib.parse import urlparse
 
-from razin.config import RaisinConfig, config_fingerprint, load_config
+from razin.config import RazinConfig, config_fingerprint, load_config
 from razin.constants.cache import CACHE_FILENAME
 from razin.constants.engines import ENGINE_DSL, REMOVED_ENGINE_CHOICES
 from razin.constants.ids import FINDING_ID_HEX_LENGTH
@@ -390,9 +390,9 @@ def _as_confidence(value: object) -> Confidence:
 
 
 def _apply_mcp_allowlist_override(
-    config: RaisinConfig,
+    config: RazinConfig,
     mcp_allowlist: tuple[str, ...],
-) -> RaisinConfig:
+) -> RazinConfig:
     """Return a config with CLI-provided MCP allowlist values normalized."""
     domains: list[str] = []
     for item in mcp_allowlist:
@@ -428,7 +428,7 @@ def _resolve_engine(engine: str) -> str:
 
     removed = ", ".join(REMOVED_ENGINE_CHOICES)
     raise ConfigError(
-        f"Unsupported engine '{engine}'. Raisin now supports only '{ENGINE_DSL}'. "
+        f"Unsupported engine '{engine}'. Razin now supports only '{ENGINE_DSL}'. "
         f"Removed values: {removed}. Use '--engine dsl' or omit '--engine'."
     )
 

@@ -1,4 +1,4 @@
-"""Reporting package for Raisin outputs."""
+"""Reporting package for Razin outputs."""
 
 from __future__ import annotations
 

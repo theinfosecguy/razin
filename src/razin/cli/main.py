@@ -1,4 +1,4 @@
-"""CLI entrypoint for Raisin scanner."""
+"""CLI entrypoint for Razin scanner."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from pathlib import Path
 
 from razin import __version__
 from razin.constants.branding import ASCII_LOGO_LINES, BRAND_NAME
-from razin.exceptions import ConfigError, RaisinError
+from razin.exceptions import ConfigError, RazinError
 from razin.reporting.stdout import StdoutReporter
 from razin.scanner import scan_workspace
 
@@ -129,7 +129,7 @@ def main(argv: list[str] | None = None) -> int:
     except ConfigError as exc:
         print(f"Configuration error: {exc}", file=sys.stderr)
         return 2
-    except RaisinError as exc:
+    except RazinError as exc:
         print(f"Scanner error: {exc}", file=sys.stderr)
         return 1
 

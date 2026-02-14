@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any, ClassVar
 
-from razin.config import RaisinConfig
+from razin.config import RazinConfig
 from razin.detectors.base import Detector
 from razin.detectors.yaml_rules.strategies import STRATEGY_REGISTRY
 from razin.model import FindingCandidate, ParsedSkillDocument
@@ -38,7 +38,7 @@ class YamlDetector(Detector):
         *,
         skill_name: str,
         parsed: ParsedSkillDocument,
-        config: RaisinConfig,
+        config: RazinConfig,
     ) -> list[FindingCandidate]:
         """Run the YAML-defined detector via strategy delegation."""
         strategy_fn = STRATEGY_REGISTRY.get(self._strategy_name)

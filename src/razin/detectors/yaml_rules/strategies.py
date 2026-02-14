@@ -13,7 +13,7 @@ import re
 from typing import Any
 from urllib.parse import urlparse
 
-from razin.config import RaisinConfig
+from razin.config import RazinConfig
 from razin.constants.detectors import URL_PATTERN
 from razin.detectors.common import (
     dedupe_candidates,
@@ -41,7 +41,7 @@ MCP_PATH_TOKEN: str = "/mcp"
 def run_url_domain_filter(
     *,
     parsed: ParsedSkillDocument,
-    config: RaisinConfig,
+    config: RazinConfig,
     match_config: dict[str, Any],
     metadata: dict[str, Any],
     base_score: int,
@@ -100,7 +100,7 @@ def run_url_domain_filter(
 def run_hint_count(
     *,
     parsed: ParsedSkillDocument,
-    config: RaisinConfig,
+    config: RazinConfig,
     match_config: dict[str, Any],
     metadata: dict[str, Any],
     base_score: int,
@@ -148,7 +148,7 @@ def run_hint_count(
 def run_entropy_check(
     *,
     parsed: ParsedSkillDocument,
-    config: RaisinConfig,
+    config: RazinConfig,
     match_config: dict[str, Any],
     metadata: dict[str, Any],
     base_score: int,
@@ -202,7 +202,7 @@ def _is_mcp_endpoint(url: str) -> bool:
     return path == MCP_PATH_TOKEN or path.endswith(MCP_PATH_TOKEN) or f"{MCP_PATH_TOKEN}/" in path
 
 
-def _not_mcp_allowlisted(domain: str, config: RaisinConfig) -> bool:
+def _not_mcp_allowlisted(domain: str, config: RazinConfig) -> bool:
     """Return True when the domain is NOT on the MCP allowlist (i.e., should flag)."""
     return not is_allowlisted(domain, config.mcp_allowlist_domains)
 

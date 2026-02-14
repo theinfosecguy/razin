@@ -1,4 +1,4 @@
-"""Shared type aliases for Raisin."""
+"""Shared type aliases for Razin."""
 
 from .cache import CacheFileEntry, CacheNamespace, CachePayload
 from .common import Confidence, JsonObject, JsonScalar, JsonValue, Severity
