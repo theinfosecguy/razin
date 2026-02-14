@@ -1,13 +1,10 @@
-# RAZIN
+<h1 align="center">Razin - Static Analysis for LLM Agent Skills</h1>
 
-```text
->_ RAZIN
-     // static analysis for LLM skills
-```
+<p align="center">
+<img src="https://github.com/user-attachments/assets/33c42667-0fff-4eac-a2d1-0f6d10441245" alt="razin" width="300" height="300" />
+<p align="center">
 
-RAZIN is a local scanner for SKILL.md-defined agent skills.
-
-It performs static analysis only (no execution) and writes deterministic JSON reports.
+Razin is a local scanner for SKILL.md-defined agent skills. It performs static analysis only (no execution) and writes deterministic JSON reports.
 
 ## Table of Contents
 
@@ -122,9 +119,6 @@ docker run --rm \
   -w /work \
   razin:local \
   scan --root /work --output-dir /work/output/docker
-```
-
-Build optional dev image for QA:
 ```
 
 ## Config File
