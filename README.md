@@ -15,6 +15,7 @@ Razin is a local scanner for SKILL.md-defined agent skills. It performs static a
 - [Python (Primary)](#python-primary)
 - [Docker (Optional)](#docker-optional)
 - [Config File](#config-file)
+- [Releasing](#releasing)
 - [Outputs](#outputs)
 
 ## Requirements
@@ -192,6 +193,42 @@ skill_globs:
   - "**/SKILL.md"
 max_file_mb: 2
 ```
+
+## Releasing
+
+Releases are automated via GitHub Actions and guarded by version checks.
+
+### Steps
+
+1. Bump `version` in `pyproject.toml` (e.g. `1.0.0` → `1.1.0`).
+2. Commit the bump: `git commit -am "chore: bump version to 1.1.0"`.
+3. Create a matching tag: `git tag v1.1.0`.
+4. Push both: `git push origin main --tags`.
+5. The `release-pypi.yml` workflow will:
+   - verify the tag matches `pyproject.toml` version,
+   - confirm the version is not already on PyPI,
+   - build, check, and publish the package via OIDC trusted publishing,
+   - smoke-install the published version.
+
+### Failure cases
+
+| Cause | Behavior |
+|---|---|
+| Version already on PyPI | Workflow fails before publish |
+| Tag/version mismatch | Workflow fails before publish |
+| Build or twine check error | Workflow fails before publish |
+| PyPI OIDC not configured | Publish step fails (see GitHub environment setup) |
+
+### OIDC setup
+
+Configure a PyPI trusted publisher for the `razin` package:
+
+- **Owner**: `theinfosecguy`
+- **Repository**: `razin`
+- **Workflow**: `release-pypi.yml`
+- **Environment**: `pypi`
+
+See [PyPI trusted publishing docs](https://docs.pypi.org/trusted-publishers/) for details.
 
 ## Outputs
 
