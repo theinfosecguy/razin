@@ -15,6 +15,7 @@ from razin.constants.cache import CACHE_FILENAME
 from razin.constants.engines import ENGINE_DSL, REMOVED_ENGINE_CHOICES
 from razin.constants.ids import FINDING_ID_HEX_LENGTH
 from razin.constants.profiles import VALID_PROFILES
+from razin.constants.reporting import VALID_OUTPUT_FORMATS
 from razin.dsl import DslEngine
 from razin.dsl.errors import DslError
 from razin.exceptions import ConfigError, SkillParseError
@@ -43,8 +44,16 @@ def scan_workspace(
     rule_files: tuple[Path, ...] | None = None,
     rules_mode: str = "replace",
     duplicate_policy: str = "error",
+    output_formats: tuple[str, ...] = ("json",),
 ) -> ScanResult:
     """Scan a workspace and optionally write per-skill findings and summaries."""
+    invalid_formats = set(output_formats) - VALID_OUTPUT_FORMATS
+    if invalid_formats:
+        raise ConfigError(
+            f"Unknown output format(s): {', '.join(sorted(invalid_formats))}. "
+            f"Valid formats: {', '.join(sorted(VALID_OUTPUT_FORMATS))}"
+        )
+
     started_at = time.perf_counter()
     root = root.resolve()
     if out is not None:
@@ -187,6 +196,17 @@ def scan_workspace(
                 medium_severity_min=medium_sev_min,
             )
         all_findings.extend(skill_findings)
+
+    if out is not None:
+        if "csv" in output_formats:
+            from razin.reporting.csv_writer import write_csv_findings
+
+            write_csv_findings(out, all_findings)
+
+        if "sarif" in output_formats:
+            from razin.reporting.sarif_writer import write_sarif_findings
+
+            write_sarif_findings(out, all_findings)
 
     if not no_cache and out is not None and cache_path is not None:
         cache_namespace["files"] = cache_files

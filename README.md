@@ -15,6 +15,7 @@ Razin is a local scanner for SKILL.md-defined agent skills. It performs static a
 - [Python (Primary)](#python-primary)
 - [Docker (Optional)](#docker-optional)
 - [Config File](#config-file)
+- [Output Formats](#output-formats)
 - [Releasing](#releasing)
 - [Outputs](#outputs)
 
@@ -83,7 +84,7 @@ CLI flags:
 - `--rules-mode <replace|overlay>`: rule composition mode (default: `replace`)
 - `--duplicate-policy <error|override>`: duplicate rule_id handling in overlay mode (default: `error`)
 - `--max-file-mb <n>`: skip files larger than `n` MB
-- `--output-format json`: reserved for future formats (currently only `json`)
+- `--output-format <formats>`: comma-separated output formats: `json`, `csv`, `sarif` (default: `json`)
 - `--no-stdout`: silence stdout output
 - `--no-color`: disable colored output
 
@@ -194,12 +195,55 @@ skill_globs:
 max_file_mb: 2
 ```
 
+## Output Formats
+
+### JSON (default)
+
+Per-skill JSON files are always written when `--output-dir` is set:
+
+```bash
+razin scan -r . -o output/
+```
+
+### CSV
+
+Export all findings as a single CSV file:
+
+```bash
+razin scan -r . -o output/ --output-format csv
+```
+
+Generates `output/findings.csv` with columns: `id`, `skill`, `rule_id`, `severity`, `score`, `confidence`, `path`, `line`, `title`, `description`, `recommendation`.
+
+### SARIF
+
+Export findings as SARIF 2.1.0 for code-scanning integrations:
+
+```bash
+razin scan -r . -o output/ --output-format sarif
+```
+
+Generates `output/findings.sarif`.
+
+### Multiple formats
+
+Generate all formats in one run:
+
+```bash
+razin scan -r . -o output/ --output-format json,csv,sarif
+```
+
 ## Outputs
 
 Per skill, RAZIN writes:
 
 - `output/<skill-name>/findings.json`
 - `output/<skill-name>/summary.json`
+
+Global exports (when selected):
+
+- `output/findings.csv`
+- `output/findings.sarif`
 
 Cache file:
 

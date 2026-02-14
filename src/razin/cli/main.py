@@ -9,6 +9,7 @@ from pathlib import Path
 
 from razin import __version__
 from razin.constants.branding import ASCII_LOGO_LINES, BRAND_NAME
+from razin.constants.reporting import VALID_OUTPUT_FORMATS
 from razin.exceptions import ConfigError, RazinError
 from razin.reporting.stdout import StdoutReporter
 from razin.scanner import scan_workspace
@@ -82,9 +83,8 @@ def build_parser() -> argparse.ArgumentParser:
     scan.add_argument("--max-file-mb", type=int, help="Skip SKILL.md files larger than this size")
     scan.add_argument(
         "--output-format",
-        choices=["json"],
         default="json",
-        help="Output artifact format (default: json)",
+        help="Comma-separated output formats: json, csv, sarif (default: json)",
     )
     scan.add_argument("--no-stdout", action="store_true", help="Silence stdout output")
     scan.add_argument("--no-color", action="store_true", help="Disable colored output")
@@ -112,6 +112,23 @@ def main(argv: list[str] | None = None) -> int:
 
     effective_duplicate_policy = args.duplicate_policy if args.duplicate_policy is not None else "error"
 
+    raw_tokens = args.output_format.split(",")
+    output_formats = tuple(fmt for fmt in (t.strip() for t in raw_tokens) if fmt)
+    if not output_formats or len(output_formats) != len(raw_tokens):
+        print(
+            "Configuration error: --output-format contains empty or malformed tokens",
+            file=sys.stderr,
+        )
+        return 2
+    invalid_formats = set(output_formats) - VALID_OUTPUT_FORMATS
+    if invalid_formats:
+        print(
+            f"Configuration error: unknown output format(s): {', '.join(sorted(invalid_formats))}. "
+            f"Valid formats: {', '.join(sorted(VALID_OUTPUT_FORMATS))}",
+            file=sys.stderr,
+        )
+        return 2
+
     try:
         result = scan_workspace(
             root=args.root,
@@ -125,6 +142,7 @@ def main(argv: list[str] | None = None) -> int:
             rule_files=(tuple(args.rule_file) if args.rule_file else None),
             rules_mode=args.rules_mode,
             duplicate_policy=effective_duplicate_policy,
+            output_formats=output_formats,
         )
     except ConfigError as exc:
         print(f"Configuration error: {exc}", file=sys.stderr)
