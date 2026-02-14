@@ -194,26 +194,6 @@ skill_globs:
 max_file_mb: 2
 ```
 
-### Failure cases
-
-| Cause | Behavior |
-|---|---|
-| Version already on PyPI | Workflow fails before publish |
-| Tag/version mismatch | Workflow fails before publish |
-| Build or twine check error | Workflow fails before publish |
-| PyPI OIDC not configured | Publish step fails (see GitHub environment setup) |
-
-### OIDC setup
-
-Configure a PyPI trusted publisher for the `razin` package:
-
-- **Owner**: `theinfosecguy`
-- **Repository**: `razin`
-- **Workflow**: `release-pypi.yml`
-- **Environment**: `pypi`
-
-See [PyPI trusted publishing docs](https://docs.pypi.org/trusted-publishers/) for details.
-
 ## Outputs
 
 Per skill, RAZIN writes:
