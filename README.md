@@ -194,22 +194,6 @@ skill_globs:
 max_file_mb: 2
 ```
 
-## Releasing
-
-Releases are automated via GitHub Actions and guarded by version checks.
-
-### Steps
-
-1. Bump `version` in `pyproject.toml` (e.g. `1.0.0` → `1.1.0`).
-2. Commit the bump: `git commit -am "chore: bump version to 1.1.0"`.
-3. Create a matching tag: `git tag v1.1.0`.
-4. Push both: `git push origin main --tags`.
-5. The `release-pypi.yml` workflow will:
-   - verify the tag matches `pyproject.toml` version,
-   - confirm the version is not already on PyPI,
-   - build, check, and publish the package via OIDC trusted publishing,
-   - smoke-install the published version.
-
 ### Failure cases
 
 | Cause | Behavior |

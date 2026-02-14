@@ -36,8 +36,7 @@ AGENTS.md
 analysis/
 plan/
 kb/
-scripts/*
-!scripts/check_release_version.py
+scripts/
 .claude/
 tmp/
 sprints/
