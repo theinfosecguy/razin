@@ -38,42 +38,51 @@ razin --help
 Basic scan:
 
 ```bash
-razin scan --root . --output-dir output/
+razin scan -r . -o output/
 ```
 
 Custom rules directory:
 
 ```bash
-razin scan --root . --rules-dir ./enterprise-rules --output-dir output/
+razin scan -r . -R ./enterprise-rules -o output/
 ```
 
 Single rule file:
 
 ```bash
-razin scan --root . --rule-file ./enterprise-rules/net_unknown_domain.yaml --output-dir output/
+razin scan -r . -f ./enterprise-rules/net_unknown_domain.yaml -o output/
 ```
 
-Specific rule files:
+Multiple rule files:
 
 ```bash
-razin scan --root . \
-  --rule-file ./enterprise-rules/net_unknown_domain.yaml \
-  --rule-file ./enterprise-rules/mcp_endpoint.yaml \
-  --output-dir output/
+razin scan -r . \
+  -f ./enterprise-rules/net_unknown_domain.yaml \
+  -f ./enterprise-rules/mcp_endpoint.yaml \
+  -o output/
+```
+
+Long-form equivalent (for scripts and clarity):
+
+```bash
+razin scan --root . --output-dir output/ --profile strict --no-cache
 ```
 
 CLI flags:
 
-- `--root <path>`: workspace root to scan
-- `--output-dir <path>`: output root for findings and summaries
-- `--config <file>`: optional config file path (defaults to `<root>/razin.yaml`)
-- `--mcp-allowlist <domain-or-url>`: optional repeatable MCP endpoint/domain allowlist override
-- `--engine <dsl>`: detector engine (`dsl` only; removed values: `legacy`, `optionc`, `default`)
-- `--rules-dir <path>`: load all custom `*.yaml` DSL rules from this directory
-- `--rule-file <path>`: load specific custom `*.yaml` DSL rule file (repeatable)
-- `--no-cache`: disable cache reads/writes
+- `-r`, `--root <path>`: workspace root to scan
+- `-o`, `--output-dir <path>`: output root for findings and summaries
+- `-c`, `--config <file>`: optional config file path (defaults to `<root>/razin.yaml`)
+- `-m`, `--mcp-allowlist <domain-or-url>`: optional repeatable MCP endpoint/domain allowlist override
+- `-p`, `--profile <strict|balanced|audit>`: policy profile
+- `-R`, `--rules-dir <path>`: load all custom `*.yaml` DSL rules from this directory
+- `-f`, `--rule-file <path>`: load specific custom `*.yaml` DSL rule file (repeatable)
+- `-n`, `--no-cache`: disable cache reads/writes
+- `-v`, `--verbose`: show cache stats and diagnostics
 - `--max-file-mb <n>`: skip files larger than `n` MB
 - `--output-format json`: reserved for future formats (currently only `json`)
+- `--no-stdout`: silence stdout output
+- `--no-color`: disable colored output
 
 Rules source behavior:
 
@@ -90,7 +99,7 @@ Rules source behavior:
 Use the local Python/uv workflow for day-to-day development:
 
 ```bash
-uv run razin scan --root . --output-dir output/
+uv run razin scan -r . -o output/
 uv run pytest -q
 uv run ruff check src tests
 uv run mypy src tests

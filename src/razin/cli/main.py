@@ -8,7 +8,6 @@ import sys
 from pathlib import Path
 
 from razin.constants.branding import ASCII_LOGO_LINES, BRAND_NAME
-from razin.constants.engines import CLI_ENGINE_CHOICES, ENGINE_DSL
 from razin.exceptions import ConfigError, RaisinError
 from razin.reporting.stdout import StdoutReporter
 from razin.scanner import scan_workspace
@@ -26,47 +25,46 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     scan = subparsers.add_parser("scan", help="Scan a workspace for risky skill patterns")
-    scan.add_argument("--root", type=Path, required=True, help="Workspace root path")
+    scan.add_argument("-r", "--root", type=Path, required=True, help="Workspace root path")
     scan.add_argument(
+        "-o",
         "--output-dir",
         type=Path,
         default=None,
         help="Output directory root (no files written if omitted)",
     )
-    scan.add_argument("--config", type=Path, help="Explicit config file")
+    scan.add_argument("-c", "--config", type=Path, help="Explicit config file")
     scan.add_argument(
+        "-m",
         "--mcp-allowlist",
         action="append",
         default=[],
         help="Allowlisted MCP endpoint/domain (repeat flag for multiple values)",
     )
     scan.add_argument(
+        "-p",
         "--profile",
         choices=["strict", "balanced", "audit"],
         default=None,
         help="Policy profile: strict (all signals), balanced (default, reduced noise), audit (informational only)",
     )
-    scan.add_argument(
-        "--engine",
-        choices=list(CLI_ENGINE_CHOICES),
-        default=ENGINE_DSL,
-        help="Detector engine (only 'dsl' is supported)",
-    )
     rules_source = scan.add_mutually_exclusive_group()
     rules_source.add_argument(
+        "-R",
         "--rules-dir",
         type=Path,
         default=None,
         help="Custom DSL rules directory (loads only *.yaml files from this folder)",
     )
     rules_source.add_argument(
+        "-f",
         "--rule-file",
         type=Path,
         action="append",
         default=None,
         help="Custom DSL rule file path (repeat for multiple files; replaces bundled rules)",
     )
-    scan.add_argument("--no-cache", action="store_true", help="Disable cache reads/writes")
+    scan.add_argument("-n", "--no-cache", action="store_true", help="Disable cache reads/writes")
     scan.add_argument("--max-file-mb", type=int, help="Skip SKILL.md files larger than this size")
     scan.add_argument(
         "--output-format",
@@ -76,7 +74,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     scan.add_argument("--no-stdout", action="store_true", help="Silence stdout output")
     scan.add_argument("--no-color", action="store_true", help="Disable colored output")
-    scan.add_argument("--verbose", "-v", action="store_true", help="Show cache stats and diagnostics")
+    scan.add_argument("-v", "--verbose", action="store_true", help="Show cache stats and diagnostics")
 
     return parser
 
@@ -100,7 +98,6 @@ def main(argv: list[str] | None = None) -> int:
             no_cache=args.no_cache,
             max_file_mb=args.max_file_mb,
             profile=args.profile,
-            engine=args.engine,
             rules_dir=args.rules_dir,
             rule_files=(tuple(args.rule_file) if args.rule_file else None),
         )
