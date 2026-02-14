@@ -38,7 +38,7 @@ jobs:
         run: uv run razin --version
 
       - name: Run smoke scan
-        run: uv run razin scan --root tmp/sample-project --output-dir output/ci-smoke --no-color
+        run: uv run razin scan --root tests/fixtures/repos/basic --output-dir output/ci-smoke --no-color
 
       - name: Verify output
         run: test -d output/ci-smoke && find output/ci-smoke -name '*.json' | head -5
