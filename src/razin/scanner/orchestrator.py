@@ -24,8 +24,9 @@ from razin.model import Evidence, Finding, FindingCandidate, ScanResult
 from razin.parsers import parse_skill_markdown_file
 from razin.scanner.cache import build_scan_fingerprint, load_cache, new_cache, save_cache
 from razin.scanner.discovery import derive_skill_name, discover_skill_files
+from razin.scanner.mcp_remote import collect_mcp_remote_candidates, resolve_associated_mcp_json
 from razin.scanner.score import aggregate_overall_score, aggregate_severity, severity_counts
-from razin.types import CacheNamespace, CachePayload, Confidence, Severity
+from razin.types import CacheFileEntry, CacheNamespace, CachePayload, Confidence, Severity
 
 logger = logging.getLogger(__name__)
 
@@ -115,6 +116,7 @@ def scan_workspace(
     for path in skill_files:
         cache_key = str(path)
         discovered_keys.add(cache_key)
+        mcp_dependency = _resolve_mcp_dependency_signature(path=path, root=root, warnings=warnings)
 
         try:
             stat = path.stat()
@@ -127,7 +129,7 @@ def scan_workspace(
             continue
 
         entry = cache_files.get(cache_key)
-        if _is_cache_hit(entry, sha256=sha256, mtime_ns=mtime_ns):
+        if _is_cache_hit(entry, sha256=sha256, mtime_ns=mtime_ns, mcp_dependency=mcp_dependency):
             assert isinstance(entry, dict)
             cache_hits += 1
             skill_name = entry["skill_name"]
@@ -155,6 +157,15 @@ def scan_workspace(
         findings_by_skill.setdefault(skill_name, [])
 
         candidates = dsl_engine.run_all(skill_name=skill_name, parsed=parsed, config=config)
+        mcp_candidates, mcp_warnings = collect_mcp_remote_candidates(
+            parsed=parsed,
+            root=root,
+            config=config,
+        )
+        candidates.extend(mcp_candidates)
+        for warning in mcp_warnings:
+            warnings.append(warning)
+            logger.warning(warning)
         candidates = _suppress_redundant_candidates(candidates)
 
         findings = [
@@ -168,12 +179,17 @@ def scan_workspace(
         ]
         findings_by_skill[skill_name].extend(findings)
 
-        cache_files[cache_key] = {
+        cache_entry: CacheFileEntry = {
             "mtime_ns": mtime_ns,
             "sha256": sha256,
             "skill_name": skill_name,
             "findings": [finding.to_dict() for finding in findings],
         }
+        if mcp_dependency is not None:
+            cache_entry["mcp_json_path"] = mcp_dependency[0]
+            cache_entry["mcp_json_mtime_ns"] = mcp_dependency[1]
+            cache_entry["mcp_json_sha256"] = mcp_dependency[2]
+        cache_files[cache_key] = cache_entry
 
     for stale_key in set(cache_files) - discovered_keys:
         cache_files.pop(stale_key, None)
@@ -241,7 +257,14 @@ def scan_workspace(
     )
 
 
-def _is_cache_hit(entry: object, *, sha256: str, mtime_ns: int) -> bool:
+def _is_cache_hit(
+    entry: object,
+    *,
+    sha256: str,
+    mtime_ns: int,
+    mcp_dependency: tuple[str, int, str] | None,
+) -> bool:
+    """Return True when skill file and MCP dependency signatures match cache entry."""
     if not isinstance(entry, dict):
         return False
 
@@ -252,7 +275,48 @@ def _is_cache_hit(entry: object, *, sha256: str, mtime_ns: int) -> bool:
     if not isinstance(cached_mtime_ns, int):
         return False
 
-    return cached_sha256 == sha256 and cached_mtime_ns == mtime_ns
+    if cached_sha256 != sha256 or cached_mtime_ns != mtime_ns:
+        return False
+
+    cached_mcp_path = entry.get("mcp_json_path")
+    cached_mcp_mtime_ns = entry.get("mcp_json_mtime_ns")
+    cached_mcp_sha256 = entry.get("mcp_json_sha256")
+
+    if mcp_dependency is None:
+        return cached_mcp_path is None and cached_mcp_mtime_ns is None and cached_mcp_sha256 is None
+
+    if not isinstance(cached_mcp_path, str):
+        return False
+    if not isinstance(cached_mcp_mtime_ns, int):
+        return False
+    if not isinstance(cached_mcp_sha256, str):
+        return False
+
+    return (cached_mcp_path, cached_mcp_mtime_ns, cached_mcp_sha256) == mcp_dependency
+
+
+def _resolve_mcp_dependency_signature(
+    *,
+    path: Path,
+    root: Path,
+    warnings: list[str],
+) -> tuple[str, int, str] | None:
+    """Build cache signature tuple for associated `.mcp.json`, when present."""
+    mcp_path = resolve_associated_mcp_json(path, root)
+    if mcp_path is None:
+        return None
+
+    try:
+        mcp_stat = mcp_path.stat()
+        mcp_mtime_ns = int(mcp_stat.st_mtime_ns)
+        mcp_sha256 = file_sha256(mcp_path)
+    except OSError as exc:
+        warning = f"Failed to read MCP JSON metadata: {mcp_path} ({exc})"
+        warnings.append(warning)
+        logger.warning(warning)
+        return (str(mcp_path), -1, "")
+
+    return (str(mcp_path), mcp_mtime_ns, mcp_sha256)
 
 
 def _get_or_create_cache_namespace(
@@ -294,6 +358,7 @@ def _new_namespace(
     engine: str,
     rulepack_fingerprint: str,
 ) -> CacheNamespace:
+    """Create an empty cache namespace payload."""
     return {
         "scan_fingerprint": scan_fingerprint,
         "config_fingerprint": config_fingerprint,
@@ -310,6 +375,7 @@ def _candidate_to_finding(
     high_severity_min: int = 70,
     medium_severity_min: int = 40,
 ) -> Finding:
+    """Convert a finding candidate into a stable, serialized finding."""
     score = max(0, min(100, int(candidate.score)))
     severity = aggregate_severity(score, high_min=high_severity_min, medium_min=medium_severity_min)
 
@@ -361,6 +427,7 @@ def _suppress_redundant_candidates(candidates: list[FindingCandidate]) -> list[F
 
 
 def _deserialize_findings(payload: object) -> list[Finding]:
+    """Deserialize cached finding payload dictionaries into Finding models."""
     if not isinstance(payload, list):
         logger.debug("Cache entry findings is not a list, skipping")
         return []
@@ -398,12 +465,14 @@ def _deserialize_findings(payload: object) -> list[Finding]:
 
 
 def _as_severity(value: object) -> Severity:
+    """Coerce an arbitrary value into a valid severity enum."""
     if isinstance(value, str) and value in {"low", "medium", "high"}:
         return cast(Severity, value)
     return "low"
 
 
 def _as_confidence(value: object) -> Confidence:
+    """Coerce an arbitrary value into a valid confidence enum."""
     if isinstance(value, str) and value in {"low", "medium", "high"}:
         return cast(Confidence, value)
     return "low"
@@ -441,6 +510,7 @@ def _normalize_domain_or_url(value: str) -> str | None:
 
 
 def _resolve_engine(engine: str) -> str:
+    """Validate and normalize the selected scan engine value."""
     normalized = engine.strip().lower()
 
     if normalized == ENGINE_DSL:
@@ -458,6 +528,7 @@ def _resolve_rule_sources(
     rules_dir: Path | None,
     rule_files: tuple[Path, ...] | None,
 ) -> tuple[Path | None, tuple[Path, ...] | None]:
+    """Resolve and validate custom rule source paths for current run."""
     has_rules_dir = rules_dir is not None
     has_rule_files = bool(rule_files)
     if has_rules_dir and has_rule_files:
