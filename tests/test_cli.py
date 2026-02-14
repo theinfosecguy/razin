@@ -99,6 +99,58 @@ def test_engine_flag_rejected() -> None:
         parser.parse_args(["scan", "--root", ".", "--engine", "dsl"])
 
 
+def test_rules_mode_defaults_to_replace(tmp_path: Path) -> None:
+    parser = build_parser()
+    args = parser.parse_args(["scan", "--root", str(tmp_path)])
+    assert args.rules_mode == "replace"
+
+
+def test_rules_mode_accepts_overlay(tmp_path: Path) -> None:
+    parser = build_parser()
+    args = parser.parse_args(["scan", "--root", str(tmp_path), "--rules-mode", "overlay"])
+    assert args.rules_mode == "overlay"
+
+
+def test_rules_mode_rejects_invalid(tmp_path: Path) -> None:
+    parser = build_parser()
+    with pytest.raises(SystemExit):
+        parser.parse_args(["scan", "--root", str(tmp_path), "--rules-mode", "merge"])
+
+
+def test_duplicate_policy_defaults_to_none(tmp_path: Path) -> None:
+    parser = build_parser()
+    args = parser.parse_args(["scan", "--root", str(tmp_path)])
+    assert args.duplicate_policy is None
+
+
+def test_duplicate_policy_accepts_override(tmp_path: Path) -> None:
+    parser = build_parser()
+    args = parser.parse_args(["scan", "--root", str(tmp_path), "--duplicate-policy", "override"])
+    assert args.duplicate_policy == "override"
+
+
+def test_duplicate_policy_rejects_invalid(tmp_path: Path) -> None:
+    parser = build_parser()
+    with pytest.raises(SystemExit):
+        parser.parse_args(["scan", "--root", str(tmp_path), "--duplicate-policy", "skip"])
+
+
+def test_duplicate_policy_rejected_without_overlay(capsys) -> None:  # type: ignore[no-untyped-def]
+    """--duplicate-policy override requires --rules-mode overlay."""
+    code = main(["scan", "--root", ".", "--duplicate-policy", "override", "--no-stdout"])
+    captured = capsys.readouterr()
+    assert code == 2
+    assert "only valid with --rules-mode overlay" in captured.err
+
+
+def test_duplicate_policy_error_rejected_without_overlay(capsys) -> None:  # type: ignore[no-untyped-def]
+    """Explicit --duplicate-policy error also requires --rules-mode overlay."""
+    code = main(["scan", "--root", ".", "--duplicate-policy", "error", "--no-stdout"])
+    captured = capsys.readouterr()
+    assert code == 2
+    assert "only valid with --rules-mode overlay" in captured.err
+
+
 def test_build_parser_output_dir_optional(tmp_path: Path) -> None:
     parser = build_parser()
 

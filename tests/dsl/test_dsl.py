@@ -900,3 +900,147 @@ def test_profile_override_changes_score(tmp_path: Path) -> None:
     audit_findings = engine.run_all(skill_name="test", parsed=parsed, config=audit_config)
     assert len(audit_findings) == 1
     assert audit_findings[0].score == 0
+
+
+def test_replace_mode_uses_only_custom_rules(tmp_path: Path) -> None:
+    """In replace mode, only custom rules are loaded (bundled excluded)."""
+    rules_dir = tmp_path / "rules"
+    rules_dir.mkdir()
+    _write_rule_file(rules_dir / "custom.yaml", rule_id="CUSTOM_ONLY")
+
+    engine = DslEngine(rules_dir=rules_dir, rules_mode="replace")
+
+    assert engine.rule_count == 1
+    assert engine.rule_ids == ["CUSTOM_ONLY"]
+
+
+def test_overlay_mode_merges_bundled_and_custom(tmp_path: Path) -> None:
+    """Overlay mode loads bundled rules plus custom, no-conflict."""
+    rules_dir = tmp_path / "rules"
+    rules_dir.mkdir()
+    _write_rule_file(rules_dir / "custom.yaml", rule_id="CUSTOM_EXTRA")
+
+    engine = DslEngine(rules_dir=rules_dir, rules_mode="overlay")
+
+    assert "CUSTOM_EXTRA" in engine.rule_ids
+    assert "AUTH_CONNECTION" in engine.rule_ids
+    assert engine.rule_count > 1
+
+
+def test_overlay_mode_with_rule_files(tmp_path: Path) -> None:
+    """Overlay mode works with --rule-file too."""
+    rules_dir = tmp_path / "rules"
+    rules_dir.mkdir()
+    custom_file = _write_rule_file(rules_dir / "extra.yaml", rule_id="EXTRA_RULE")
+
+    engine = DslEngine(rule_files=(custom_file,), rules_mode="overlay")
+
+    assert "EXTRA_RULE" in engine.rule_ids
+    assert "AUTH_CONNECTION" in engine.rule_ids
+
+
+def test_overlay_duplicate_error_policy_raises(tmp_path: Path) -> None:
+    """Overlay with error policy raises on duplicate rule_id."""
+    rules_dir = tmp_path / "rules"
+    rules_dir.mkdir()
+    _write_rule_file(rules_dir / "auth.yaml", rule_id="AUTH_CONNECTION")
+
+    with pytest.raises(ConfigError, match="Duplicate rule_id 'AUTH_CONNECTION'"):
+        DslEngine(rules_dir=rules_dir, rules_mode="overlay", duplicate_policy="error")
+
+
+def test_overlay_duplicate_override_policy_custom_wins(tmp_path: Path) -> None:
+    """Override policy lets custom rule replace bundled rule with same rule_id."""
+    rules_dir = tmp_path / "rules"
+    rules_dir.mkdir()
+    _write_rule_file(
+        rules_dir / "auth.yaml",
+        rule_id="AUTH_CONNECTION",
+        scoring={"base_score": 99},
+        match={
+            "source": "raw_text",
+            "strategy": "hint_count",
+            "strong_hints": ["oauth", "login"],
+            "weak_hints": ["token", "api key"],
+            "min_matches": 2,
+        },
+    )
+
+    engine = DslEngine(rules_dir=rules_dir, rules_mode="overlay", duplicate_policy="override")
+
+    auth_rules = [r for r in engine._compiled if r.rule_id == "AUTH_CONNECTION"]
+    assert len(auth_rules) == 1
+    assert auth_rules[0].base_score == 99
+    assert str(rules_dir) in auth_rules[0].source_path
+
+
+def test_overlay_no_custom_source_uses_bundled_only() -> None:
+    """Overlay without custom source just loads bundled rules."""
+    engine = DslEngine(rules_mode="overlay")
+
+    assert engine.rule_count == 15
+    assert "AUTH_CONNECTION" in engine.rule_ids
+
+
+def test_replace_mode_without_custom_uses_bundled() -> None:
+    """Replace mode with no custom source falls back to bundled."""
+    engine = DslEngine(rules_mode="replace")
+
+    assert engine.rule_count == 15
+
+
+def test_overlay_fingerprint_differs_from_replace(tmp_path: Path) -> None:
+    """Fingerprint changes when rules_mode changes the effective rule set."""
+    rules_dir = tmp_path / "rules"
+    rules_dir.mkdir()
+    _write_rule_file(rules_dir / "custom.yaml", rule_id="CUSTOM_FP")
+
+    replace_engine = DslEngine(rules_dir=rules_dir, rules_mode="replace")
+    overlay_engine = DslEngine(rules_dir=rules_dir, rules_mode="overlay")
+
+    assert replace_engine.fingerprint() != overlay_engine.fingerprint()
+
+
+def test_overlay_override_fingerprint_differs_from_bundled(tmp_path: Path) -> None:
+    """Override changes the effective rule set so fingerprint differs."""
+    rules_dir = tmp_path / "rules"
+    rules_dir.mkdir()
+    _write_rule_file(rules_dir / "auth.yaml", rule_id="AUTH_CONNECTION", scoring={"base_score": 99})
+
+    override_engine = DslEngine(rules_dir=rules_dir, rules_mode="overlay", duplicate_policy="override")
+    bundled_engine = DslEngine()
+    assert override_engine.fingerprint() != bundled_engine.fingerprint()
+
+
+def test_overlay_cache_miss_when_mode_changes(tmp_path: Path) -> None:
+    """Switching rules_mode forces a cache miss."""
+    from razin.scanner import scan_workspace
+
+    skill_dir = tmp_path / "skills" / "test"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text(
+        "---\nname: test\n---\n# Test\ncommand: run\n",
+        encoding="utf-8",
+    )
+
+    rules_dir = tmp_path / "rules"
+    rules_dir.mkdir()
+    _write_rule_file(rules_dir / "custom.yaml", rule_id="CUSTOM_CACHE")
+
+    out = tmp_path / "out"
+    first = scan_workspace(root=tmp_path, out=out, rules_dir=rules_dir, rules_mode="replace")
+    second = scan_workspace(root=tmp_path, out=out, rules_dir=rules_dir, rules_mode="overlay")
+
+    assert first.cache_misses >= 1
+    assert second.cache_misses >= 1
+
+
+def test_overlay_override_rejects_custom_vs_custom_duplicate(tmp_path: Path) -> None:
+    """Override only applies to bundled-vs-custom; custom-vs-custom always errors."""
+    rules_dir = tmp_path / "rules"
+    rules_dir.mkdir()
+    _write_rule_file(rules_dir / "a.yaml", rule_id="SAME_ID")
+    _write_rule_file(rules_dir / "b.yaml", rule_id="SAME_ID", scoring={"base_score": 99})
+
+    with pytest.raises(ConfigError, match="Duplicate rule_id 'SAME_ID'"):
+        DslEngine(rules_dir=rules_dir, rules_mode="overlay", duplicate_policy="override")
