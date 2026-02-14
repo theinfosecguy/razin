@@ -152,6 +152,9 @@ def _normalize_files(raw_files: object) -> dict[str, CacheFileEntry]:
         sha256 = value.get("sha256")
         skill_name = value.get("skill_name")
         findings = value.get("findings")
+        mcp_json_path = value.get("mcp_json_path")
+        mcp_json_mtime_ns = value.get("mcp_json_mtime_ns")
+        mcp_json_sha256 = value.get("mcp_json_sha256")
 
         if not isinstance(mtime_ns, int):
             continue
@@ -162,10 +165,18 @@ def _normalize_files(raw_files: object) -> dict[str, CacheFileEntry]:
         if not isinstance(findings, list):
             continue
 
-        files[key] = {
+        entry: CacheFileEntry = {
             "mtime_ns": mtime_ns,
             "sha256": sha256,
             "skill_name": skill_name,
             "findings": [finding for finding in findings if isinstance(finding, dict)],
         }
+        if isinstance(mcp_json_path, str):
+            entry["mcp_json_path"] = mcp_json_path
+        if isinstance(mcp_json_mtime_ns, int):
+            entry["mcp_json_mtime_ns"] = mcp_json_mtime_ns
+        if isinstance(mcp_json_sha256, str):
+            entry["mcp_json_sha256"] = mcp_json_sha256
+
+        files[key] = entry
     return files
