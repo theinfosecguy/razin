@@ -1,0 +1,15 @@
+.git
+.gitignore
+.venv
+.pytest_cache
+.mypy_cache
+.ruff_cache
+__pycache__/
+*.py[cod]
+*.log
+analysis/
+code-review/
+dist/
+output/
+sprints/
+tmp/
