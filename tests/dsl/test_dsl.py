@@ -726,29 +726,29 @@ def test_tool_invocation_destructive_tokens_score_higher(tmp_path: Path) -> None
     dest_dir.mkdir()
     destructive_path = _skill_file(
         dest_dir,
-        "---\nname: destructive-test\n---\n"
-        "GITHUB_DELETE_A_REPOSITORY\n"
-        "GITHUB_MERGE_PULL_REQUEST\n",
+        "---\nname: destructive-test\n---\n" "GITHUB_DELETE_A_REPOSITORY\n" "GITHUB_MERGE_PULL_REQUEST\n",
     )
     read_dir = tmp_path / "read"
     read_dir.mkdir()
     read_path = _skill_file(
         read_dir,
-        "---\nname: read-test\n---\n"
-        "GITHUB_GET_A_REPOSITORY\n"
-        "GITHUB_LIST_REPOSITORIES\n",
+        "---\nname: read-test\n---\n" "GITHUB_GET_A_REPOSITORY\n" "GITHUB_LIST_REPOSITORIES\n",
     )
     config = RazinConfig()
     engine = DslEngine(rule_ids=frozenset({"TOOL_INVOCATION"}))
 
     destructive_parsed = parse_skill_markdown_file(destructive_path)
     destructive_findings = engine.run_all(
-        skill_name="destructive-test", parsed=destructive_parsed, config=config,
+        skill_name="destructive-test",
+        parsed=destructive_parsed,
+        config=config,
     )
 
     read_parsed = parse_skill_markdown_file(read_path)
     read_findings = engine.run_all(
-        skill_name="read-test", parsed=read_parsed, config=config,
+        skill_name="read-test",
+        parsed=read_parsed,
+        config=config,
     )
 
     assert len(destructive_findings) == 1
@@ -764,15 +764,13 @@ def test_tool_invocation_write_tokens_score_between_destructive_and_read(tmp_pat
     write_dir.mkdir()
     write_path = _skill_file(
         write_dir,
-        "---\nname: write-test\n---\n"
-        "SLACK_SEND_MESSAGE\n",
+        "---\nname: write-test\n---\n" "SLACK_SEND_MESSAGE\n",
     )
     read_dir = tmp_path / "read"
     read_dir.mkdir()
     read_path = _skill_file(
         read_dir,
-        "---\nname: read-test\n---\n"
-        "SLACK_LIST_CHANNELS\n",
+        "---\nname: read-test\n---\n" "SLACK_LIST_CHANNELS\n",
     )
     config = RazinConfig()
     engine = DslEngine(rule_ids=frozenset({"TOOL_INVOCATION"}))
@@ -869,9 +867,7 @@ def test_tool_invocation_custom_tier_keywords(tmp_path: Path) -> None:
 
     path = _skill_file(
         tmp_path,
-        "---\nname: custom-tier\n---\n"
-        "RUBE_CUSTOM_LAUNCH\n"
-        "RUBE_CUSTOM_SCAN\n",
+        "---\nname: custom-tier\n---\n" "RUBE_CUSTOM_LAUNCH\n" "RUBE_CUSTOM_SCAN\n",
     )
     parsed = parse_skill_markdown_file(path)
     config = RazinConfig(

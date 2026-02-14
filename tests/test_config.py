@@ -199,12 +199,7 @@ def test_load_config_reads_custom_tool_tier_keywords(tmp_path: Path) -> None:
     """Custom tool tier keywords from razin.yaml override defaults."""
     config_path = tmp_path / "razin.yaml"
     config_path.write_text(
-        "tool_tier_keywords:\n"
-        "  destructive:\n"
-        "    - LAUNCH\n"
-        "    - NUKE\n"
-        "  write:\n"
-        "    - DEPLOY\n",
+        "tool_tier_keywords:\n" "  destructive:\n" "    - LAUNCH\n" "    - NUKE\n" "  write:\n" "    - DEPLOY\n",
         encoding="utf-8",
     )
 
@@ -218,9 +213,7 @@ def test_load_config_tool_tier_keywords_partial_override(tmp_path: Path) -> None
     """Providing only destructive keywords keeps write defaults."""
     config_path = tmp_path / "razin.yaml"
     config_path.write_text(
-        "tool_tier_keywords:\n"
-        "  destructive:\n"
-        "    - OBLITERATE\n",
+        "tool_tier_keywords:\n" "  destructive:\n" "    - OBLITERATE\n",
         encoding="utf-8",
     )
 

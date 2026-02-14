@@ -554,9 +554,7 @@ def _validate_tool_tier_block(
     for sub_key in ("destructive", "write"):
         if sub_key in tier:
             val = tier[sub_key]
-            if val is not None and (
-                not isinstance(val, (list, tuple)) or not all(isinstance(i, str) for i in val)
-            ):
+            if val is not None and (not isinstance(val, (list, tuple)) or not all(isinstance(i, str) for i in val)):
                 errors.append(
                     ValidationError(
                         code=CFG005,
