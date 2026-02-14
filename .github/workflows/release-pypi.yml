@@ -1,0 +1,75 @@
+name: Release to PyPI
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  release:
+    name: Build and publish to PyPI
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/razin/
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build dependencies
+        run: pip install --upgrade build twine
+
+      - name: Version guard
+        run: python scripts/check_release_version.py
+
+      - name: Build package
+        run: python -m build
+
+      - name: Check artifacts
+        run: python -m twine check dist/*
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+      - name: Verify publication
+        run: |
+          VERSION=$(python -c "
+          for line in open('pyproject.toml'):
+              if line.strip().startswith('version'):
+                  print(line.split('=')[1].strip().strip('\"'))
+                  break
+          ")
+          echo "Waiting for PyPI to index version ${VERSION}..."
+          for i in 1 2 3 4 5; do
+            sleep 10
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://pypi.org/pypi/razin/${VERSION}/json")
+            if [ "$STATUS" = "200" ]; then
+              echo "OK: razin==${VERSION} is live on PyPI"
+              exit 0
+            fi
+            echo "Attempt ${i}: not yet available (HTTP ${STATUS}), retrying..."
+          done
+          echo "WARNING: version ${VERSION} not yet visible after 50s (may still be indexing)"
+          exit 0
+
+      - name: Smoke install
+        run: |
+          VERSION=$(python -c "
+          for line in open('pyproject.toml'):
+              if line.strip().startswith('version'):
+                  print(line.split('=')[1].strip().strip('\"'))
+                  break
+          ")
+          pip install "razin==${VERSION}"
+          razin --help
