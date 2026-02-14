@@ -23,7 +23,11 @@ from razin.constants.docs import (
     MCP_REQUIRED_SCORE,
     SERVICE_TOOL_MIN_TOTAL_LENGTH,
     SERVICE_TOOL_TOKEN_PATTERN,
+    TOOL_CONSOLIDATION_MAX_SCORE,
+    TOOL_CONSOLIDATION_TOP_N,
     TOOL_INVOCATION_SCORE,
+    TOOL_TIER_DESTRUCTIVE_BONUS,
+    TOOL_TIER_WRITE_BONUS,
     TOOL_TOKEN_PATTERN,
 )
 from razin.detectors.base import Detector
@@ -149,7 +153,7 @@ class McpDenylistDetector(Detector):
 
 
 class ToolInvocationDetector(Detector):
-    """Detect uppercase tool invocation tokens in docs."""
+    """Detect uppercase tool invocation tokens and consolidate into one finding."""
 
     rule_id = "TOOL_INVOCATION"
 
@@ -166,7 +170,7 @@ class ToolInvocationDetector(Detector):
 
         service_prefixes = tuple(prefix.upper() for prefix in DEFAULT_SERVICE_TOOL_PREFIXES)
         seen_tokens: set[str] = set()
-        findings: list[FindingCandidate] = []
+        first_evidence: Evidence | None = None
         for field in parsed.fields:
             for token in TOOL_TOKEN_PATTERN.findall(field.value):
                 if token in seen_tokens:
@@ -178,20 +182,73 @@ class ToolInvocationDetector(Detector):
                 ):
                     continue
                 seen_tokens.add(token)
+                if first_evidence is None:
+                    first_evidence = field_evidence(parsed, field)
 
-                findings.append(
-                    FindingCandidate(
-                        rule_id=self.rule_id,
-                        score=TOOL_INVOCATION_SCORE,
-                        confidence="medium",
-                        title="Tool invocation token in docs",
-                        description=f"Documentation references tool token '{token}'.",
-                        evidence=field_evidence(parsed, field),
-                        recommendation=("Verify tool token permissions and enforce explicit " "invocation policies."),
-                    )
-                )
+        if not seen_tokens:
+            return []
 
-        return dedupe_candidates(findings)
+        destructive_kw = config.tool_tier_keywords.destructive
+        write_kw = config.tool_tier_keywords.write
+
+        destructive_tokens: list[str] = []
+        write_tokens: list[str] = []
+        read_tokens: list[str] = []
+        for token in sorted(seen_tokens):
+            tier = _classify_token_tier(token, destructive_kw, write_kw)
+            if tier == "destructive":
+                destructive_tokens.append(token)
+            elif tier == "write":
+                write_tokens.append(token)
+            else:
+                read_tokens.append(token)
+
+        score = TOOL_INVOCATION_SCORE + min(len(seen_tokens), 10) * 2
+        score += len(destructive_tokens) * TOOL_TIER_DESTRUCTIVE_BONUS
+        score += len(write_tokens) * TOOL_TIER_WRITE_BONUS
+        score = min(score, TOOL_CONSOLIDATION_MAX_SCORE)
+
+        total = len(seen_tokens)
+        desc_parts: list[str] = [
+            f"Skill references {total} tool invocation token{'s' if total != 1 else ''}.",
+        ]
+        tier_parts: list[str] = []
+        if destructive_tokens:
+            tier_parts.append(f"{len(destructive_tokens)} destructive")
+        if write_tokens:
+            tier_parts.append(f"{len(write_tokens)} write")
+        if read_tokens:
+            tier_parts.append(f"{len(read_tokens)} read")
+        if tier_parts:
+            desc_parts.append(f"Tiers: {', '.join(tier_parts)}.")
+
+        sorted_tokens = sorted(seen_tokens)
+        snippet_tokens = sorted_tokens[:TOOL_CONSOLIDATION_TOP_N]
+        snippet = ", ".join(snippet_tokens)
+        if len(sorted_tokens) > TOOL_CONSOLIDATION_TOP_N:
+            snippet += f" (+{len(sorted_tokens) - TOOL_CONSOLIDATION_TOP_N} more)"
+
+        assert first_evidence is not None
+        evidence = Evidence(
+            path=first_evidence.path,
+            line=first_evidence.line,
+            snippet=snippet,
+        )
+
+        return [
+            FindingCandidate(
+                rule_id=self.rule_id,
+                score=score,
+                confidence="medium",
+                title="Tool invocation tokens in docs",
+                description=" ".join(desc_parts),
+                evidence=evidence,
+                recommendation=(
+                    "Verify tool token permissions and enforce explicit "
+                    "invocation policies. Review destructive and write-tier tokens closely."
+                ),
+            )
+        ]
 
 
 class DynamicSchemaDetector(Detector):
@@ -445,3 +502,19 @@ def _matches_service_tool_token(
     if len(segments) < 3:
         return False
     return segments[0] in service_prefixes
+
+
+def _classify_token_tier(
+    token: str,
+    destructive_keywords: tuple[str, ...],
+    write_keywords: tuple[str, ...],
+) -> str:
+    """Classify a tool token into destructive, write, or read tier."""
+    segments = token.split("_")
+    for segment in segments:
+        if segment in destructive_keywords:
+            return "destructive"
+    for segment in segments:
+        if segment in write_keywords:
+            return "write"
+    return "read"

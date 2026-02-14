@@ -1,9 +1,9 @@
 rule_id: TOOL_INVOCATION
 version: 1
 metadata:
-  title: "Tool invocation token in docs"
-  description_template: "Documentation references tool token '{token}'."
-  recommendation: "Verify tool token permissions and enforce explicit invocation policies."
+  title: "Tool invocation tokens in docs"
+  description: "Skill references tool invocation tokens."
+  recommendation: "Verify tool token permissions and enforce explicit invocation policies. Review destructive and write-tier tokens closely."
   confidence: medium
 scoring:
   base_score: 20
