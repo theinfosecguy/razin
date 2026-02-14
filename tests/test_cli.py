@@ -117,10 +117,10 @@ def test_rules_mode_rejects_invalid(tmp_path: Path) -> None:
         parser.parse_args(["scan", "--root", str(tmp_path), "--rules-mode", "merge"])
 
 
-def test_duplicate_policy_defaults_to_error(tmp_path: Path) -> None:
+def test_duplicate_policy_defaults_to_none(tmp_path: Path) -> None:
     parser = build_parser()
     args = parser.parse_args(["scan", "--root", str(tmp_path)])
-    assert args.duplicate_policy == "error"
+    assert args.duplicate_policy is None
 
 
 def test_duplicate_policy_accepts_override(tmp_path: Path) -> None:
@@ -138,6 +138,14 @@ def test_duplicate_policy_rejects_invalid(tmp_path: Path) -> None:
 def test_duplicate_policy_rejected_without_overlay(capsys) -> None:  # type: ignore[no-untyped-def]
     """--duplicate-policy override requires --rules-mode overlay."""
     code = main(["scan", "--root", ".", "--duplicate-policy", "override", "--no-stdout"])
+    captured = capsys.readouterr()
+    assert code == 2
+    assert "only valid with --rules-mode overlay" in captured.err
+
+
+def test_duplicate_policy_error_rejected_without_overlay(capsys) -> None:  # type: ignore[no-untyped-def]
+    """Explicit --duplicate-policy error also requires --rules-mode overlay."""
+    code = main(["scan", "--root", ".", "--duplicate-policy", "error", "--no-stdout"])
     captured = capsys.readouterr()
     assert code == 2
     assert "only valid with --rules-mode overlay" in captured.err

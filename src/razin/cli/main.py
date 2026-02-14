@@ -74,7 +74,7 @@ def build_parser() -> argparse.ArgumentParser:
     scan.add_argument(
         "--duplicate-policy",
         choices=["error", "override"],
-        default="error",
+        default=None,
         help="Duplicate rule_id policy for overlay mode: error (fail fast, default) or override (custom wins)",
     )
     scan.add_argument("--max-file-mb", type=int, help="Skip SKILL.md files larger than this size")
@@ -101,12 +101,14 @@ def main(argv: list[str] | None = None) -> int:
     if args.command != "scan":
         parser.error(f"Unsupported command: {args.command}")
 
-    if args.duplicate_policy != "error" and args.rules_mode != "overlay":
+    if args.duplicate_policy is not None and args.rules_mode != "overlay":
         print(
             "Configuration error: --duplicate-policy is only valid with --rules-mode overlay",
             file=sys.stderr,
         )
         return 2
+
+    effective_duplicate_policy = args.duplicate_policy if args.duplicate_policy is not None else "error"
 
     try:
         result = scan_workspace(
@@ -120,7 +122,7 @@ def main(argv: list[str] | None = None) -> int:
             rules_dir=args.rules_dir,
             rule_files=(tuple(args.rule_file) if args.rule_file else None),
             rules_mode=args.rules_mode,
-            duplicate_policy=args.duplicate_policy,
+            duplicate_policy=effective_duplicate_policy,
         )
     except ConfigError as exc:
         print(f"Configuration error: {exc}", file=sys.stderr)
