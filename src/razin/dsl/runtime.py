@@ -53,6 +53,7 @@ class DslEngine:
     def _load(self, rule_ids: frozenset[str] | None) -> None:
         """Load and compile all YAML rule files from the selected source."""
         yaml_files = self._collect_rule_paths()
+        bundled_paths = self._bundled_path_set()
         loaded_rule_sources: dict[str, Path] = {}
 
         for yaml_path in yaml_files:
@@ -71,7 +72,14 @@ class DslEngine:
 
             previous_source = loaded_rule_sources.get(compiled.rule_id)
             if previous_source is not None:
-                if self._rules_mode == "overlay" and self._duplicate_policy == "override":
+                is_bundled_vs_custom = (
+                    previous_source in bundled_paths and yaml_path not in bundled_paths
+                )
+                if (
+                    self._rules_mode == "overlay"
+                    and self._duplicate_policy == "override"
+                    and is_bundled_vs_custom
+                ):
                     self._override_rule(compiled, raw, previous_source, yaml_path)
                     loaded_rule_sources[compiled.rule_id] = yaml_path
                     continue
@@ -86,6 +94,13 @@ class DslEngine:
             logger.debug("Loaded DSL rule: %s v%d", compiled.rule_id, compiled.version)
 
         self._compiled.sort(key=lambda r: (r.rule_id, r.public_rule_id, r.source_path))
+
+    def _bundled_path_set(self) -> frozenset[Path]:
+        """Return resolved paths of bundled rules for source attribution."""
+        bundled_dir = RULES_DIR.resolve()
+        if not bundled_dir.exists() or not bundled_dir.is_dir():
+            return frozenset()
+        return frozenset(path.resolve() for path in bundled_dir.glob("*.yaml"))
 
     def _override_rule(
         self,

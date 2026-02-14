@@ -62,7 +62,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         action="append",
         default=None,
-        help="Custom DSL rule file path (repeat for multiple files; replaces bundled rules)",
+        help="Custom DSL rule file path (repeat for multiple files)",
     )
     scan.add_argument("-n", "--no-cache", action="store_true", help="Disable cache reads/writes")
     scan.add_argument(
@@ -100,6 +100,13 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command != "scan":
         parser.error(f"Unsupported command: {args.command}")
+
+    if args.duplicate_policy != "error" and args.rules_mode != "overlay":
+        print(
+            "Configuration error: --duplicate-policy is only valid with --rules-mode overlay",
+            file=sys.stderr,
+        )
+        return 2
 
     try:
         result = scan_workspace(
