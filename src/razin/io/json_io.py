@@ -45,3 +45,35 @@ def write_json_atomic(
 
     assert temp_name is not None
     os.replace(temp_name, path)
+
+
+def write_text_atomic(
+    *,
+    path: Path,
+    content: str,
+    temp_prefix: str,
+    temp_suffix: str,
+) -> None:
+    """Persist text content atomically by writing to a temp file then renaming."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    temp_name: str | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=temp_prefix,
+            suffix=temp_suffix,
+            delete=False,
+        ) as handle:
+            temp_name = handle.name
+            handle.write(content)
+    except Exception:
+        if temp_name:
+            with suppress(FileNotFoundError):
+                Path(temp_name).unlink()
+        raise
+
+    assert temp_name is not None
+    os.replace(temp_name, path)
