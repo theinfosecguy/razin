@@ -49,9 +49,9 @@ def _make_result(
         aggregate_score=aggregate_score,
         aggregate_severity=aggregate_severity,
         counts_by_severity=resolved_counts,
-        findings=findings or [],
+        findings=tuple(findings or []),
         duration_seconds=duration,
-        warnings=[],
+        warnings=(),
         cache_hits=cache_hits,
         cache_misses=cache_misses,
     )
@@ -226,9 +226,9 @@ class TestStdoutReporterGolden:
             aggregate_score=94,
             aggregate_severity="high",
             counts_by_severity={"high": 2, "medium": 2, "low": 2},
-            findings=findings,
+            findings=tuple(findings),
             duration_seconds=0.500,
-            warnings=[],
+            warnings=(),
             cache_hits=1,
             cache_misses=2,
         )
