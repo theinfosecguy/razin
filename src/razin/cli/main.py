@@ -11,8 +11,10 @@ from razin import __version__
 from razin.constants.branding import ASCII_LOGO_LINES, BRAND_NAME
 from razin.constants.reporting import VALID_OUTPUT_FORMATS
 from razin.exceptions import ConfigError, RazinError
+from razin.exceptions.validation import format_errors
 from razin.reporting.stdout import StdoutReporter
 from razin.scanner import scan_workspace
+from razin.validation import preflight_validate
 
 CLI_DESCRIPTION: str = "\n".join((*ASCII_LOGO_LINES, "", f"{BRAND_NAME} skill scanner"))
 
@@ -90,6 +92,26 @@ def build_parser() -> argparse.ArgumentParser:
     scan.add_argument("--no-color", action="store_true", help="Disable colored output")
     scan.add_argument("-v", "--verbose", action="store_true", help="Show cache stats and diagnostics")
 
+    validate = subparsers.add_parser("validate-config", help="Validate configuration without scanning")
+    validate.add_argument("-r", "--root", type=Path, required=True, help="Workspace root path")
+    validate.add_argument("-c", "--config", type=Path, help="Explicit config file")
+    rules_validate = validate.add_mutually_exclusive_group()
+    rules_validate.add_argument(
+        "-R",
+        "--rules-dir",
+        type=Path,
+        default=None,
+        help="Custom DSL rules directory",
+    )
+    rules_validate.add_argument(
+        "-f",
+        "--rule-file",
+        type=Path,
+        action="append",
+        default=None,
+        help="Custom DSL rule file path (repeat for multiple files)",
+    )
+
     return parser
 
 
@@ -99,6 +121,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+
+    if args.command == "validate-config":
+        return _handle_validate_config(args)
 
     if args.command != "scan":
         parser.error(f"Unsupported command: {args.command}")
@@ -129,6 +154,16 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
 
+    validation_errors = preflight_validate(
+        root=args.root,
+        config_path=args.config,
+        rules_dir=args.rules_dir,
+        rule_files=(tuple(args.rule_file) if args.rule_file else None),
+    )
+    if validation_errors:
+        print(format_errors(validation_errors), file=sys.stderr)
+        return 2
+
     try:
         result = scan_workspace(
             root=args.root,
@@ -156,6 +191,22 @@ def main(argv: list[str] | None = None) -> int:
         reporter = StdoutReporter(result, color=use_color, verbose=args.verbose)
         print(reporter.render())
 
+    return 0
+
+
+def _handle_validate_config(args: argparse.Namespace) -> int:
+    """Run config + rule validation and report results."""
+    errors = preflight_validate(
+        root=args.root,
+        config_path=args.config,
+        rules_dir=args.rules_dir,
+        rule_files=(tuple(args.rule_file) if args.rule_file else None),
+    )
+    if errors:
+        print(format_errors(errors), file=sys.stderr)
+        return 2
+
+    print("Configuration is valid.")
     return 0
 
 
