@@ -125,9 +125,6 @@ docker run --rm \
 ```
 
 Build optional dev image for QA:
-
-```bash
-docker build --target dev -t razin:dev .
 ```
 
 ## Config File

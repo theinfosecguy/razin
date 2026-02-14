@@ -28,9 +28,7 @@ class Detector(ABC):
         if not isinstance(rule_id, str) or not rule_id.strip():
             raise TypeError(f"{cls.__name__} must define a non-empty class attribute `rule_id`")
         if not rule_id.startswith("_") and not _RULE_ID_PATTERN.match(rule_id):
-            raise TypeError(
-                f"{cls.__name__}.rule_id must be UPPER_SNAKE_CASE (got {rule_id!r})"
-            )
+            raise TypeError(f"{cls.__name__}.rule_id must be UPPER_SNAKE_CASE (got {rule_id!r})")
 
     @abstractmethod
     def run(
