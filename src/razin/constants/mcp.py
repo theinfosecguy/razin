@@ -18,8 +18,10 @@ MCP_REMOTE_RULE_PRIORITY: dict[str, int] = {
     MCP_REMOTE_DENYLIST_RULE_ID: 3,
 }
 
-MCP_NON_HTTPS_LOCAL_EXCEPTIONS: frozenset[str] = frozenset({
-    "localhost",
-    "127.0.0.1",
-    "::1",
-})
+MCP_NON_HTTPS_LOCAL_EXCEPTIONS: frozenset[str] = frozenset(
+    {
+        "localhost",
+        "127.0.0.1",
+        "::1",
+    }
+)

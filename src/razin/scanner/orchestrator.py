@@ -26,7 +26,7 @@ from razin.scanner.cache import build_scan_fingerprint, load_cache, new_cache, s
 from razin.scanner.discovery import derive_skill_name, discover_skill_files
 from razin.scanner.mcp_remote import collect_mcp_remote_candidates, resolve_associated_mcp_json
 from razin.scanner.score import aggregate_overall_score, aggregate_severity, severity_counts
-from razin.types import CacheNamespace, CachePayload, Confidence, Severity
+from razin.types import CacheFileEntry, CacheNamespace, CachePayload, Confidence, Severity
 
 logger = logging.getLogger(__name__)
 
@@ -179,7 +179,7 @@ def scan_workspace(
         ]
         findings_by_skill[skill_name].extend(findings)
 
-        cache_entry: dict[str, object] = {
+        cache_entry: CacheFileEntry = {
             "mtime_ns": mtime_ns,
             "sha256": sha256,
             "skill_name": skill_name,
@@ -283,11 +283,7 @@ def _is_cache_hit(
     cached_mcp_sha256 = entry.get("mcp_json_sha256")
 
     if mcp_dependency is None:
-        return (
-            cached_mcp_path is None
-            and cached_mcp_mtime_ns is None
-            and cached_mcp_sha256 is None
-        )
+        return cached_mcp_path is None and cached_mcp_mtime_ns is None and cached_mcp_sha256 is None
 
     if not isinstance(cached_mcp_path, str):
         return False

@@ -209,7 +209,7 @@ def test_mcp_remote_rules_ignore_unreferenced_servers(tmp_path: Path) -> None:
             '{"mcpServers": {'
             '"safe": {"url": "https://safe.example.com/mcp"}, '
             '"other": {"url": "http://8.8.8.8/mcp"}'
-            '}}\n'
+            "}}\n"
         ),
     )
     (root / "razin.yaml").write_text("mcp_denylist_domains:\n  - 8.8.8.8\n", encoding="utf-8")
