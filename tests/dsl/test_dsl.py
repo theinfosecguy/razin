@@ -663,7 +663,8 @@ def test_dynamic_schema_single_hit(tmp_path: Path) -> None:
     assert findings[0].score == 15
 
 
-def test_tool_invocation_dedupes_by_token(tmp_path: Path) -> None:
+def test_tool_invocation_consolidates_to_one_finding(tmp_path: Path) -> None:
+    """Multiple duplicate tokens produce one consolidated finding."""
     path = _skill_file(
         tmp_path,
         "---\nname: tool-test\n---\n"
@@ -678,12 +679,14 @@ def test_tool_invocation_dedupes_by_token(tmp_path: Path) -> None:
 
     findings = engine.run_all(skill_name="tool-test", parsed=parsed, config=config)
 
-    assert len(findings) == 2
-    assert any("RUBE_SEARCH_TOOLS" in finding.description and finding.evidence.line == 4 for finding in findings)
-    assert any("MCP_LIST_TOOLS" in finding.description and finding.evidence.line == 6 for finding in findings)
+    assert len(findings) == 1
+    assert "2 tool invocation tokens" in findings[0].description
+    assert "MCP_LIST_TOOLS" in findings[0].evidence.snippet
+    assert "RUBE_SEARCH_TOOLS" in findings[0].evidence.snippet
 
 
 def test_tool_invocation_detects_service_tokens(tmp_path: Path) -> None:
+    """Service tokens like SLACK_SEND_MESSAGE are detected and consolidated."""
     path = _skill_file(
         tmp_path,
         "---\nname: tool-test\n---\n" "SLACK_SEND_MESSAGE\n" "STRIPE_CREATE_CHARGE\n" "USE_THIS_FORMAT\n",
@@ -694,10 +697,196 @@ def test_tool_invocation_detects_service_tokens(tmp_path: Path) -> None:
 
     findings = engine.run_all(skill_name="tool-test", parsed=parsed, config=config)
 
-    assert len(findings) == 2
-    assert any("SLACK_SEND_MESSAGE" in finding.description for finding in findings)
-    assert any("STRIPE_CREATE_CHARGE" in finding.description for finding in findings)
-    assert all("USE_THIS_FORMAT" not in finding.description for finding in findings)
+    assert len(findings) == 1
+    assert "2 tool invocation tokens" in findings[0].description
+    assert "SLACK_SEND_MESSAGE" in findings[0].evidence.snippet
+    assert "STRIPE_CREATE_CHARGE" in findings[0].evidence.snippet
+
+
+def test_tool_invocation_single_token_produces_one_finding(tmp_path: Path) -> None:
+    """A single tool token produces exactly one finding."""
+    path = _skill_file(
+        tmp_path,
+        "---\nname: single\n---\nRUBE_SEARCH_TOOLS\n",
+    )
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig()
+    engine = DslEngine(rule_ids=frozenset({"TOOL_INVOCATION"}))
+
+    findings = engine.run_all(skill_name="single", parsed=parsed, config=config)
+
+    assert len(findings) == 1
+    assert "1 tool invocation token" in findings[0].description
+    assert "RUBE_SEARCH_TOOLS" in findings[0].evidence.snippet
+
+
+def test_tool_invocation_destructive_tokens_score_higher(tmp_path: Path) -> None:
+    """Skills with destructive tokens (DELETE, REMOVE) score higher than read-only."""
+    dest_dir = tmp_path / "destructive"
+    dest_dir.mkdir()
+    destructive_path = _skill_file(
+        dest_dir,
+        "---\nname: destructive-test\n---\n"
+        "GITHUB_DELETE_A_REPOSITORY\n"
+        "GITHUB_MERGE_PULL_REQUEST\n",
+    )
+    read_dir = tmp_path / "read"
+    read_dir.mkdir()
+    read_path = _skill_file(
+        read_dir,
+        "---\nname: read-test\n---\n"
+        "GITHUB_GET_A_REPOSITORY\n"
+        "GITHUB_LIST_REPOSITORIES\n",
+    )
+    config = RazinConfig()
+    engine = DslEngine(rule_ids=frozenset({"TOOL_INVOCATION"}))
+
+    destructive_parsed = parse_skill_markdown_file(destructive_path)
+    destructive_findings = engine.run_all(
+        skill_name="destructive-test", parsed=destructive_parsed, config=config,
+    )
+
+    read_parsed = parse_skill_markdown_file(read_path)
+    read_findings = engine.run_all(
+        skill_name="read-test", parsed=read_parsed, config=config,
+    )
+
+    assert len(destructive_findings) == 1
+    assert len(read_findings) == 1
+    assert destructive_findings[0].score > read_findings[0].score
+    assert "destructive" in destructive_findings[0].description.lower()
+    assert "read" in read_findings[0].description.lower()
+
+
+def test_tool_invocation_write_tokens_score_between_destructive_and_read(tmp_path: Path) -> None:
+    """Write tokens score higher than read-only but lower than destructive."""
+    write_dir = tmp_path / "write"
+    write_dir.mkdir()
+    write_path = _skill_file(
+        write_dir,
+        "---\nname: write-test\n---\n"
+        "SLACK_SEND_MESSAGE\n",
+    )
+    read_dir = tmp_path / "read"
+    read_dir.mkdir()
+    read_path = _skill_file(
+        read_dir,
+        "---\nname: read-test\n---\n"
+        "SLACK_LIST_CHANNELS\n",
+    )
+    config = RazinConfig()
+    engine = DslEngine(rule_ids=frozenset({"TOOL_INVOCATION"}))
+
+    write_parsed = parse_skill_markdown_file(write_path)
+    write_findings = engine.run_all(skill_name="write-test", parsed=write_parsed, config=config)
+
+    read_parsed = parse_skill_markdown_file(read_path)
+    read_findings = engine.run_all(skill_name="read-test", parsed=read_parsed, config=config)
+
+    assert len(write_findings) == 1
+    assert len(read_findings) == 1
+    assert write_findings[0].score > read_findings[0].score
+    assert "write" in write_findings[0].description.lower()
+
+
+def test_tool_invocation_tier_breakdown_in_description(tmp_path: Path) -> None:
+    """Tier counts appear in the consolidated description."""
+    path = _skill_file(
+        tmp_path,
+        "---\nname: mixed-test\n---\n"
+        "GITHUB_DELETE_A_REPOSITORY\n"
+        "GITHUB_CREATE_ISSUE\n"
+        "GITHUB_GET_A_REPOSITORY\n",
+    )
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig()
+    engine = DslEngine(rule_ids=frozenset({"TOOL_INVOCATION"}))
+
+    findings = engine.run_all(skill_name="mixed-test", parsed=parsed, config=config)
+
+    assert len(findings) == 1
+    desc = findings[0].description
+    assert "3 tool invocation tokens" in desc
+    assert "1 destructive" in desc
+    assert "1 write" in desc
+    assert "1 read" in desc
+
+
+def test_tool_invocation_top_n_overflow_in_snippet(tmp_path: Path) -> None:
+    """Snippet shows top 5 tokens and overflow count for large token sets."""
+    tokens = [f"RUBE_ACTION_{chr(65 + i)}" for i in range(8)]
+    body = "\n".join(tokens)
+    path = _skill_file(
+        tmp_path,
+        f"---\nname: overflow-test\n---\n{body}\n",
+    )
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig()
+    engine = DslEngine(rule_ids=frozenset({"TOOL_INVOCATION"}))
+
+    findings = engine.run_all(skill_name="overflow-test", parsed=parsed, config=config)
+
+    assert len(findings) == 1
+    assert "(+3 more)" in findings[0].evidence.snippet
+
+
+def test_tool_invocation_score_capped_at_max(tmp_path: Path) -> None:
+    """Consolidated score never exceeds TOOL_CONSOLIDATION_MAX_SCORE."""
+    tokens = [f"GITHUB_DELETE_ITEM_{i}" for i in range(20)]
+    body = "\n".join(tokens)
+    path = _skill_file(
+        tmp_path,
+        f"---\nname: maxscore-test\n---\n{body}\n",
+    )
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig()
+    engine = DslEngine(rule_ids=frozenset({"TOOL_INVOCATION"}))
+
+    findings = engine.run_all(skill_name="maxscore-test", parsed=parsed, config=config)
+
+    assert len(findings) == 1
+    assert findings[0].score == 50
+
+
+def test_tool_invocation_no_tokens_produces_no_findings(tmp_path: Path) -> None:
+    """A skill with no matching tokens produces zero findings."""
+    path = _skill_file(
+        tmp_path,
+        "---\nname: clean\n---\nNo tool tokens here.\n",
+    )
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig()
+    engine = DslEngine(rule_ids=frozenset({"TOOL_INVOCATION"}))
+
+    findings = engine.run_all(skill_name="clean", parsed=parsed, config=config)
+
+    assert len(findings) == 0
+
+
+def test_tool_invocation_custom_tier_keywords(tmp_path: Path) -> None:
+    """Custom tier keywords from config override defaults."""
+    from razin.config import ToolTierConfig
+
+    path = _skill_file(
+        tmp_path,
+        "---\nname: custom-tier\n---\n"
+        "RUBE_CUSTOM_LAUNCH\n"
+        "RUBE_CUSTOM_SCAN\n",
+    )
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig(
+        tool_tier_keywords=ToolTierConfig(
+            destructive=("LAUNCH",),
+            write=("SCAN",),
+        ),
+    )
+    engine = DslEngine(rule_ids=frozenset({"TOOL_INVOCATION"}))
+
+    findings = engine.run_all(skill_name="custom-tier", parsed=parsed, config=config)
+
+    assert len(findings) == 1
+    assert "1 destructive" in findings[0].description
+    assert "1 write" in findings[0].description
 
 
 def test_secret_ref_ignores_placeholder_values(tmp_path: Path) -> None:
