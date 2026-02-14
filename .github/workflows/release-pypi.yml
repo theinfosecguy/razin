@@ -33,15 +33,21 @@ jobs:
 
       - name: Extract version
         id: version
-        run: |
-          VERSION=$(python -c "
-          for line in open('pyproject.toml'):
-              if line.strip().startswith('version'):
-                  print(line.split('=')[1].strip().strip('\"'))
-                  break
-          ")
-          echo "value=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "Detected version: ${VERSION}"
+        uses: actions/github-script@v7
+        with:
+          result-encoding: string
+          script: |
+            const fs = require('fs');
+            const content = fs.readFileSync('pyproject.toml', 'utf8');
+            const match = content.match(/^version\s*=\s*"([^"]+)"/m);
+            if (!match) {
+              core.setFailed('Could not read version from pyproject.toml');
+              return;
+            }
+            const version = match[1];
+            core.setOutput('value', version);
+            core.info(`Detected version: ${version}`);
+            return version;
 
       - name: Version guard
         uses: actions/github-script@v7
@@ -129,4 +135,11 @@ jobs:
           VERSION: ${{ steps.version.outputs.value }}
         run: |
           pip install "${PACKAGE_NAME}==${VERSION}"
-          razin --help
+          OUTPUT=$(razin --version)
+          echo "${OUTPUT}"
+          if echo "${OUTPUT}" | grep -q "${VERSION}"; then
+            echo "OK: razin --version reports ${VERSION}"
+          else
+            echo "ERROR: razin --version output does not contain ${VERSION}"
+            exit 1
+          fi
