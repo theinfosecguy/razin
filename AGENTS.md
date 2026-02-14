@@ -1,0 +1,124 @@
+# Razin Project Brief
+
+Razin is a static analysis scanner for SKILL.md-defined agent skills. It discovers skill files in a workspace, parses their content, runs detector rules to identify risk signals, and writes deterministic JSON reports.
+
+## Goals
+- Scan a workspace and discover `SKILL.md` files by configurable glob patterns.
+- Parse YAML frontmatter and markdown body into a structured document model.
+- Run detector rules against parsed content and produce scored, deduplicated findings.
+- Write per-skill `findings.json` and `summary.json` to `output/<skill-name>/`.
+- Support incremental scanning via SHA256+mtime cache with config fingerprinting.
+- Provide clear warnings for parse errors, missing files, and config issues.
+
+## Non-goals
+- Executing or applying skills; static analysis only, never run skill code.
+- General-purpose code scanning or SAST; this scans skill definition files, not application code.
+- Scanning project-level agent config (hooks, CLAUDE.md, AGENTS.md); these are a different scanning domain.
+- Scanning script contents bundled with skills; the SKILL.md already carries the execution-intent signal.
+
+## Scope boundaries
+
+### Primary scan targets
+- `SKILL.md` files: skill definitions with YAML frontmatter and markdown body.
+- `.mcp.json` files: MCP server configs tied to skills via `requires: mcp` in frontmatter.
+
+### Presence detection only (no content parsing)
+- Bundled scripts (`*.sh`, `*.py`, `*.js` alongside SKILL.md): flag their existence as a risk signal. Do not parse or analyze script contents.
+
+### Explicitly out of scope
+- Hook configs (`.claude/settings.json` hooks): project-level, not skill-level.
+- `CLAUDE.md` / `AGENTS.md`: agent instructions, not skill definitions.
+- Script content analysis: would require multi-language SAST, which is a different product.
+- Cursor rules, Copilot instructions, Gemini context: future ecosystem expansion, not current scope.
+
+## Repository layout
+- `kb/`: curated knowledge base and reference notes.
+- `plan/`: implementation plan, schema, parser matrix, and roadmap.
+- `sprints/`: sprint scopes and milestones.
+- `src/`: application code (src layout).
+- `tests/`: test suite and fixtures.
+- `output/`: scan outputs.
+
+## Language choice
+- Use Python for the scanner and CLI.
+- Support Python 3.12+ only.
+
+## Python architecture and layout
+- Use the src layout: importable code lives in `src/razin/`; keep repo-level config at the root.
+- Keep tests in `tests/` and prefer pytest `--import-mode=importlib` to avoid `sys.path` pitfalls.
+- Use `pyproject.toml` as the single source of metadata and tool configuration (`[build-system]`, `[project]`, `[tool.*]`).
+- Logging: use module loggers (`logging.getLogger(__name__)`); avoid the root logger; do not add handlers in library code except `NullHandler` if needed.
+- Development environment: use `uv` for installs and lockfiles; recommend `pipx` for end-user CLI installs.
+
+## When adding code
+- Prefer explicit, deterministic parsing and stable IDs.
+- Keep parsers small and composable.
+- Preserve raw content for auditability; add metadata separately.
+- Add tests for each detector rule and precedence behavior.
+- Follow clean code practices: clear naming, small functions, and consistent structure.
+- Apply DRY by centralizing shared logic (parsing, hashing, file IO, and reporting).
+- Prefer common, simple patterns: strategy for detectors, factory for parsers, and pipeline stages for scan flow.
+- Use type hints for public APIs and core data models.
+- Add concise docstrings to modules, classes, and public functions.
+- Prefer `pathlib` for paths and frozen `dataclasses` for structured data.
+- Keep side effects at the edges; pure functions in the core.
+- Enforce lint/format standards (e.g., `ruff` + `black`) via a minimal `pyproject.toml`.
+- Error handling: prefer warn-and-continue for parse errors; fail-fast only for config or output path errors.
+- Logging: structured logs, no secrets; keep logs concise and deterministic.
+- Never execute skill code during scans; static analysis only.
+- Centralize constants and exceptions: no inline constants or custom exceptions inside feature modules.
+- Store constants in `src/razin/constants/`, exceptions in `src/razin/exceptions/`, and shared types in `src/razin/types/`.
+- All constants must have explicit type hints.
+- Shared detector helpers (domain extraction, allowlist/denylist matching, deduplication, evidence building) belong in a common module, not duplicated across detector files.
+- Never add decorative comment separators (e.g., `# -----`, `# =====`, `# *****`). Use blank lines and clear naming to organize code sections.
+
+## Commit and PR Guidelines
+
+### Commit Guidelines
+- Commit messages must be single-line only.
+- Every commit message must start with one type prefix: `feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`.
+- Do not use emojis in commit messages.
+- Do not add co-committer attribution generated by assistant tooling.
+- Don't merge all files in single commit, split them logically
+- Use master as default branch
+- Do not include sprint numbers/names in branch names.
+- Prefer scope-based branch names (e.g., `feat/branding-identity-polish`).
+
+### PR Guidelines
+- Create pull requests only with `gh` CLI (`gh pr create`).
+- PR titles must be sentence case: capitalize only the first character (except proper nouns/acronyms).
+- Do not prefix PR titles with commit-style tags (`feat:`, `fix:`, `chore:`, etc.).
+- Do not mention sprint numbers/names in PR titles or descriptions unless explicitly requested.
+- PR descriptions must contain exactly two H2 sections and no additional H2 sections:
+- `## Problem Statement`
+- `## Testing`
+- The `## Testing` section must include the executed test command(s) and the resulting output.
+- Do not include a changed-files list in PR descriptions.
+- Use concise, human writing.
+- Do not mention Codex, Claude, or any assistant authorship in PR text.
+
+## Detector rules
+
+13 detectors across two modules:
+
+Core detectors (`detectors/rules.py`):
+- `NET_RAW_IP`: raw IPv4/IPv6 addresses in config fields.
+- `NET_UNKNOWN_DOMAIN`: domains not in allowlist or explicitly denylisted.
+- `SECRET_REF`: secret-like keys and environment variable references.
+- `EXEC_FIELDS`: executable command/script fields (command, script, exec, shell, run).
+- `OPAQUE_BLOB`: long or high-entropy values that may hide encoded payloads.
+- `TYPOSQUAT`: skill names close to known baseline names (Levenshtein distance).
+
+Doc-surface detectors (`detectors/docs/rules.py`):
+- `MCP_REQUIRED`: frontmatter-declared MCP requirements.
+- `MCP_ENDPOINT`: MCP endpoint URLs not in allowlist.
+- `MCP_DENYLIST`: MCP endpoints matching explicit denylist.
+- `TOOL_INVOCATION`: uppercase tool invocation tokens matching configured prefixes.
+- `DYNAMIC_SCHEMA`: instructions implying runtime schema/tool discovery.
+- `AUTH_CONNECTION`: auth and connection setup guidance (requires 2+ hint matches).
+- `EXTERNAL_URLS`: external URLs anywhere in skill docs.
+
+## Scoring
+- 0-100 scale per finding. Thresholds: >=70 high, >=40 medium, <40 low.
+- Aggregate: probabilistic OR (`1 - product(1 - p_i)`) across independent signals.
+- Top risks: highest-scoring findings sorted by (-score, id) for determinism.
