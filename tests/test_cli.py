@@ -299,6 +299,7 @@ def test_main_passes_rule_source_arguments(monkeypatch) -> None:  # type: ignore
         )
 
     monkeypatch.setattr("razin.cli.main.scan_workspace", _result)
+    monkeypatch.setattr("razin.cli.main.preflight_validate", lambda **_kw: [])
 
     code = main(
         [

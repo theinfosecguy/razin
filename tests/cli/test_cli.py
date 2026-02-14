@@ -175,8 +175,9 @@ def test_main_no_stdout_flag(mock_scan: MagicMock, capsys: pytest.CaptureFixture
     assert captured.out == ""
 
 
+@patch("razin.cli.main.preflight_validate", return_value=[])
 @patch("razin.cli.main.scan_workspace")
-def test_main_passes_rule_source_arguments(mock_scan: MagicMock) -> None:
+def test_main_passes_rule_source_arguments(mock_scan: MagicMock, _mock_validate: MagicMock) -> None:
     mock_scan.return_value = ScanResult(
         scanned_files=0,
         total_findings=0,
