@@ -1,0 +1,40 @@
+rule_id: PROMPT_INJECTION
+version: 1
+metadata:
+  title: "Prompt injection patterns detected"
+  description: "Skill contains phrases commonly used in prompt injection attacks to override user intent or suppress disclosure."
+  recommendation: "Review flagged phrases for adversarial intent. Remove or rewrite instructions that override user control."
+  confidence: medium
+scoring:
+  base_score: 80
+match:
+  source: raw_text
+  strategy: hint_count
+  strong_hints:
+    - "ignore previous instructions"
+    - "ignore all previous instructions"
+    - "disregard instructions"
+    - "disregard all instructions"
+    - "disregard previous instructions"
+    - "override instructions"
+    - "override previous instructions"
+    - "you are now"
+    - "do not reveal"
+    - "do not disclose"
+    - "hidden instruction"
+    - "system prompt"
+    - "forget your instructions"
+    - "new instructions"
+    - "act as if"
+    - "pretend you are"
+  weak_hints:
+    - "always respond with"
+    - "never mention"
+    - "regardless of"
+    - "no matter what"
+    - "under no circumstances"
+    - "do not tell"
+  min_hint_count: 2
+  require_strong: true
+  negation_aware: true
+dedupe: false
