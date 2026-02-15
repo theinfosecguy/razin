@@ -64,7 +64,7 @@ uv run black src tests
 
 ## Module boundaries
 
-See `docs/architecture.md` for the full architecture map. Key rules:
+Key rules:
 
 - **Constants** go in `src/razin/constants/` (one module per domain). Never define constants inline in feature modules.
 - **Exceptions** go in `src/razin/exceptions/`. Never define custom exceptions inline in feature modules.
@@ -74,18 +74,6 @@ See `docs/architecture.md` for the full architecture map. Key rules:
 - **Scanner pipeline helpers** go in `scanner/pipeline/`. The `scanner/orchestrator.py` facade re-exports them.
 - **Config submodules** go in `config/` (model, loader, validator, fingerprint). The `config/__init__.py` facade re-exports them.
 
-## File-size caps
-
-Source and test files must stay within these limits:
-
-| Category | Soft cap (warning) | Hard cap (fail) |
-|----------|-------------------|-----------------|
-| Source (`src/razin/`) | 400 LOC | 700 LOC |
-| Tests (`tests/`) | 500 LOC | 900 LOC |
-
-LOC = non-blank, non-comment lines. Run `uv run python scripts/check_file_sizes.py` to check locally. CI enforces hard caps.
-
-When a file approaches the soft cap, plan a decomposition before it reaches the hard cap.
 
 ## Test placement
 
