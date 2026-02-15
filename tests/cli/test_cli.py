@@ -102,6 +102,131 @@ def test_build_parser_rejects_conflicting_rule_sources(tmp_path: Path) -> None:
         )
 
 
+@pytest.mark.parametrize(
+    ("short_args", "long_args"),
+    [
+        pytest.param(
+            ["scan", "-r", ".", "-o", "out"],
+            ["scan", "--root", ".", "--output-dir", "out"],
+            id="root-and-output-dir",
+        ),
+        pytest.param(
+            ["scan", "-r", ".", "-c", "razin.yaml"],
+            ["scan", "--root", ".", "--config", "razin.yaml"],
+            id="config",
+        ),
+        pytest.param(
+            ["scan", "-r", ".", "-m", "a.com", "-m", "b.com"],
+            ["scan", "--root", ".", "--mcp-allowlist", "a.com", "--mcp-allowlist", "b.com"],
+            id="mcp-allowlist-repeatable",
+        ),
+        pytest.param(
+            ["scan", "-r", ".", "-p", "strict"],
+            ["scan", "--root", ".", "--profile", "strict"],
+            id="profile",
+        ),
+        pytest.param(
+            ["scan", "-r", ".", "-R", "rules/"],
+            ["scan", "--root", ".", "--rules-dir", "rules/"],
+            id="rules-dir",
+        ),
+        pytest.param(
+            ["scan", "-r", ".", "-f", "a.yaml", "-f", "b.yaml"],
+            ["scan", "--root", ".", "--rule-file", "a.yaml", "--rule-file", "b.yaml"],
+            id="rule-file-repeatable",
+        ),
+        pytest.param(
+            ["scan", "-r", ".", "-n"],
+            ["scan", "--root", ".", "--no-cache"],
+            id="no-cache",
+        ),
+        pytest.param(
+            ["scan", "-r", ".", "-v"],
+            ["scan", "--root", ".", "--verbose"],
+            id="verbose",
+        ),
+    ],
+)
+def test_shorthand_equivalent_to_long_form(short_args: list[str], long_args: list[str]) -> None:
+    """Short flags produce the same parsed namespace as long-form flags."""
+    parser = build_parser()
+    short_ns = parser.parse_args(short_args)
+    long_ns = parser.parse_args(long_args)
+    assert vars(short_ns) == vars(long_ns)
+
+
+def test_shorthand_mutual_exclusivity_rules_dir_rule_file(tmp_path: Path) -> None:
+    """Short flags -R and -f are still mutually exclusive."""
+    parser = build_parser()
+    with pytest.raises(SystemExit):
+        parser.parse_args(["scan", "-r", str(tmp_path), "-R", "rules/", "-f", "a.yaml"])
+
+
+def test_engine_flag_rejected() -> None:
+    """--engine is removed and must be rejected as an unrecognized argument."""
+    parser = build_parser()
+    with pytest.raises(SystemExit):
+        parser.parse_args(["scan", "--root", ".", "--engine", "dsl"])
+
+
+def test_rules_mode_defaults_to_replace(tmp_path: Path) -> None:
+    """Default rules mode is replace."""
+    parser = build_parser()
+    args = parser.parse_args(["scan", "--root", str(tmp_path)])
+    assert args.rules_mode == "replace"
+
+
+def test_rules_mode_accepts_overlay(tmp_path: Path) -> None:
+    """--rules-mode overlay is accepted."""
+    parser = build_parser()
+    args = parser.parse_args(["scan", "--root", str(tmp_path), "--rules-mode", "overlay"])
+    assert args.rules_mode == "overlay"
+
+
+def test_rules_mode_rejects_invalid(tmp_path: Path) -> None:
+    """--rules-mode merge is rejected as invalid."""
+    parser = build_parser()
+    with pytest.raises(SystemExit):
+        parser.parse_args(["scan", "--root", str(tmp_path), "--rules-mode", "merge"])
+
+
+def test_duplicate_policy_defaults_to_none(tmp_path: Path) -> None:
+    """Default duplicate policy is None."""
+    parser = build_parser()
+    args = parser.parse_args(["scan", "--root", str(tmp_path)])
+    assert args.duplicate_policy is None
+
+
+def test_duplicate_policy_accepts_override(tmp_path: Path) -> None:
+    """--duplicate-policy override is accepted."""
+    parser = build_parser()
+    args = parser.parse_args(["scan", "--root", str(tmp_path), "--duplicate-policy", "override"])
+    assert args.duplicate_policy == "override"
+
+
+def test_duplicate_policy_rejects_invalid(tmp_path: Path) -> None:
+    """--duplicate-policy skip is rejected as invalid."""
+    parser = build_parser()
+    with pytest.raises(SystemExit):
+        parser.parse_args(["scan", "--root", str(tmp_path), "--duplicate-policy", "skip"])
+
+
+def test_duplicate_policy_rejected_without_overlay(capsys) -> None:  # type: ignore[no-untyped-def]
+    """--duplicate-policy override requires --rules-mode overlay."""
+    code = main(["scan", "--root", ".", "--duplicate-policy", "override", "--no-stdout"])
+    captured = capsys.readouterr()
+    assert code == 2
+    assert "only valid with --rules-mode overlay" in captured.err
+
+
+def test_duplicate_policy_error_rejected_without_overlay(capsys) -> None:  # type: ignore[no-untyped-def]
+    """Explicit --duplicate-policy error also requires --rules-mode overlay."""
+    code = main(["scan", "--root", ".", "--duplicate-policy", "error", "--no-stdout"])
+    captured = capsys.readouterr()
+    assert code == 2
+    assert "only valid with --rules-mode overlay" in captured.err
+
+
 def test_build_parser_help_includes_ascii_banner() -> None:
     parser = build_parser()
     help_text = parser.format_help()
