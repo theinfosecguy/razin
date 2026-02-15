@@ -31,7 +31,6 @@ from razin.scanner.pipeline.cache_utils import (
 )
 from razin.scanner.pipeline.config_resolution import (
     apply_mcp_allowlist_override,
-    normalize_domain_or_url,
     resolve_engine,
     resolve_rule_sources,
 )
