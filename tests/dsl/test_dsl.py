@@ -659,8 +659,7 @@ def test_auth_detects_auth_link_pattern(tmp_path: Path) -> None:
     """'auth link' (strong) + 'connection' (weak) triggers AUTH_CONNECTION."""
     path = _skill_file(
         tmp_path,
-        "---\nname: rube-test\n---\n# Rube MCP\n"
-        "Follow the returned auth link to complete connection setup.\n",
+        "---\nname: rube-test\n---\n# Rube MCP\n" "Follow the returned auth link to complete connection setup.\n",
     )
     parsed = parse_skill_markdown_file(path)
     config = RazinConfig()
@@ -674,8 +673,7 @@ def test_auth_detects_authorization_hint(tmp_path: Path) -> None:
     """'authorization' (strong) + 'api key' (weak) triggers AUTH_CONNECTION."""
     path = _skill_file(
         tmp_path,
-        "---\nname: authz-test\n---\n# AuthZ\n"
-        "Complete the authorization flow and provide your api key.\n",
+        "---\nname: authz-test\n---\n# AuthZ\n" "Complete the authorization flow and provide your api key.\n",
     )
     parsed = parse_skill_markdown_file(path)
     config = RazinConfig()
@@ -689,8 +687,7 @@ def test_auth_detects_authorize_hint(tmp_path: Path) -> None:
     """'authorize' (strong) + 'credentials' (weak) triggers AUTH_CONNECTION."""
     path = _skill_file(
         tmp_path,
-        "---\nname: authorize-test\n---\n# Authorize\n"
-        "Authorize the application and configure credentials.\n",
+        "---\nname: authorize-test\n---\n# Authorize\n" "Authorize the application and configure credentials.\n",
     )
     parsed = parse_skill_markdown_file(path)
     config = RazinConfig()
@@ -704,8 +701,7 @@ def test_auth_weak_only_credentials_no_match(tmp_path: Path) -> None:
     """'credentials' + 'connection' (both weak) without strong hint produces no finding."""
     path = _skill_file(
         tmp_path,
-        "---\nname: weak-test\n---\n# Weak\n"
-        "Set up credentials and connection to the service.\n",
+        "---\nname: weak-test\n---\n# Weak\n" "Set up credentials and connection to the service.\n",
     )
     parsed = parse_skill_markdown_file(path)
     config = RazinConfig()
@@ -718,8 +714,7 @@ def test_auth_negated_authorization_suppressed(tmp_path: Path) -> None:
     """'no authorization required' is negated; with 'connection' alone produces no finding."""
     path = _skill_file(
         tmp_path,
-        "---\nname: neg-test\n---\n# Negated\n"
-        "No authorization required. Just set up the connection.\n",
+        "---\nname: neg-test\n---\n# Negated\n" "No authorization required. Just set up the connection.\n",
     )
     parsed = parse_skill_markdown_file(path)
     config = RazinConfig()
@@ -732,8 +727,7 @@ def test_auth_detects_manage_connections_tool(tmp_path: Path) -> None:
     """'oauth' (strong) + 'RUBE_MANAGE_CONNECTIONS' (weak via manage_connections) triggers."""
     path = _skill_file(
         tmp_path,
-        "---\nname: rube-oauth\n---\n# Rube OAuth\n"
-        "Set up oauth and call RUBE_MANAGE_CONNECTIONS to link account.\n",
+        "---\nname: rube-oauth\n---\n# Rube OAuth\n" "Set up oauth and call RUBE_MANAGE_CONNECTIONS to link account.\n",
     )
     parsed = parse_skill_markdown_file(path)
     config = RazinConfig()
