@@ -15,7 +15,7 @@ from razin.detectors.common import (
     is_denylisted,
     normalize_url,
 )
-from razin.dsl.context import EvalContext
+from razin.types.dsl import EvalContext
 from razin.dsl.operations.shared import (
     format_template,
     is_local_dev_host,

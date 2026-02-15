@@ -7,7 +7,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from razin.constants.detectors import UPPERCASE_TOKEN_PATTERN, URL_PATTERN
-from razin.dsl.context import EvalContext
+from razin.types.dsl import EvalContext
 from razin.model import Evidence, FindingCandidate
 
 

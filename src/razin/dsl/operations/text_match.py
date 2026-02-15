@@ -12,7 +12,7 @@ from razin.constants.detectors import (
     SECRET_PLACEHOLDER_VALUE_PATTERN,
 )
 from razin.detectors.common import dedupe_candidates, field_evidence
-from razin.dsl.context import EvalContext
+from razin.types.dsl import EvalContext
 from razin.dsl.operations.shared import (
     best_evidence_for_hint,
     first_field_with_keyword,

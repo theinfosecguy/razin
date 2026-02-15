@@ -10,7 +10,7 @@ import pytest
 from razin.config import RazinConfig, effective_detector_ids, load_config
 from razin.detectors import build_detectors
 from razin.dsl import DslEngine
-from razin.dsl.errors import DslRuntimeError
+from razin.exceptions.dsl import DslRuntimeError
 from razin.dsl.runtime import RULES_DIR
 from razin.exceptions import ConfigError
 from razin.model import FindingCandidate, ParsedSkillDocument

@@ -9,7 +9,7 @@ from razin.constants.data_sensitivity import (
     MEDICAL_KEYWORDS,
     PII_KEYWORDS,
 )
-from razin.dsl.context import EvalContext
+from razin.types.dsl import EvalContext
 from razin.dsl.operations.shared import (
     declared_name,
     keyword_in_text,

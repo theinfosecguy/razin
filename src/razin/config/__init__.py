@@ -1,7 +1,6 @@
 """Configuration loading, validation, and normalization for Razin scans.
 
-This package facade re-exports all public names so that existing
-``from razin.config import ...`` statements continue to work.
+Public API for the config package.
 """
 
 from __future__ import annotations

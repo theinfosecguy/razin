@@ -19,7 +19,7 @@ from razin.constants.dsl_schema import (
     VALID_SOURCES,
     VALID_STRATEGIES,
 )
-from razin.dsl.errors import DslSchemaError
+from razin.exceptions.dsl import DslSchemaError
 
 
 def validate_rule(data: dict[str, Any], source_path: str) -> None:

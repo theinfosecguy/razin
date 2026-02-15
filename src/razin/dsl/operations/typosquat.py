@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from razin.dsl.context import EvalContext
+from razin.types.dsl import EvalContext
 from razin.dsl.operations.shared import (
     declared_name,
     format_template,

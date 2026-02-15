@@ -16,7 +16,7 @@ from razin.constants.docs import (
     TOOL_TOKEN_PATTERN,
 )
 from razin.detectors.common import field_evidence
-from razin.dsl.context import EvalContext
+from razin.types.dsl import EvalContext
 from razin.model import Evidence, FindingCandidate
 
 

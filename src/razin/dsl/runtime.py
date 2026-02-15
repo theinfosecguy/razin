@@ -16,8 +16,8 @@ import yaml
 
 from razin.config import RazinConfig
 from razin.dsl.compiler import CompiledRule, compile_rule
-from razin.dsl.context import EvalContext
-from razin.dsl.errors import DslCompileError, DslRuntimeError, DslSchemaError
+from razin.types.dsl import EvalContext
+from razin.exceptions.dsl import DslCompileError, DslRuntimeError, DslSchemaError
 from razin.dsl.registry import OP_REGISTRY
 from razin.exceptions import ConfigError
 from razin.model import FindingCandidate, ParsedSkillDocument

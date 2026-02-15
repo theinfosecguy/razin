@@ -1,7 +1,6 @@
 """End-to-end scan orchestration for Razin.
 
 The ``scan_workspace`` function remains here as the primary entry point.
-Internal helpers have been extracted to ``razin.scanner.pipeline.*`` submodules.
 """
 
 from __future__ import annotations
@@ -17,7 +16,7 @@ from razin.constants.engines import ENGINE_DSL
 from razin.constants.profiles import VALID_PROFILES
 from razin.constants.reporting import VALID_OUTPUT_FORMATS
 from razin.dsl import DslEngine
-from razin.dsl.errors import DslError
+from razin.exceptions.dsl import DslError
 from razin.exceptions import ConfigError, SkillParseError
 from razin.io import file_sha256
 from razin.model import ScanResult
