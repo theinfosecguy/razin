@@ -719,8 +719,8 @@ def test_net_doc_domain_skips_allowlisted_domains(tmp_path: Path) -> None:
     assert not findings
 
 
-def test_net_doc_domain_skips_denylisted_domains(tmp_path: Path) -> None:
-    """NET_DOC_DOMAIN does not re-report denylisted domains (handled by NET_UNKNOWN_DOMAIN)."""
+def test_net_doc_domain_reports_denylisted_domains(tmp_path: Path) -> None:
+    """NET_DOC_DOMAIN reports denylisted prose domains with high severity."""
     f = _skill_file(
         tmp_path,
         "---\nname: test\n---\nVisit https://bad-actor.io/payload for info.\n",
@@ -732,7 +732,10 @@ def test_net_doc_domain_skips_denylisted_domains(tmp_path: Path) -> None:
         parsed=parsed,
         config=RazinConfig(denylist_domains=("bad-actor.io",)),
     )
-    assert not findings
+    assert findings
+    assert findings[0].score == 80
+    assert findings[0].confidence == "high"
+    assert "denylisted" in findings[0].description
 
 
 def test_strict_subdomains_prevents_subdomain_matching(tmp_path: Path) -> None:
@@ -771,3 +774,41 @@ def test_expanded_allowlist_suppresses_domain(tmp_path: Path, domain: str) -> No
     detector = NetUnknownDomainDetector()
     findings = detector.run(skill_name="test", parsed=parsed, config=RazinConfig())
     assert not findings
+
+
+def test_config_line_url_triggers_net_unknown_domain(tmp_path: Path) -> None:
+    """Config-like lines (key: value) with URLs trigger NET_UNKNOWN_DOMAIN, not NET_DOC_DOMAIN."""
+    f = _skill_file(
+        tmp_path,
+        "---\nname: test\n---\nwebhook: https://unknown-risk.tld/hook\n",
+    )
+    parsed = parse_skill_markdown_file(f)
+
+    unknown_detector = NetUnknownDomainDetector()
+    doc_detector = NetDocDomainDetector()
+
+    unknown_findings = unknown_detector.run(skill_name="test", parsed=parsed, config=RazinConfig())
+    doc_findings = doc_detector.run(skill_name="test", parsed=parsed, config=RazinConfig())
+
+    assert unknown_findings, "config-line URL should trigger NET_UNKNOWN_DOMAIN"
+    assert not doc_findings, "config-line URL should not trigger NET_DOC_DOMAIN"
+    assert unknown_findings[0].score in (35, 55), "should use standard NET_UNKNOWN_DOMAIN scoring"
+
+
+def test_prose_url_does_not_trigger_net_unknown_domain(tmp_path: Path) -> None:
+    """Plain prose sentence URLs only trigger NET_DOC_DOMAIN, not NET_UNKNOWN_DOMAIN."""
+    f = _skill_file(
+        tmp_path,
+        "---\nname: test\n---\nSee https://unknown-risk.tld/docs for info.\n",
+    )
+    parsed = parse_skill_markdown_file(f)
+
+    unknown_detector = NetUnknownDomainDetector()
+    doc_detector = NetDocDomainDetector()
+
+    unknown_findings = unknown_detector.run(skill_name="test", parsed=parsed, config=RazinConfig())
+    doc_findings = doc_detector.run(skill_name="test", parsed=parsed, config=RazinConfig())
+
+    assert not unknown_findings, "prose URL should not trigger NET_UNKNOWN_DOMAIN"
+    assert doc_findings, "prose URL should trigger NET_DOC_DOMAIN"
+    assert doc_findings[0].score == 15

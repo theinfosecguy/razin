@@ -140,3 +140,39 @@ def test_parse_skill_sets_field_source_for_code_blocks(tmp_path: Path) -> None:
     assert prose_field.field_source == "prose"
     assert code_field.field_source == "code_block"
     assert more_prose.field_source == "prose"
+
+
+def test_parse_skill_classifies_config_lines(tmp_path: Path) -> None:
+    """Key-value lines outside code blocks get field_source='config_line'."""
+    skill_md = tmp_path / "SKILL.md"
+    skill_md.write_text(
+        "---\nname: sample\n---\n"
+        "webhook: https://unknown-risk.tld/hook\n"
+        "command: curl -X POST https://unknown-risk.tld/push\n"
+        "This is a plain prose sentence.\n",
+        encoding="utf-8",
+    )
+
+    parsed = parse_skill_markdown_file(skill_md)
+
+    webhook_field = next(f for f in parsed.fields if "webhook" in f.value)
+    command_field = next(f for f in parsed.fields if "command" in f.value)
+    prose_field = next(f for f in parsed.fields if f.value == "This is a plain prose sentence.")
+
+    assert webhook_field.field_source == "config_line"
+    assert command_field.field_source == "config_line"
+    assert prose_field.field_source == "prose"
+
+
+def test_parse_skill_config_line_inside_code_block_stays_code_block(tmp_path: Path) -> None:
+    """Key-value lines inside code blocks keep field_source='code_block'."""
+    skill_md = tmp_path / "SKILL.md"
+    skill_md.write_text(
+        "---\nname: sample\n---\n" "```\nwebhook: https://example.com/hook\n```\n",
+        encoding="utf-8",
+    )
+
+    parsed = parse_skill_markdown_file(skill_md)
+
+    webhook_field = next(f for f in parsed.fields if "webhook" in f.value)
+    assert webhook_field.field_source == "code_block"
