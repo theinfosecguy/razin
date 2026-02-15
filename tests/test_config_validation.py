@@ -200,6 +200,29 @@ def test_typosquat_unknown_subkey_returns_cfg004(tmp_path: Path) -> None:
     assert any(e.code == CFG004 and "typosquat" in e.field for e in errors)
 
 
+def test_tool_tier_unknown_subkey_returns_cfg004(tmp_path: Path) -> None:
+    """Unknown subkey under tool_tier_keywords is flagged."""
+    _write_config(tmp_path, "tool_tier_keywords:\n  destuctive: []\n")
+    errors = validate_config_file(tmp_path)
+    assert any(e.code == CFG004 and "tool_tier_keywords" in e.field for e in errors)
+
+
+def test_tool_tier_invalid_type_returns_cfg009(tmp_path: Path) -> None:
+    """Non-mapping tool_tier_keywords value is flagged."""
+    _write_config(tmp_path, "tool_tier_keywords: invalid\n")
+    errors = validate_config_file(tmp_path)
+    assert any(e.code == CFG009 and "tool_tier_keywords" in e.field for e in errors)
+
+
+def test_tool_tier_valid_config_returns_no_errors(tmp_path: Path) -> None:
+    """Valid tool_tier_keywords produces no errors."""
+    _write_config(
+        tmp_path,
+        "tool_tier_keywords:\n  destructive:\n    - LAUNCH\n  write:\n    - DEPLOY\n",
+    )
+    assert validate_config_file(tmp_path) == []
+
+
 @pytest.mark.parametrize(
     "yaml_content",
     [

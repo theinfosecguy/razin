@@ -59,6 +59,7 @@ ALLOWED_CONFIG_KEYS: frozenset[str] = frozenset(
         "tool_prefixes",
         "detectors",
         "typosquat",
+        "tool_tier_keywords",
         "skill_globs",
         "max_file_mb",
     }
@@ -66,6 +67,7 @@ ALLOWED_CONFIG_KEYS: frozenset[str] = frozenset(
 
 ALLOWED_DETECTOR_KEYS: frozenset[str] = frozenset({"enabled", "disabled"})
 ALLOWED_TYPOSQUAT_KEYS: frozenset[str] = frozenset({"baseline"})
+ALLOWED_TOOL_TIER_KEYS: frozenset[str] = frozenset({"destructive", "write"})
 
 LIST_OF_STRINGS_KEYS: tuple[str, ...] = (
     "allowlist_domains",

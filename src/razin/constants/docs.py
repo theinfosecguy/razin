@@ -54,6 +54,32 @@ AUTH_WEAK_HINTS: tuple[str, ...] = (
 # Combined for backward compat where needed.
 AUTH_CONNECTION_HINTS: tuple[str, ...] = AUTH_STRONG_HINTS + AUTH_WEAK_HINTS
 
+TOOL_TIER_DESTRUCTIVE_KEYWORDS: tuple[str, ...] = (
+    "DELETE",
+    "REMOVE",
+    "DROP",
+    "DESTROY",
+    "MERGE",
+    "FORCE",
+    "PURGE",
+)
+
+TOOL_TIER_WRITE_KEYWORDS: tuple[str, ...] = (
+    "CREATE",
+    "UPDATE",
+    "SEND",
+    "MODIFY",
+    "PATCH",
+    "DISPATCH",
+    "TRIGGER",
+)
+
+TOOL_TIER_DESTRUCTIVE_BONUS: int = 15
+TOOL_TIER_WRITE_BONUS: int = 8
+
+TOOL_CONSOLIDATION_MAX_SCORE: int = 50
+TOOL_CONSOLIDATION_TOP_N: int = 5
+
 DEFAULT_TOOL_PREFIXES: tuple[str, ...] = ("RUBE_", "MCP_")
 DEFAULT_SERVICE_TOOL_PREFIXES: tuple[str, ...] = (
     "AIRTABLE",

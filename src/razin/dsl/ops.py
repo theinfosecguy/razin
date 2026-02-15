@@ -27,6 +27,10 @@ from razin.constants.docs import (
     DEFAULT_SERVICE_TOOL_PREFIXES,
     SERVICE_TOOL_MIN_TOTAL_LENGTH,
     SERVICE_TOOL_TOKEN_PATTERN,
+    TOOL_CONSOLIDATION_MAX_SCORE,
+    TOOL_CONSOLIDATION_TOP_N,
+    TOOL_TIER_DESTRUCTIVE_BONUS,
+    TOOL_TIER_WRITE_BONUS,
     TOOL_TOKEN_PATTERN,
 )
 from razin.constants.parsing import SNIPPET_MAX_LENGTH
@@ -414,7 +418,7 @@ def run_token_scan(
     base_score: int,
     do_dedupe: bool,
 ) -> list[FindingCandidate]:
-    """Find uppercase tool tokens via prefixes and optional service patterns."""
+    """Find uppercase tool tokens via prefixes and emit one consolidated finding."""
     prefix_source: str = match_config.get("prefix_source", "config.tool_prefixes")
     token_pattern_str: str | None = match_config.get("token_pattern")
     token_re = re.compile(token_pattern_str) if token_pattern_str else TOOL_TOKEN_PATTERN
@@ -433,9 +437,9 @@ def run_token_scan(
         return []
 
     service_prefixes = _service_prefixes(match_config)
-    desc_tpl = metadata.get("description_template", metadata.get("description", ""))
+
     seen_tokens: set[str] = set()
-    findings: list[FindingCandidate] = []
+    first_evidence: Evidence | None = None
     for field in ctx.parsed.fields:
         for token in token_re.findall(field.value):
             if token in seen_tokens:
@@ -451,20 +455,66 @@ def run_token_scan(
             if not matches_prefix and not matches_service:
                 continue
             seen_tokens.add(token)
-            description = _format_template(desc_tpl, token=token)
-            findings.append(
-                FindingCandidate(
-                    rule_id="",
-                    score=base_score,
-                    confidence=metadata["confidence"],
-                    title=metadata["title"],
-                    description=description,
-                    evidence=field_evidence(ctx.parsed, field),
-                    recommendation=metadata["recommendation"],
-                )
-            )
+            if first_evidence is None:
+                first_evidence = field_evidence(ctx.parsed, field)
 
-    return dedupe_candidates(findings) if do_dedupe else findings
+    if not seen_tokens:
+        return []
+
+    destructive_kw = ctx.config.tool_tier_keywords.destructive
+    write_kw = ctx.config.tool_tier_keywords.write
+
+    destructive_tokens: list[str] = []
+    write_tokens: list[str] = []
+    read_tokens: list[str] = []
+    for token in sorted(seen_tokens):
+        tier = _classify_token_tier(token, destructive_kw, write_kw)
+        if tier == "destructive":
+            destructive_tokens.append(token)
+        elif tier == "write":
+            write_tokens.append(token)
+        else:
+            read_tokens.append(token)
+
+    score = _compute_consolidated_score(
+        base_score=base_score,
+        total=len(seen_tokens),
+        destructive_count=len(destructive_tokens),
+        write_count=len(write_tokens),
+    )
+
+    description = _build_consolidated_description(
+        total=len(seen_tokens),
+        destructive_tokens=destructive_tokens,
+        write_tokens=write_tokens,
+        read_tokens=read_tokens,
+    )
+
+    top_n = TOOL_CONSOLIDATION_TOP_N
+    sorted_tokens = sorted(seen_tokens)
+    snippet_tokens = sorted_tokens[:top_n]
+    snippet = ", ".join(snippet_tokens)
+    if len(sorted_tokens) > top_n:
+        snippet += f" (+{len(sorted_tokens) - top_n} more)"
+
+    assert first_evidence is not None
+    evidence = Evidence(
+        path=first_evidence.path,
+        line=first_evidence.line,
+        snippet=snippet,
+    )
+
+    return [
+        FindingCandidate(
+            rule_id="",
+            score=score,
+            confidence=metadata["confidence"],
+            title=metadata["title"],
+            description=description,
+            evidence=evidence,
+            recommendation=metadata["recommendation"],
+        )
+    ]
 
 
 def run_frontmatter_check(
@@ -605,6 +655,57 @@ def run_bundled_scripts_check(
             recommendation=metadata["recommendation"],
         )
     ]
+
+
+def _classify_token_tier(
+    token: str,
+    destructive_keywords: tuple[str, ...],
+    write_keywords: tuple[str, ...],
+) -> str:
+    """Classify a tool token into destructive, write, or read tier."""
+    segments = token.split("_")
+    for segment in segments:
+        if segment in destructive_keywords:
+            return "destructive"
+    for segment in segments:
+        if segment in write_keywords:
+            return "write"
+    return "read"
+
+
+def _compute_consolidated_score(
+    *,
+    base_score: int,
+    total: int,
+    destructive_count: int,
+    write_count: int,
+) -> int:
+    """Compute a consolidated score that scales with token count and tiers."""
+    score = base_score + min(total, 10) * 2
+    score += destructive_count * TOOL_TIER_DESTRUCTIVE_BONUS
+    score += write_count * TOOL_TIER_WRITE_BONUS
+    return min(score, TOOL_CONSOLIDATION_MAX_SCORE)
+
+
+def _build_consolidated_description(
+    *,
+    total: int,
+    destructive_tokens: list[str],
+    write_tokens: list[str],
+    read_tokens: list[str],
+) -> str:
+    """Build a human-readable description with tier breakdown."""
+    parts: list[str] = [f"Skill references {total} tool invocation token{'s' if total != 1 else ''}."]
+    tier_parts: list[str] = []
+    if destructive_tokens:
+        tier_parts.append(f"{len(destructive_tokens)} destructive")
+    if write_tokens:
+        tier_parts.append(f"{len(write_tokens)} write")
+    if read_tokens:
+        tier_parts.append(f"{len(read_tokens)} read")
+    if tier_parts:
+        parts.append(f"Tiers: {', '.join(tier_parts)}.")
+    return " ".join(parts)
 
 
 OP_REGISTRY: dict[str, Any] = {

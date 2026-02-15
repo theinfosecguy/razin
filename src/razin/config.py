@@ -18,6 +18,10 @@ from razin.constants.config import (
     DEFAULT_SKILL_GLOBS,
     DEFAULT_TOOL_PREFIXES_CONFIG,
 )
+from razin.constants.docs import (
+    TOOL_TIER_DESTRUCTIVE_KEYWORDS,
+    TOOL_TIER_WRITE_KEYWORDS,
+)
 from razin.constants.domains import DEFAULT_ALLOWLISTED_DOMAINS
 from razin.constants.profiles import (
     DEFAULT_PROFILE,
@@ -31,6 +35,7 @@ from razin.constants.profiles import (
 from razin.constants.validation import (
     ALLOWED_CONFIG_KEYS,
     ALLOWED_DETECTOR_KEYS,
+    ALLOWED_TOOL_TIER_KEYS,
     ALLOWED_TYPOSQUAT_KEYS,
     CFG001,
     CFG002,
@@ -45,6 +50,14 @@ from razin.constants.validation import (
 )
 from razin.exceptions import ConfigError
 from razin.exceptions.validation import ValidationError
+
+
+@dataclass(frozen=True)
+class ToolTierConfig:
+    """Keyword tiers for tool token risk classification."""
+
+    destructive: tuple[str, ...] = TOOL_TIER_DESTRUCTIVE_KEYWORDS
+    write: tuple[str, ...] = TOOL_TIER_WRITE_KEYWORDS
 
 
 @dataclass(frozen=True)
@@ -67,6 +80,7 @@ class RazinConfig:
     mcp_denylist_domains: tuple[str, ...] = ()
     tool_prefixes: tuple[str, ...] = DEFAULT_TOOL_PREFIXES_CONFIG
     detectors: DetectorConfig = DetectorConfig()
+    tool_tier_keywords: ToolTierConfig = ToolTierConfig()
     typosquat_baseline: tuple[str, ...] = ()
     skill_globs: tuple[str, ...] = DEFAULT_SKILL_GLOBS
     max_file_mb: int = DEFAULT_MAX_FILE_MB
@@ -130,6 +144,31 @@ def load_config(root: Path, config_path: Path | None = None) -> RazinConfig:
     if not isinstance(typosquat_raw, dict):
         raise ConfigError("typosquat must be a mapping")
 
+    tool_tier_raw = raw.get("tool_tier_keywords", {})
+    if tool_tier_raw is None:
+        tool_tier_raw = {}
+    if not isinstance(tool_tier_raw, dict):
+        raise ConfigError("tool_tier_keywords must be a mapping")
+
+    tool_tier = ToolTierConfig(
+        destructive=tuple(
+            kw.upper()
+            for kw in _ensure_string_list(
+                tool_tier_raw.get("destructive", list(TOOL_TIER_DESTRUCTIVE_KEYWORDS)),
+                "tool_tier_keywords.destructive",
+            )
+            if kw.strip()
+        ),
+        write=tuple(
+            kw.upper()
+            for kw in _ensure_string_list(
+                tool_tier_raw.get("write", list(TOOL_TIER_WRITE_KEYWORDS)),
+                "tool_tier_keywords.write",
+            )
+            if kw.strip()
+        ),
+    )
+
     max_file_mb = raw.get("max_file_mb", DEFAULT_MAX_FILE_MB)
     if isinstance(max_file_mb, bool) or not isinstance(max_file_mb, int) or max_file_mb <= 0:
         raise ConfigError("max_file_mb must be a positive integer")
@@ -168,6 +207,7 @@ def load_config(root: Path, config_path: Path | None = None) -> RazinConfig:
             disabled=tuple(_ensure_string_list(detectors_raw.get("disabled", []), "detectors.disabled")),
         ),
         typosquat_baseline=tuple(_ensure_string_list(typosquat_raw.get("baseline", []), "typosquat.baseline")),
+        tool_tier_keywords=tool_tier,
         skill_globs=tuple(_ensure_string_list(raw.get("skill_globs", DEFAULT_SKILL_GLOBS), "skill_globs")),
         max_file_mb=max_file_mb,
     )
@@ -196,6 +236,8 @@ def config_fingerprint(config: RazinConfig, max_file_mb_override: int | None = N
         "detectors_disabled": list(config.detectors.disabled),
         "effective_detectors": list(effective_detector_ids(config)),
         "typosquat_baseline": list(config.typosquat_baseline),
+        "tool_tier_destructive": list(config.tool_tier_keywords.destructive),
+        "tool_tier_write": list(config.tool_tier_keywords.write),
         "skill_globs": list(config.skill_globs),
         "max_file_mb": (max_file_mb_override if max_file_mb_override is not None else config.max_file_mb),
     }
@@ -355,6 +397,7 @@ def validate_config_file(
 
     _validate_detectors_block(raw, path_str, errors)
     _validate_typosquat_block(raw, path_str, errors)
+    _validate_tool_tier_block(raw, path_str, errors)
 
     return errors
 
@@ -472,6 +515,55 @@ def _validate_typosquat_block(
                     hint="expected a list of strings",
                 )
             )
+
+
+def _validate_tool_tier_block(
+    raw: dict[str, Any],
+    path_str: str,
+    errors: list[ValidationError],
+) -> None:
+    """Validate the ``tool_tier_keywords`` nested mapping in razin.yaml."""
+    if "tool_tier_keywords" not in raw:
+        return
+    tier = raw["tool_tier_keywords"]
+    if tier is None:
+        return
+    if not isinstance(tier, dict):
+        errors.append(
+            ValidationError(
+                code=CFG009,
+                path=path_str,
+                field="tool_tier_keywords",
+                message="`tool_tier_keywords` must be a mapping",
+            )
+        )
+        return
+
+    for key in sorted(tier.keys()):
+        if key not in ALLOWED_TOOL_TIER_KEYS:
+            errors.append(
+                ValidationError(
+                    code=CFG004,
+                    path=path_str,
+                    field=f"tool_tier_keywords.{key}",
+                    message=f"unknown key `{key}` in `tool_tier_keywords`",
+                    hint=_suggest_key(key, ALLOWED_TOOL_TIER_KEYS),
+                )
+            )
+
+    for sub_key in ("destructive", "write"):
+        if sub_key in tier:
+            val = tier[sub_key]
+            if val is not None and (not isinstance(val, (list, tuple)) or not all(isinstance(i, str) for i in val)):
+                errors.append(
+                    ValidationError(
+                        code=CFG005,
+                        path=path_str,
+                        field=f"tool_tier_keywords.{sub_key}",
+                        message=f"invalid type for `tool_tier_keywords.{sub_key}`",
+                        hint="expected a list of strings",
+                    )
+                )
 
 
 def _suggest_key(unknown: str, allowed: frozenset[str]) -> str:

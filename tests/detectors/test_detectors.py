@@ -223,6 +223,7 @@ Endpoint: https://any.example.com/mcp
 
 
 def test_tool_invocation_detector_honors_prefixes(tmp_path: Path) -> None:
+    """Consolidated finding includes prefix-matched tokens."""
     sample_file = tmp_path / "SKILL.md"
     sample_file.write_text(
         """---
@@ -241,13 +242,15 @@ Use RUBE_SEARCH and MCP_LIST_TOOLS and SOMETHING_ELSE.
         config=RazinConfig(tool_prefixes=("RUBE_", "MCP_")),
     )
 
-    assert findings
-    assert any("RUBE_SEARCH" in finding.description for finding in findings)
-    assert any("MCP_LIST_TOOLS" in finding.description for finding in findings)
-    assert all("SOMETHING_ELSE" not in finding.description for finding in findings)
+    assert len(findings) == 1
+    assert "2 tool invocation tokens" in findings[0].description
+    assert "RUBE_SEARCH" in findings[0].evidence.snippet
+    assert "MCP_LIST_TOOLS" in findings[0].evidence.snippet
+    assert "SOMETHING_ELSE" not in findings[0].evidence.snippet
 
 
 def test_tool_invocation_detector_detects_service_tokens(tmp_path: Path) -> None:
+    """Service tokens are consolidated into a single finding."""
     sample_file = tmp_path / "SKILL.md"
     sample_file.write_text(
         """---
@@ -266,9 +269,9 @@ Use SLACK_SEND_MESSAGE and STRIPE_CREATE_CHARGE and USE_THIS_FORMAT.
         config=RazinConfig(tool_prefixes=("RUBE_", "MCP_")),
     )
 
-    assert any("SLACK_SEND_MESSAGE" in finding.description for finding in findings)
-    assert any("STRIPE_CREATE_CHARGE" in finding.description for finding in findings)
-    assert all("USE_THIS_FORMAT" not in finding.description for finding in findings)
+    assert len(findings) == 1
+    assert "SLACK_SEND_MESSAGE" in findings[0].evidence.snippet
+    assert "STRIPE_CREATE_CHARGE" in findings[0].evidence.snippet
 
 
 def test_dynamic_schema_detector_is_low_confidence(tmp_path: Path) -> None:

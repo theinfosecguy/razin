@@ -128,6 +128,15 @@ def test_profile_changes_fingerprint() -> None:
     assert config_fingerprint(strict) != config_fingerprint(balanced)
 
 
+def test_tool_tier_keywords_change_fingerprint() -> None:
+    """Changing tool tier keywords invalidates the config fingerprint."""
+    from razin.config import ToolTierConfig
+
+    default = RazinConfig()
+    custom = RazinConfig(tool_tier_keywords=ToolTierConfig(destructive=("NUKE",), write=("DEPLOY",)))
+    assert config_fingerprint(default) != config_fingerprint(custom)
+
+
 def test_profile_aggregate_min_rule_score() -> None:
     strict = RazinConfig(profile="strict")
     balanced = RazinConfig(profile="balanced")
@@ -174,3 +183,50 @@ def test_load_config_can_ignore_default_allowlist(tmp_path: Path) -> None:
 
     assert loaded.ignore_default_allowlist is True
     assert loaded.effective_allowlist_domains == ("internal.example.com",)
+
+
+def test_load_config_defaults_tool_tier_keywords(tmp_path: Path) -> None:
+    """Default tool tier keywords are set when no config is provided."""
+    loaded = load_config(tmp_path)
+
+    assert "DELETE" in loaded.tool_tier_keywords.destructive
+    assert "REMOVE" in loaded.tool_tier_keywords.destructive
+    assert "CREATE" in loaded.tool_tier_keywords.write
+    assert "SEND" in loaded.tool_tier_keywords.write
+
+
+def test_load_config_reads_custom_tool_tier_keywords(tmp_path: Path) -> None:
+    """Custom tool tier keywords from razin.yaml override defaults."""
+    config_path = tmp_path / "razin.yaml"
+    config_path.write_text(
+        "tool_tier_keywords:\n" "  destructive:\n" "    - LAUNCH\n" "    - NUKE\n" "  write:\n" "    - DEPLOY\n",
+        encoding="utf-8",
+    )
+
+    loaded = load_config(tmp_path, config_path)
+
+    assert loaded.tool_tier_keywords.destructive == ("LAUNCH", "NUKE")
+    assert loaded.tool_tier_keywords.write == ("DEPLOY",)
+
+
+def test_load_config_tool_tier_keywords_partial_override(tmp_path: Path) -> None:
+    """Providing only destructive keywords keeps write defaults."""
+    config_path = tmp_path / "razin.yaml"
+    config_path.write_text(
+        "tool_tier_keywords:\n" "  destructive:\n" "    - OBLITERATE\n",
+        encoding="utf-8",
+    )
+
+    loaded = load_config(tmp_path, config_path)
+
+    assert loaded.tool_tier_keywords.destructive == ("OBLITERATE",)
+    assert "CREATE" in loaded.tool_tier_keywords.write
+
+
+def test_load_config_rejects_invalid_tool_tier_keywords(tmp_path: Path) -> None:
+    """Invalid tool_tier_keywords type raises ConfigError."""
+    config_path = tmp_path / "razin.yaml"
+    config_path.write_text("tool_tier_keywords: invalid\n", encoding="utf-8")
+
+    with pytest.raises(ConfigError, match="tool_tier_keywords must be a mapping"):
+        load_config(tmp_path, config_path)
