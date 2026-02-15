@@ -1,7 +1,8 @@
-"""Compatibility facade for DSL operations.
+"""DSL operations subpackage.
 
-All operation implementations have been moved to ``razin.dsl.operations``.
-This module re-exports them for backward compatibility.
+Contains the individual operation implementations, split by domain.
+All ``run_*`` functions are re-exported from this package for
+backward compatibility.
 """
 
 from __future__ import annotations
