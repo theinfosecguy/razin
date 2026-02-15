@@ -230,3 +230,33 @@ def test_load_config_rejects_invalid_tool_tier_keywords(tmp_path: Path) -> None:
 
     with pytest.raises(ConfigError, match="tool_tier_keywords must be a mapping"):
         load_config(tmp_path, config_path)
+
+
+def test_load_config_defaults_strict_subdomains_false(tmp_path: Path) -> None:
+    """strict_subdomains defaults to False when not specified."""
+    loaded = load_config(tmp_path)
+    assert loaded.strict_subdomains is False
+
+
+def test_load_config_reads_strict_subdomains(tmp_path: Path) -> None:
+    """strict_subdomains is read from config file."""
+    config_path = tmp_path / "razin.yaml"
+    config_path.write_text("strict_subdomains: true\n", encoding="utf-8")
+    loaded = load_config(tmp_path, config_path)
+    assert loaded.strict_subdomains is True
+
+
+def test_load_config_rejects_non_bool_strict_subdomains(tmp_path: Path) -> None:
+    """Non-boolean strict_subdomains raises ConfigError."""
+    config_path = tmp_path / "razin.yaml"
+    config_path.write_text("strict_subdomains: maybe\n", encoding="utf-8")
+
+    with pytest.raises(ConfigError, match="strict_subdomains"):
+        load_config(tmp_path, config_path)
+
+
+def test_strict_subdomains_changes_fingerprint() -> None:
+    """Changing strict_subdomains invalidates the config fingerprint."""
+    default = RazinConfig()
+    strict = RazinConfig(strict_subdomains=True)
+    assert config_fingerprint(default) != config_fingerprint(strict)

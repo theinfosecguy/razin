@@ -23,6 +23,7 @@ detectors:
     - DYNAMIC_SCHEMA
     - AUTH_CONNECTION
     - EXTERNAL_URLS
+    - NET_DOC_DOMAIN
 typosquat:
   baseline:
     - openai-helper

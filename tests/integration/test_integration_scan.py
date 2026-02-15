@@ -86,7 +86,7 @@ def test_scan_applies_mcp_allowlist_cli_override(tmp_path: Path, basic_repo_root
     scan_workspace(
         root=basic_repo_root,
         out=out_root,
-        mcp_allowlist=("evil.example.net",),
+        mcp_allowlist=("evil.attacker.io",),
     )
 
     findings_payload = json.loads((out_root / risky_skill_name / "findings.json").read_text(encoding="utf-8"))
