@@ -12,6 +12,7 @@ DEFAULT_SKILL_GLOBS: tuple[str, ...] = ("**/SKILL.md",)
 DEFAULT_DETECTORS: tuple[str, ...] = (
     "NET_RAW_IP",
     "NET_UNKNOWN_DOMAIN",
+    "NET_DOC_DOMAIN",
     "SECRET_REF",
     "EXEC_FIELDS",
     "OPAQUE_BLOB",

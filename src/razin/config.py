@@ -75,6 +75,7 @@ class RazinConfig:
     profile: ProfileName = DEFAULT_PROFILE
     allowlist_domains: tuple[str, ...] = ()
     ignore_default_allowlist: bool = False
+    strict_subdomains: bool = False
     denylist_domains: tuple[str, ...] = ()
     mcp_allowlist_domains: tuple[str, ...] = ()
     mcp_denylist_domains: tuple[str, ...] = ()
@@ -181,12 +182,17 @@ def load_config(root: Path, config_path: Path | None = None) -> RazinConfig:
     if not isinstance(ignore_default_allowlist, bool):
         raise ConfigError("ignore_default_allowlist must be a boolean")
 
+    strict_subdomains = raw.get("strict_subdomains", False)
+    if not isinstance(strict_subdomains, bool):
+        raise ConfigError("strict_subdomains must be a boolean")
+
     return RazinConfig(
         profile=profile_raw,  # type: ignore[arg-type]
         allowlist_domains=_normalize_domains(
             _ensure_string_list(raw.get("allowlist_domains", []), "allowlist_domains")
         ),
         ignore_default_allowlist=ignore_default_allowlist,
+        strict_subdomains=strict_subdomains,
         denylist_domains=_normalize_domains(_ensure_string_list(raw.get("denylist_domains", []), "denylist_domains")),
         mcp_allowlist_domains=_normalize_domains(
             _ensure_string_list(raw.get("mcp_allowlist_domains", []), "mcp_allowlist_domains")
@@ -228,6 +234,7 @@ def config_fingerprint(config: RazinConfig, max_file_mb_override: int | None = N
         "allowlist_domains": list(config.allowlist_domains),
         "effective_allowlist_domains": list(config.effective_allowlist_domains),
         "ignore_default_allowlist": config.ignore_default_allowlist,
+        "strict_subdomains": config.strict_subdomains,
         "denylist_domains": list(config.denylist_domains),
         "mcp_allowlist_domains": list(config.mcp_allowlist_domains),
         "mcp_denylist_domains": list(config.mcp_denylist_domains),
@@ -377,6 +384,19 @@ def validate_config_file(
                     path=path_str,
                     field="ignore_default_allowlist",
                     message="invalid type for `ignore_default_allowlist`",
+                    hint="expected a boolean",
+                )
+            )
+
+    if "strict_subdomains" in raw:
+        val = raw["strict_subdomains"]
+        if not isinstance(val, bool):
+            errors.append(
+                ValidationError(
+                    code=CFG005,
+                    path=path_str,
+                    field="strict_subdomains",
+                    message="invalid type for `strict_subdomains`",
                     hint="expected a boolean",
                 )
             )

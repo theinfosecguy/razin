@@ -31,10 +31,17 @@ def extract_domain(url: str) -> str | None:
     return host.lower().strip()
 
 
-def is_allowlisted(domain: str, allowlist: tuple[str, ...]) -> bool:
-    """Return True when a domain or subdomain is allowlisted."""
+def is_allowlisted(domain: str, allowlist: tuple[str, ...], *, strict: bool = False) -> bool:
+    """Return True when a domain is allowlisted.
+
+    When *strict* is False (default), subdomains of allowlisted domains also
+    match (e.g. ``docs.composio.dev`` matches ``composio.dev``).  When *strict*
+    is True, only exact domain matches are considered.
+    """
     if not allowlist:
         return False
+    if strict:
+        return domain in allowlist
     return any(domain == allowed or domain.endswith(f".{allowed}") for allowed in allowlist)
 
 
