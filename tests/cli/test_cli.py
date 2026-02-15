@@ -333,3 +333,31 @@ def test_main_passes_rule_source_arguments(mock_scan: MagicMock, _mock_validate:
     call_kwargs = mock_scan.call_args[1]
     assert call_kwargs["rules_dir"] is None
     assert call_kwargs["rule_files"] == (Path("a.yaml"), Path("b.yaml"))
+
+
+def test_build_parser_group_by_skill(tmp_path: Path) -> None:
+    """--group-by skill parses correctly."""
+    parser = build_parser()
+    args = parser.parse_args(["scan", "--root", str(tmp_path), "--group-by", "skill"])
+    assert args.group_by == "skill"
+
+
+def test_build_parser_group_by_rule(tmp_path: Path) -> None:
+    """--group-by rule parses correctly."""
+    parser = build_parser()
+    args = parser.parse_args(["scan", "--root", str(tmp_path), "--group-by", "rule"])
+    assert args.group_by == "rule"
+
+
+def test_build_parser_group_by_default_none(tmp_path: Path) -> None:
+    """No --group-by flag defaults to None."""
+    parser = build_parser()
+    args = parser.parse_args(["scan", "--root", str(tmp_path)])
+    assert args.group_by is None
+
+
+def test_build_parser_group_by_rejects_invalid(tmp_path: Path) -> None:
+    """--group-by severity is rejected by argparse."""
+    parser = build_parser()
+    with pytest.raises(SystemExit):
+        parser.parse_args(["scan", "--root", str(tmp_path), "--group-by", "severity"])
