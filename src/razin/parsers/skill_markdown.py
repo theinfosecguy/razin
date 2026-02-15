@@ -22,7 +22,8 @@ from razin.model import DocumentField, DocumentKey, ParsedSkillDocument
 def parse_skill_markdown_file(path: Path) -> ParsedSkillDocument:
     """Parse a SKILL.md file and extract frontmatter plus line metadata."""
     raw_text = path.read_text(encoding="utf-8")
-    lines = raw_text.splitlines()
+    normalized = raw_text.lstrip("\ufeff")
+    lines = normalized.splitlines()
 
     frontmatter: dict[str, Any] | None = None
     body_lines = lines

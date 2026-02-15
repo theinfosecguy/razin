@@ -23,6 +23,7 @@ VALID_STRATEGIES: frozenset[str] = frozenset(
         "frontmatter_check",
         "typosquat_check",
         "bundled_scripts_check",
+        "hidden_instruction_scan",
     }
 )
 
