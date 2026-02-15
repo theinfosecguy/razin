@@ -1,17 +1,7 @@
-"""Immutable evaluation context passed through DSL rule execution."""
+"""Re-export shim — canonical definition lives in razin.types.dsl."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from razin.types.dsl import EvalContext
 
-from razin.config import RazinConfig
-from razin.model import ParsedSkillDocument
-
-
-@dataclass(frozen=True)
-class EvalContext:
-    """Immutable context for a single rule evaluation against one skill."""
-
-    skill_name: str
-    parsed: ParsedSkillDocument
-    config: RazinConfig
+__all__ = ["EvalContext"]

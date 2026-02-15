@@ -150,3 +150,49 @@ RESERVED_EXAMPLE_DOMAINS: frozenset[str] = frozenset(
         "www.example.org",
     }
 )
+
+RULE_ID_PATTERN: re.Pattern[str] = re.compile(r"^[A-Z][A-Z0-9_]+$")
+
+TRAILING_PUNCT_RE: re.Pattern[str] = re.compile(r"[)`*.,;:!?\]]+$")
+
+PROSE_MIN_WORDS: int = 3
+
+# Patterns that look like env-var references but are API operators or
+# non-secret variable names (e.g., MongoDB $set, Amplitude $add).
+NON_SECRET_ENV_OPERATORS: frozenset[str] = frozenset(
+    {
+        "$add",
+        "$set",
+        "$setonce",
+        "$append",
+        "$prepend",
+        "$remove",
+        "$unset",
+        "$union",
+        "$delete",
+        "$inc",
+        "$push",
+        "$pull",
+        "$pop",
+        "$rename",
+        "$min",
+        "$max",
+        "$mul",
+        "$bit",
+    }
+)
+
+# Secret-like keywords that, when found in an env-var name, confirm it as
+# a genuine secret reference.
+SECRET_ENV_KEYWORDS: tuple[str, ...] = (
+    "key",
+    "token",
+    "secret",
+    "password",
+    "credential",
+    "auth",
+    "private",
+    "passwd",
+    "api_key",
+    "apikey",
+)

@@ -3,39 +3,32 @@
 from __future__ import annotations
 
 from razin.constants.branding import ASCII_LOGO_LINES, SCAN_SUMMARY_TITLE
+from razin.constants.reporting import (
+    ANSI_GREEN,
+    ANSI_RED,
+    ANSI_RESET,
+    ANSI_YELLOW,
+    SEVERITY_COLORS,
+)
 from razin.model import ScanResult
 from razin.types import Severity
 
-# ANSI color codes
-_RESET: str = "\033[0m"
-_BOLD: str = "\033[1m"
-_RED: str = "\033[31;1m"
-_YELLOW: str = "\033[33;1m"
-_GREEN: str = "\033[32;1m"
-_DIM: str = "\033[2m"
-
-_SEVERITY_COLORS: dict[Severity, str] = {
-    "high": _RED,
-    "medium": _YELLOW,
-    "low": _GREEN,
-}
-
 
 def _colorize(text: str, color: str) -> str:
-    return f"{color}{text}{_RESET}"
+    return f"{color}{text}{ANSI_RESET}"
 
 
 def _color_severity(severity: Severity) -> str:
-    color = _SEVERITY_COLORS.get(severity, "")
+    color = SEVERITY_COLORS.get(severity, "")
     return _colorize(severity, color) if color else severity
 
 
 def _color_score(score: int) -> str:
     if score >= 70:
-        return _colorize(str(score), _RED)
+        return _colorize(str(score), ANSI_RED)
     if score >= 40:
-        return _colorize(str(score), _YELLOW)
-    return _colorize(str(score), _GREEN)
+        return _colorize(str(score), ANSI_YELLOW)
+    return _colorize(str(score), ANSI_GREEN)
 
 
 class StdoutReporter:

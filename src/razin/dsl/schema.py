@@ -8,33 +8,18 @@ from __future__ import annotations
 
 from typing import Any
 
-from razin.dsl.errors import DslSchemaError
-
-VALID_STRATEGIES: frozenset[str] = frozenset(
-    {
-        "url_domain_filter",
-        "ip_address_scan",
-        "key_pattern_match",
-        "field_pattern_match",
-        "entropy_check",
-        "hint_count",
-        "keyword_in_text",
-        "token_scan",
-        "frontmatter_check",
-        "typosquat_check",
-        "bundled_scripts_check",
-        "hidden_instruction_scan",
-    }
+from razin.constants.dsl_schema import (
+    ALLOWED_METADATA_KEYS,
+    ALLOWED_PROFILE_KEYS,
+    ALLOWED_TOP_KEYS,
+    REQUIRED_METADATA_KEYS,
+    REQUIRED_TOP_KEYS,
+    VALID_CONFIDENCES,
+    VALID_PROFILE_NAMES,
+    VALID_SOURCES,
+    VALID_STRATEGIES,
 )
-
-VALID_CONFIDENCES: frozenset[str] = frozenset({"low", "medium", "high"})
-VALID_SOURCES: frozenset[str] = frozenset({"fields", "keys", "raw_text", "frontmatter", "file_system"})
-
-REQUIRED_TOP_KEYS: frozenset[str] = frozenset({"rule_id", "version", "metadata", "scoring", "match"})
-ALLOWED_TOP_KEYS: frozenset[str] = REQUIRED_TOP_KEYS | {"dedupe", "profiles", "public_rule_id"}
-
-REQUIRED_METADATA_KEYS: frozenset[str] = frozenset({"title", "recommendation", "confidence"})
-ALLOWED_METADATA_KEYS: frozenset[str] = REQUIRED_METADATA_KEYS | {"description", "description_template"}
+from razin.dsl.errors import DslSchemaError
 
 
 def validate_rule(data: dict[str, Any], source_path: str) -> None:
@@ -119,10 +104,6 @@ def _validate_match(match: Any, path: str) -> None:
         raise DslSchemaError(
             f"{path}: match.strategy must be one of {sorted(VALID_STRATEGIES)}, got {match['strategy']!r}"
         )
-
-
-VALID_PROFILE_NAMES: frozenset[str] = frozenset({"strict", "balanced", "audit"})
-ALLOWED_PROFILE_KEYS: frozenset[str] = frozenset({"score_override"})
 
 
 def _validate_profiles(profiles: Any, path: str) -> None:

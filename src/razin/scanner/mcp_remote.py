@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import ipaddress
 import json
-from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -22,20 +21,7 @@ from razin.constants.mcp import (
 )
 from razin.detectors.common import is_denylisted
 from razin.model import Evidence, FindingCandidate, ParsedSkillDocument
-
-
-@dataclass(frozen=True)
-class McpRemoteEndpoint:
-    """Resolved MCP server remote endpoint information."""
-
-    server_name: str
-    endpoint_url: str
-    endpoint_key: str
-    host: str
-    scheme: str
-    is_ip: bool
-    is_public_ip: bool
-    evidence: Evidence
+from razin.types.scanner import McpRemoteEndpoint
 
 
 def collect_mcp_remote_candidates(

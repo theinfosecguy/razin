@@ -8,39 +8,15 @@ from __future__ import annotations
 
 from typing import Any
 
+from razin.constants.yaml_schema import (
+    ALLOWED_TOP_KEYS,
+    REQUIRED_METADATA_KEYS,
+    REQUIRED_TOP_KEYS,
+    VALID_CONFIDENCES,
+    VALID_SOURCES,
+    VALID_STRATEGIES,
+)
 from razin.exceptions import ConfigError
-
-VALID_STRATEGIES: frozenset[str] = frozenset(
-    {
-        "url_domain_filter",
-        "hint_count",
-        "entropy_check",
-    }
-)
-
-VALID_CONFIDENCES: frozenset[str] = frozenset({"low", "medium", "high"})
-
-VALID_SOURCES: frozenset[str] = frozenset({"fields", "raw_text"})
-
-REQUIRED_TOP_KEYS: frozenset[str] = frozenset(
-    {
-        "rule_id",
-        "version",
-        "metadata",
-        "scoring",
-        "match",
-    }
-)
-
-REQUIRED_METADATA_KEYS: frozenset[str] = frozenset(
-    {
-        "title",
-        "recommendation",
-        "confidence",
-    }
-)
-
-ALLOWED_TOP_KEYS: frozenset[str] = REQUIRED_TOP_KEYS | {"dedupe"}
 
 
 def validate_yaml_rule(data: dict[str, Any], source_path: str) -> None:

@@ -23,11 +23,14 @@ from razin.constants.detectors import (
     NET_RAW_IP_PUBLIC_SCORE,
     NET_UNKNOWN_DOMAIN_ALLOWLIST_SCORE,
     NET_UNKNOWN_DOMAIN_OPEN_SCORE,
+    NON_SECRET_ENV_OPERATORS,
     OPAQUE_BLOB_SCORE,
     OPAQUE_MIN_ENTROPY,
     OPAQUE_MIN_LENGTH,
+    PROSE_MIN_WORDS,
     RESERVED_EXAMPLE_DOMAINS,
     SCRIPT_FILE_EXTENSIONS,
+    SECRET_ENV_KEYWORDS,
     SECRET_ENV_REF_SCORE,
     SECRET_KEY_SCORE,
     SECRET_KEYWORDS,
@@ -599,9 +602,6 @@ def _declared_name(parsed: ParsedSkillDocument) -> str | None:
     return None
 
 
-_PROSE_MIN_WORDS: int = 3
-
-
 def _looks_like_prose(value: str) -> bool:
     """Return True when the value appears to be natural-language prose.
 
@@ -611,48 +611,7 @@ def _looks_like_prose(value: str) -> bool:
     if " " not in value:
         return False
     words = value.split()
-    return len(words) >= _PROSE_MIN_WORDS
-
-
-# Patterns that look like env-var references but are API operators or
-# non-secret variable names (e.g., MongoDB $set, Amplitude $add).
-_NON_SECRET_ENV_OPERATORS: frozenset[str] = frozenset(
-    {
-        "$add",
-        "$set",
-        "$setonce",
-        "$append",
-        "$prepend",
-        "$remove",
-        "$unset",
-        "$union",
-        "$delete",
-        "$inc",
-        "$push",
-        "$pull",
-        "$pop",
-        "$rename",
-        "$min",
-        "$max",
-        "$mul",
-        "$bit",
-    }
-)
-
-# Secret-like keywords that, when found in an env-var name, confirm it as
-# a genuine secret reference.
-_SECRET_ENV_KEYWORDS: tuple[str, ...] = (
-    "key",
-    "token",
-    "secret",
-    "password",
-    "credential",
-    "auth",
-    "private",
-    "passwd",
-    "api_key",
-    "apikey",
-)
+    return len(words) >= PROSE_MIN_WORDS
 
 
 def _is_non_secret_env_ref(value: str) -> bool:
@@ -660,10 +619,10 @@ def _is_non_secret_env_ref(value: str) -> bool:
     for match in ENV_REF_PATTERN.finditer(value):
         ref = match.group(0).lower().strip("${} ")
         # Skip known operator patterns
-        if ref in _NON_SECRET_ENV_OPERATORS:
+        if ref in NON_SECRET_ENV_OPERATORS:
             continue
         # Check if the reference contains a secret-like keyword
-        if any(kw in ref for kw in _SECRET_ENV_KEYWORDS):
+        if any(kw in ref for kw in SECRET_ENV_KEYWORDS):
             return False
         # For ${VAR} and $VAR patterns, check if the var name is secret-like
         # If it doesn't match any secret keyword, treat it as non-secret

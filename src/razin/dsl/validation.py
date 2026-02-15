@@ -22,7 +22,7 @@ from razin.constants.validation import (
     RULE008,
     RULE009,
 )
-from razin.dsl.schema import (
+from razin.constants.dsl_schema import (
     ALLOWED_METADATA_KEYS,
     ALLOWED_PROFILE_KEYS,
     ALLOWED_TOP_KEYS,

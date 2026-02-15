@@ -1,21 +1,7 @@
-"""Typed DSL error hierarchy."""
+"""Re-export shim — canonical definitions live in razin.exceptions.dsl."""
 
 from __future__ import annotations
 
-from razin.exceptions.base import RazinError
+from razin.exceptions.dsl import DslCompileError, DslError, DslRuntimeError, DslSchemaError
 
-
-class DslError(RazinError):
-    """Base class for DSL-related errors."""
-
-
-class DslSchemaError(DslError):
-    """Raised when a YAML rule file fails schema validation."""
-
-
-class DslCompileError(DslError):
-    """Raised when a validated rule cannot be compiled into an execution plan."""
-
-
-class DslRuntimeError(DslError):
-    """Raised during rule execution for unexpected conditions."""
+__all__ = ["DslCompileError", "DslError", "DslRuntimeError", "DslSchemaError"]

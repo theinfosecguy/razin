@@ -8,15 +8,13 @@ import sys
 from pathlib import Path
 
 from razin import __version__
-from razin.constants.branding import ASCII_LOGO_LINES, BRAND_NAME
+from razin.constants.branding import CLI_DESCRIPTION
 from razin.constants.reporting import VALID_OUTPUT_FORMATS
 from razin.exceptions import ConfigError, RazinError
 from razin.exceptions.validation import format_errors
 from razin.reporting.stdout import StdoutReporter
 from razin.scanner import scan_workspace
 from razin.validation import preflight_validate
-
-CLI_DESCRIPTION: str = "\n".join((*ASCII_LOGO_LINES, "", f"{BRAND_NAME} skill scanner"))
 
 
 def build_parser() -> argparse.ArgumentParser:

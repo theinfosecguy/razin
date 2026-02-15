@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import pytest
 
+from razin.constants.reporting import ANSI_GREEN, ANSI_RED, ANSI_RESET, ANSI_YELLOW
 from razin.model import Evidence, Finding, ScanResult
-from razin.reporting.stdout import _GREEN, _RED, _RESET, _YELLOW, StdoutReporter
+from razin.reporting.stdout import StdoutReporter
 from razin.types import Severity
 
 
@@ -159,9 +160,9 @@ def test_findings_table_hidden_when_empty() -> None:
 @pytest.mark.parametrize(
     ("severity", "score", "finding_id", "expected_color"),
     [
-        ("high", 80, "abc123", _RED),
-        ("medium", 55, "med1", _YELLOW),
-        ("low", 20, "low1", _GREEN),
+        ("high", 80, "abc123", ANSI_RED),
+        ("medium", 55, "med1", ANSI_YELLOW),
+        ("low", 20, "low1", ANSI_GREEN),
     ],
     ids=["high-red", "medium-yellow", "low-green"],
 )
@@ -175,9 +176,9 @@ def test_severity_colored_correctly(severity: Severity, score: int, finding_id: 
 @pytest.mark.parametrize(
     ("score", "severity", "finding_id", "expected_color"),
     [
-        (85, "high", "abc123", _RED),
-        (50, "medium", "m1", _YELLOW),
-        (20, "low", "l1", _GREEN),
+        (85, "high", "abc123", ANSI_RED),
+        (50, "medium", "m1", ANSI_YELLOW),
+        (20, "low", "l1", ANSI_GREEN),
     ],
     ids=["high-red", "medium-yellow", "low-green"],
 )
@@ -185,7 +186,7 @@ def test_score_colored_correctly(score: int, severity: Severity, finding_id: str
     f = [_make_finding(score=score, severity=severity, finding_id=finding_id)]
     result = _make_result(findings=f)
     output = StdoutReporter(result, color=True).render()
-    assert f"{expected_color}{score}{_RESET}" in output
+    assert f"{expected_color}{score}{ANSI_RESET}" in output
 
 
 def test_color_disabled_produces_no_ansi() -> None:
@@ -198,7 +199,7 @@ def test_color_disabled_produces_no_ansi() -> None:
 def test_risk_score_colored_in_header() -> None:
     result = _make_result(aggregate_score=94, aggregate_severity="high")
     output = StdoutReporter(result, color=True).render()
-    assert _RED in output
+    assert ANSI_RED in output
 
 
 def test_render_is_deterministic() -> None:
