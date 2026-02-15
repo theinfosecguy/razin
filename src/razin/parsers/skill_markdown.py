@@ -72,6 +72,7 @@ def parse_skill_markdown_file(path: Path) -> ParsedSkillDocument:
                 line=index,
                 snippet=_line_snippet(stripped),
                 in_code_block=in_code_block,
+                field_source="code_block" if in_code_block else "prose",
             )
         )
         key = _extract_key_from_line(stripped)
