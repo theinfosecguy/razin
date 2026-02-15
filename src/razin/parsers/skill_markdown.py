@@ -65,6 +65,13 @@ def parse_skill_markdown_file(path: Path) -> ParsedSkillDocument:
                 active_fence_char = None
         if not stripped:
             continue
+        key = _extract_key_from_line(stripped)
+        if in_code_block:
+            source = "code_block"
+        elif key is not None:
+            source = "config_line"
+        else:
+            source = "prose"
         fields.append(
             DocumentField(
                 path=("line", str(index)),
@@ -72,9 +79,9 @@ def parse_skill_markdown_file(path: Path) -> ParsedSkillDocument:
                 line=index,
                 snippet=_line_snippet(stripped),
                 in_code_block=in_code_block,
+                field_source=source,
             )
         )
-        key = _extract_key_from_line(stripped)
         if key:
             keys.append(
                 DocumentKey(

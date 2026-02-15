@@ -79,6 +79,7 @@ class DocumentField:
     line: int
     snippet: str
     in_code_block: bool = False
+    field_source: str = "prose"
 
 
 @dataclass(frozen=True)

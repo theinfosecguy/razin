@@ -148,7 +148,67 @@ def test_suppress_redundant_candidates_keeps_mcp_and_removes_overlapping_unknown
     assert any(candidate.rule_id == "NET_UNKNOWN_DOMAIN" and candidate.evidence.line == 12 for candidate in suppressed)
 
 
-def test_resolve_engine_accepts_dsl() -> None:
+def test_suppress_redundant_keeps_denylist_net_doc_domain() -> None:
+    """High-severity NET_DOC_DOMAIN (denylist, score 80) is not suppressed by MCP_ENDPOINT (score 70)."""
+    shared_evidence = Evidence(path="/tmp/SKILL.md", line=5, snippet="https://evil.attacker.io/mcp")
+
+    candidates = [
+        FindingCandidate(
+            rule_id="MCP_ENDPOINT",
+            score=70,
+            confidence="high",
+            title="MCP endpoint in docs",
+            description="Documentation references MCP endpoint 'https://evil.attacker.io/mcp'.",
+            evidence=shared_evidence,
+            recommendation="Constrain MCP endpoints with allowlists.",
+        ),
+        FindingCandidate(
+            rule_id="NET_DOC_DOMAIN",
+            score=80,
+            confidence="high",
+            title="Denylisted domain in docs",
+            description="Documentation references 'evil.attacker.io', which is denylisted.",
+            evidence=shared_evidence,
+            recommendation="Remove or replace denylisted domains.",
+        ),
+    ]
+
+    suppressed = _suppress_redundant_candidates(candidates)
+
+    assert len(suppressed) == 2
+    assert any(c.rule_id == "MCP_ENDPOINT" for c in suppressed)
+    assert any(c.rule_id == "NET_DOC_DOMAIN" and c.score == 80 for c in suppressed)
+
+
+def test_suppress_redundant_still_drops_low_net_doc_domain() -> None:
+    """Low-severity NET_DOC_DOMAIN (score 15) is suppressed by MCP_ENDPOINT on same line."""
+    shared_evidence = Evidence(path="/tmp/SKILL.md", line=5, snippet="https://unknown.io/mcp")
+
+    candidates = [
+        FindingCandidate(
+            rule_id="MCP_ENDPOINT",
+            score=70,
+            confidence="high",
+            title="MCP endpoint in docs",
+            description="Documentation references MCP endpoint 'https://unknown.io/mcp'.",
+            evidence=shared_evidence,
+            recommendation="Constrain MCP endpoints with allowlists.",
+        ),
+        FindingCandidate(
+            rule_id="NET_DOC_DOMAIN",
+            score=15,
+            confidence="low",
+            title="Non-allowlisted domain in docs",
+            description="Documentation references external domain 'unknown.io'.",
+            evidence=shared_evidence,
+            recommendation="Review documentation URLs.",
+        ),
+    ]
+
+    suppressed = _suppress_redundant_candidates(candidates)
+
+    assert len(suppressed) == 1
+    assert suppressed[0].rule_id == "MCP_ENDPOINT"
     assert _resolve_engine("dsl") == "dsl"
     assert _resolve_engine(" DSL ") == "dsl"
 

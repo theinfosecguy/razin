@@ -204,7 +204,7 @@ def _is_mcp_endpoint(url: str) -> bool:
 
 def _not_mcp_allowlisted(domain: str, config: RazinConfig) -> bool:
     """Return True when the domain is NOT on the MCP allowlist (i.e., should flag)."""
-    return not is_allowlisted(domain, config.mcp_allowlist_domains)
+    return not is_allowlisted(domain, config.mcp_allowlist_domains, strict=config.strict_subdomains)
 
 
 _URL_FILTERS: dict[str, Any] = {

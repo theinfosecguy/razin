@@ -137,7 +137,7 @@ def test_compile_rejects_unregistered_strategy() -> None:
 
 def test_load_all_bundled_rules() -> None:
     engine = DslEngine()
-    assert engine.rule_count == 15
+    assert engine.rule_count == 16
     assert "AUTH_CONNECTION" in engine.rule_ids
     assert "NET_RAW_IP" in engine.rule_ids
 
@@ -355,6 +355,7 @@ PYTHON_DSL_MAP: dict[str, list[str]] = {
     "DYNAMIC_SCHEMA": ["DYNAMIC_SCHEMA"],
     "AUTH_CONNECTION": ["AUTH_CONNECTION"],
     "EXTERNAL_URLS": ["EXTERNAL_URLS"],
+    "NET_DOC_DOMAIN": ["NET_DOC_DOMAIN"],
 }
 
 
@@ -922,7 +923,7 @@ def test_net_unknown_domain_uses_default_allowlist(tmp_path: Path) -> None:
 def test_net_unknown_domain_can_ignore_default_allowlist(tmp_path: Path) -> None:
     path = _skill_file(
         tmp_path,
-        "---\nname: domains\n---\n" "See https://github.com/example/repo for docs.\n",
+        "---\nname: domains\n---\n" "```\nhttps://github.com/example/repo\n```\n",
     )
     parsed = parse_skill_markdown_file(path)
     engine = DslEngine(rule_ids=frozenset({"NET_UNKNOWN_DOMAIN"}))
@@ -1003,7 +1004,7 @@ def test_rules_dir_not_found_fails_fast(tmp_path: Path) -> None:
 def test_all_yaml_files_valid() -> None:
     """All bundled YAML rule files parse and compile without error."""
     engine = DslEngine()
-    assert engine.rule_count == 15
+    assert engine.rule_count == 16
     assert len(engine.rule_ids) == len(set(engine.rule_ids))
 
 
@@ -1163,7 +1164,7 @@ def test_overlay_no_custom_source_uses_bundled_only() -> None:
     """Overlay without custom source just loads bundled rules."""
     engine = DslEngine(rules_mode="overlay")
 
-    assert engine.rule_count == 15
+    assert engine.rule_count == 16
     assert "AUTH_CONNECTION" in engine.rule_ids
 
 
@@ -1171,7 +1172,7 @@ def test_replace_mode_without_custom_uses_bundled() -> None:
     """Replace mode with no custom source falls back to bundled."""
     engine = DslEngine(rules_mode="replace")
 
-    assert engine.rule_count == 15
+    assert engine.rule_count == 16
 
 
 def test_overlay_fingerprint_differs_from_replace(tmp_path: Path) -> None:

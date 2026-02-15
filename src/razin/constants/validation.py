@@ -53,6 +53,7 @@ ALLOWED_CONFIG_KEYS: frozenset[str] = frozenset(
         "profile",
         "allowlist_domains",
         "ignore_default_allowlist",
+        "strict_subdomains",
         "denylist_domains",
         "mcp_allowlist_domains",
         "mcp_denylist_domains",

@@ -407,19 +407,31 @@ def _candidate_to_finding(
 
 
 def _suppress_redundant_candidates(candidates: list[FindingCandidate]) -> list[FindingCandidate]:
-    """Suppress lower-value findings already covered by stronger MCP evidence."""
-    mcp_evidence = {
-        (candidate.evidence.path, candidate.evidence.line)
-        for candidate in candidates
-        if candidate.rule_id == "MCP_ENDPOINT"
-    }
-    if not mcp_evidence:
+    """Suppress lower-value findings already covered by stronger MCP evidence.
+
+    Domain findings (``NET_UNKNOWN_DOMAIN``, ``NET_DOC_DOMAIN``) are only
+    suppressed when their score does not exceed the MCP_ENDPOINT score on the
+    same evidence line.  This preserves high-severity denylist signals that
+    would otherwise be silently dropped.
+    """
+    mcp_scores: dict[tuple[str, int | None], int] = {}
+    for candidate in candidates:
+        if candidate.rule_id == "MCP_ENDPOINT":
+            key = (candidate.evidence.path, candidate.evidence.line)
+            existing = mcp_scores.get(key, 0)
+            if candidate.score > existing:
+                mcp_scores[key] = candidate.score
+    if not mcp_scores:
         return candidates
 
     kept: list[FindingCandidate] = []
     for candidate in candidates:
         evidence_key = (candidate.evidence.path, candidate.evidence.line)
-        if candidate.rule_id == "NET_UNKNOWN_DOMAIN" and evidence_key in mcp_evidence:
+        if (
+            candidate.rule_id in {"NET_UNKNOWN_DOMAIN", "NET_DOC_DOMAIN"}
+            and evidence_key in mcp_scores
+            and candidate.score <= mcp_scores[evidence_key]
+        ):
             continue
         kept.append(candidate)
 

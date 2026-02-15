@@ -1,0 +1,17 @@
+rule_id: NET_DOC_DOMAIN
+version: 1
+metadata:
+  title: "Non-allowlisted domain in docs"
+  description_template: "Documentation references external domain '{domain}'."
+  recommendation: "Review documentation URLs and add trusted domains to the allowlist if appropriate."
+  confidence: low
+scoring:
+  base_score: 15
+match:
+  source: fields
+  strategy: url_domain_filter
+  url_filter: skip_ip_addresses
+  domain_check: not_allowlisted_prose
+  field_source_filter:
+    - prose
+dedupe: true

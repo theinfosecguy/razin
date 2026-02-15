@@ -66,6 +66,7 @@ EXEC_FIELDS_SCORE: int = 72
 OPAQUE_BLOB_SCORE: int = 54
 TYPOSQUAT_SCORE: int = 76
 BUNDLED_SCRIPTS_SCORE: int = 58
+NET_DOC_DOMAIN_SCORE: int = 15
 
 # Hosts and TLDs always suppressed by NET_UNKNOWN_DOMAIN — these represent
 # local/dev/documentation examples, not real external risk.

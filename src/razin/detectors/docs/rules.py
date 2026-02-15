@@ -97,7 +97,7 @@ class McpEndpointDetector(Detector):
         for field, url, domain in _iter_urls(parsed):
             if not _looks_like_mcp_endpoint(url):
                 continue
-            if is_allowlisted(domain, config.mcp_allowlist_domains):
+            if is_allowlisted(domain, config.mcp_allowlist_domains, strict=config.strict_subdomains):
                 continue
 
             findings.append(
@@ -354,7 +354,7 @@ class ExternalUrlsDetector(Detector):
         for field, url, domain in _iter_urls(parsed):
             # Skip non-allowlisted domains — those are covered by the
             # policy-level NET_UNKNOWN_DOMAIN detector.
-            if not is_allowlisted(domain, config.allowlist_domains):
+            if not is_allowlisted(domain, config.allowlist_domains, strict=config.strict_subdomains):
                 continue
             findings.append(
                 FindingCandidate(

@@ -18,6 +18,7 @@ from razin.constants.detectors import (
     LOCAL_DEV_HOSTS,
     LOCAL_DEV_TLDS,
     NET_DENYLIST_DOMAIN_SCORE,
+    NET_DOC_DOMAIN_SCORE,
     NET_RAW_IP_NON_PUBLIC_SCORE,
     NET_RAW_IP_PUBLIC_SCORE,
     NET_UNKNOWN_DOMAIN_ALLOWLIST_SCORE,
@@ -84,7 +85,11 @@ class NetRawIpDetector(Detector):
 
 
 class NetUnknownDomainDetector(Detector):
-    """Detect network domains not in allowlist or explicitly denylisted."""
+    """Detect network domains not in allowlist or explicitly denylisted.
+
+    Fires for code-block and config-line fields.  Pure prose-sourced URLs are
+    handled by the lower-severity :class:`NetDocDomainDetector`.
+    """
 
     rule_id = "NET_UNKNOWN_DOMAIN"
 
@@ -96,7 +101,10 @@ class NetUnknownDomainDetector(Detector):
         config: RazinConfig,
     ) -> list[FindingCandidate]:
         findings: list[FindingCandidate] = []
+        strict = config.strict_subdomains
         for field in parsed.fields:
+            if field.field_source not in ("code_block", "config_line"):
+                continue
             for raw_url in URL_PATTERN.findall(field.value):
                 url = normalize_url(raw_url)
                 domain = extract_domain(url)
@@ -121,7 +129,7 @@ class NetUnknownDomainDetector(Detector):
                     )
                     continue
 
-                if is_allowlisted(domain, config.effective_allowlist_domains):
+                if is_allowlisted(domain, config.effective_allowlist_domains, strict=strict):
                     continue
 
                 findings.append(
@@ -137,6 +145,71 @@ class NetUnknownDomainDetector(Detector):
                         description=f"Configuration references external domain '{domain}'.",
                         evidence=field_evidence(parsed, field),
                         recommendation=("Restrict outbound domains with allowlists and verify ownership."),
+                    )
+                )
+        return dedupe_candidates(findings)
+
+
+class NetDocDomainDetector(Detector):
+    """Detect non-allowlisted or denylisted domains in prose documentation.
+
+    Fires only for prose-sourced URL fields — markdown body text outside of
+    code blocks and config-like lines.  Non-denylisted prose URLs carry lower
+    risk and are reported with a reduced score.  Denylisted prose URLs are
+    reported with high severity to enforce domain-deny policies.
+    """
+
+    rule_id = "NET_DOC_DOMAIN"
+
+    def run(
+        self,
+        *,
+        skill_name: str,
+        parsed: ParsedSkillDocument,
+        config: RazinConfig,
+    ) -> list[FindingCandidate]:
+        findings: list[FindingCandidate] = []
+        strict = config.strict_subdomains
+        for field in parsed.fields:
+            if field.field_source != "prose":
+                continue
+            for raw_url in URL_PATTERN.findall(field.value):
+                url = normalize_url(raw_url)
+                domain = extract_domain(url)
+                if not domain or _parse_ip_address(domain) is not None:
+                    continue
+
+                if config.suppress_local_hosts and _is_local_dev_host(domain):
+                    continue
+
+                if is_denylisted(domain, config.denylist_domains):
+                    findings.append(
+                        FindingCandidate(
+                            rule_id=self.rule_id,
+                            score=NET_DENYLIST_DOMAIN_SCORE,
+                            confidence="high",
+                            title="Denylisted domain in docs",
+                            description=f"Documentation references '{domain}', which is denylisted.",
+                            evidence=field_evidence(parsed, field),
+                            recommendation="Remove or replace denylisted domains.",
+                        )
+                    )
+                    continue
+
+                if is_allowlisted(domain, config.effective_allowlist_domains, strict=strict):
+                    continue
+
+                findings.append(
+                    FindingCandidate(
+                        rule_id=self.rule_id,
+                        score=NET_DOC_DOMAIN_SCORE,
+                        confidence="low",
+                        title="Non-allowlisted domain in docs",
+                        description=f"Documentation references external domain '{domain}'.",
+                        evidence=field_evidence(parsed, field),
+                        recommendation=(
+                            "Review documentation URLs and add trusted domains " "to the allowlist if appropriate."
+                        ),
                     )
                 )
         return dedupe_candidates(findings)
@@ -398,6 +471,7 @@ def build_detectors(rule_ids: tuple[str, ...]) -> list[Detector]:
 DETECTOR_CLASSES: tuple[type[Detector], ...] = (
     NetRawIpDetector,
     NetUnknownDomainDetector,
+    NetDocDomainDetector,
     SecretRefDetector,
     ExecFieldsDetector,
     OpaqueBlobDetector,
