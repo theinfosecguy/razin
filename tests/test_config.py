@@ -12,10 +12,10 @@ from razin.config import (
     effective_detector_ids,
     load_config,
 )
-from razin.types.config import DetectorConfig
 from razin.constants.config import DEFAULT_DETECTORS
 from razin.constants.domains import DEFAULT_ALLOWLISTED_DOMAINS
 from razin.exceptions import ConfigError
+from razin.types.config import DetectorConfig
 
 
 def test_load_config_defaults_when_missing(tmp_path: Path) -> None:

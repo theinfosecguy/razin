@@ -11,17 +11,6 @@ from typing import Any
 
 import yaml
 
-from razin.constants.validation import (
-    RULE001,
-    RULE002,
-    RULE003,
-    RULE004,
-    RULE005,
-    RULE006,
-    RULE007,
-    RULE008,
-    RULE009,
-)
 from razin.constants.dsl_schema import (
     ALLOWED_METADATA_KEYS,
     ALLOWED_PROFILE_KEYS,
@@ -32,6 +21,17 @@ from razin.constants.dsl_schema import (
     VALID_PROFILE_NAMES,
     VALID_SOURCES,
     VALID_STRATEGIES,
+)
+from razin.constants.validation import (
+    RULE001,
+    RULE002,
+    RULE003,
+    RULE004,
+    RULE005,
+    RULE006,
+    RULE007,
+    RULE008,
+    RULE009,
 )
 from razin.exceptions.validation import ValidationError
 
