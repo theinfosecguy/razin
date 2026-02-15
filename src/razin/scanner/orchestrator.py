@@ -1,8 +1,7 @@
 """End-to-end scan orchestration for Razin.
 
 The ``scan_workspace`` function remains here as the primary entry point.
-Internal helpers have been extracted to ``razin.scanner.pipeline.*`` submodules
-and are re-exported here with underscore prefixes for backward compatibility.
+Internal helpers have been extracted to ``razin.scanner.pipeline.*`` submodules.
 """
 
 from __future__ import annotations
@@ -46,17 +45,6 @@ from razin.scanner.score import aggregate_overall_score, aggregate_severity, sev
 from razin.types import CacheFileEntry
 
 logger = logging.getLogger(__name__)
-
-_is_cache_hit = is_cache_hit
-_resolve_mcp_dependency_signature = resolve_mcp_dependency_signature
-_get_or_create_cache_namespace = get_or_create_cache_namespace
-_candidate_to_finding = candidate_to_finding
-_suppress_redundant_candidates = suppress_redundant_candidates
-_deserialize_findings = deserialize_findings
-_apply_mcp_allowlist_override = apply_mcp_allowlist_override
-_normalize_domain_or_url = normalize_domain_or_url
-_resolve_engine = resolve_engine
-_resolve_rule_sources = resolve_rule_sources
 
 
 def scan_workspace(

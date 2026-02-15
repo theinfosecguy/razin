@@ -8,18 +8,20 @@ import pytest
 
 from razin.exceptions import ConfigError
 from razin.model import Evidence, FindingCandidate
-from razin.scanner.orchestrator import (
-    _candidate_to_finding,
-    _deserialize_findings,
-    _normalize_domain_or_url,
-    _resolve_engine,
-    _resolve_rule_sources,
-    _suppress_redundant_candidates,
+from razin.scanner.pipeline.config_resolution import (
+    normalize_domain_or_url,
+    resolve_engine,
+    resolve_rule_sources,
+)
+from razin.scanner.pipeline.conversion import (
+    candidate_to_finding,
+    deserialize_findings,
+    suppress_redundant_candidates,
 )
 
 
 def test_deserialize_findings_handles_invalid_payload() -> None:
-    findings = _deserialize_findings([{"id": "a", "evidence": "bad"}, "not-a-dict"])
+    findings = deserialize_findings([{"id": "a", "evidence": "bad"}, "not-a-dict"])
 
     assert len(findings) == 1
     assert findings[0].id == "a"
@@ -27,10 +29,10 @@ def test_deserialize_findings_handles_invalid_payload() -> None:
 
 
 def test_normalize_domain_or_url_handles_domains_and_urls() -> None:
-    assert _normalize_domain_or_url("https://Example.COM/mcp") == "example.com"
-    assert _normalize_domain_or_url("example.com/") == "example.com"
-    assert _normalize_domain_or_url("  ") is None
-    assert _normalize_domain_or_url("http://") is None
+    assert normalize_domain_or_url("https://Example.COM/mcp") == "example.com"
+    assert normalize_domain_or_url("example.com/") == "example.com"
+    assert normalize_domain_or_url("  ") is None
+    assert normalize_domain_or_url("http://") is None
 
 
 def test_candidate_to_finding_id_changes_with_description() -> None:
@@ -54,8 +56,8 @@ def test_candidate_to_finding_id_changes_with_description() -> None:
         recommendation="Review tool permissions.",
     )
 
-    finding_a = _candidate_to_finding("skill-a", first)
-    finding_b = _candidate_to_finding("skill-a", second)
+    finding_a = candidate_to_finding("skill-a", first)
+    finding_b = candidate_to_finding("skill-a", second)
 
     assert finding_a.id != finding_b.id
 
@@ -83,8 +85,8 @@ def test_candidate_to_finding_id_uses_public_rule_id() -> None:
         internal_rule_id="SECRET_REF",
     )
 
-    finding_a = _candidate_to_finding("skill-a", key_split)
-    finding_b = _candidate_to_finding("skill-a", env_split)
+    finding_a = candidate_to_finding("skill-a", key_split)
+    finding_b = candidate_to_finding("skill-a", env_split)
 
     assert finding_a.id == finding_b.id
 
@@ -100,8 +102,8 @@ def test_candidate_to_finding_uses_profile_thresholds() -> None:
         recommendation="Store secrets in secret managers and avoid embedding them in config.",
     )
 
-    balanced = _candidate_to_finding("skill-a", candidate, high_severity_min=80, medium_severity_min=50)
-    strict = _candidate_to_finding("skill-a", candidate, high_severity_min=70, medium_severity_min=40)
+    balanced = candidate_to_finding("skill-a", candidate, high_severity_min=80, medium_severity_min=50)
+    strict = candidate_to_finding("skill-a", candidate, high_severity_min=70, medium_severity_min=40)
 
     assert balanced.severity == "medium"
     assert strict.severity == "high"
@@ -141,7 +143,7 @@ def test_suppress_redundant_candidates_keeps_mcp_and_removes_overlapping_unknown
         ),
     ]
 
-    suppressed = _suppress_redundant_candidates(candidates)
+    suppressed = suppress_redundant_candidates(candidates)
 
     assert len(suppressed) == 2
     assert any(candidate.rule_id == "MCP_ENDPOINT" for candidate in suppressed)
@@ -173,7 +175,7 @@ def test_suppress_redundant_keeps_denylist_net_doc_domain() -> None:
         ),
     ]
 
-    suppressed = _suppress_redundant_candidates(candidates)
+    suppressed = suppress_redundant_candidates(candidates)
 
     assert len(suppressed) == 2
     assert any(c.rule_id == "MCP_ENDPOINT" for c in suppressed)
@@ -205,27 +207,27 @@ def test_suppress_redundant_still_drops_low_net_doc_domain() -> None:
         ),
     ]
 
-    suppressed = _suppress_redundant_candidates(candidates)
+    suppressed = suppress_redundant_candidates(candidates)
 
     assert len(suppressed) == 1
     assert suppressed[0].rule_id == "MCP_ENDPOINT"
-    assert _resolve_engine("dsl") == "dsl"
-    assert _resolve_engine(" DSL ") == "dsl"
+    assert resolve_engine("dsl") == "dsl"
+    assert resolve_engine(" DSL ") == "dsl"
 
 
 def test_resolve_engine_rejects_invalid() -> None:
     with pytest.raises(ConfigError, match="supports only 'dsl'"):
-        _resolve_engine("invalid")
+        resolve_engine("invalid")
 
 
 @pytest.mark.parametrize("value", ["legacy", "optionc", "default"])
 def test_resolve_engine_rejects_removed_values(value: str) -> None:
     with pytest.raises(ConfigError, match="Removed values"):
-        _resolve_engine(value)
+        resolve_engine(value)
 
 
 def test_resolve_rule_sources_defaults_to_bundled() -> None:
-    resolved_dir, resolved_files = _resolve_rule_sources(rules_dir=None, rule_files=None)
+    resolved_dir, resolved_files = resolve_rule_sources(rules_dir=None, rule_files=None)
 
     assert resolved_dir is None
     assert resolved_files is None
@@ -236,11 +238,11 @@ def test_resolve_rule_sources_rejects_conflicting_modes(tmp_path: Path) -> None:
     rule_file.write_text("rule_id: CUSTOM\n", encoding="utf-8")
 
     with pytest.raises(ConfigError, match="either --rules-dir or --rule-file"):
-        _resolve_rule_sources(rules_dir=tmp_path, rule_files=(rule_file,))
+        resolve_rule_sources(rules_dir=tmp_path, rule_files=(rule_file,))
 
 
 def test_resolve_rule_sources_resolves_directory_mode(tmp_path: Path) -> None:
-    resolved_dir, resolved_files = _resolve_rule_sources(rules_dir=tmp_path, rule_files=None)
+    resolved_dir, resolved_files = resolve_rule_sources(rules_dir=tmp_path, rule_files=None)
 
     assert resolved_dir == tmp_path.resolve()
     assert resolved_files is None
@@ -251,7 +253,7 @@ def test_resolve_rule_sources_rejects_invalid_file_extension(tmp_path: Path) -> 
     rule_file.write_text("rule_id: CUSTOM\n", encoding="utf-8")
 
     with pytest.raises(ConfigError, match="\\.yaml"):
-        _resolve_rule_sources(rules_dir=None, rule_files=(rule_file,))
+        resolve_rule_sources(rules_dir=None, rule_files=(rule_file,))
 
 
 def test_resolve_rule_sources_sorts_rule_files(tmp_path: Path) -> None:
@@ -260,7 +262,7 @@ def test_resolve_rule_sources_sorts_rule_files(tmp_path: Path) -> None:
     second = tmp_path / "a.yaml"
     second.write_text("rule_id: RULE_A\n", encoding="utf-8")
 
-    resolved_dir, resolved_files = _resolve_rule_sources(rules_dir=None, rule_files=(first, second))
+    resolved_dir, resolved_files = resolve_rule_sources(rules_dir=None, rule_files=(first, second))
 
     assert resolved_dir is None
     assert resolved_files == tuple(sorted((first.resolve(), second.resolve())))
