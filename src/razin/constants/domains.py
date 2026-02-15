@@ -15,4 +15,11 @@ DEFAULT_ALLOWLISTED_DOMAINS: tuple[str, ...] = (
     "modelcontextprotocol.io",
     "anthropic.com",
     "openai.com",
+    # RFC 2606 reserved example domains — never real external risk.
+    "example.com",
+    "example.org",
+    "example.net",
+    # Infrastructure CDN / hosting domains — badges, raw content, etc.
+    "raw.githubusercontent.com",
+    "img.shields.io",
 )
