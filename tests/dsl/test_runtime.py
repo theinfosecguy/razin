@@ -17,7 +17,7 @@ from razin.model import FindingCandidate, ParsedSkillDocument
 from razin.parsers import parse_skill_markdown_file
 from razin.scanner.discovery import derive_skill_name
 
-from .conftest import _minimal_rule, _skill_file, _write_rule_file
+from .conftest import _skill_file, _write_rule_file
 
 
 def test_load_all_bundled_rules() -> None:

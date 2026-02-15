@@ -376,7 +376,7 @@ def test_net_unknown_domain_can_ignore_default_allowlist(tmp_path: Path) -> None
         config=RazinConfig(ignore_default_allowlist=True),
     )
     assert len(findings) == 1
-    assert "github.com" in findings[0].description
+    assert "'github.com'" in findings[0].description
 
 
 def test_mcp_required_fires_when_present(tmp_path: Path) -> None:

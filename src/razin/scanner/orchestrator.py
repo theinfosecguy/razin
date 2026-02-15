@@ -12,7 +12,7 @@ import time
 from dataclasses import replace
 from pathlib import Path
 
-from razin.config import RazinConfig, config_fingerprint, load_config
+from razin.config import config_fingerprint, load_config
 from razin.constants.cache import CACHE_FILENAME
 from razin.constants.engines import ENGINE_DSL
 from razin.constants.profiles import VALID_PROFILES

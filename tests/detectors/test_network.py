@@ -130,7 +130,7 @@ def test_ignore_default_allowlist_reenables_github_signal(tmp_path: Path) -> Non
         config=RazinConfig(ignore_default_allowlist=True),
     )
     assert findings
-    assert any("github.com" in finding.description for finding in findings)
+    assert any("'github.com'" in finding.description for finding in findings)
 
 
 def test_net_unknown_domain_skips_prose_fields(tmp_path: Path) -> None:
@@ -158,7 +158,7 @@ def test_net_doc_domain_fires_on_prose_urls(tmp_path: Path) -> None:
     assert findings[0].rule_id == "NET_DOC_DOMAIN"
     assert findings[0].score == 15
     assert findings[0].confidence == "low"
-    assert "unknown-site.io" in findings[0].description
+    assert "'unknown-site.io'" in findings[0].description
 
 
 def test_net_doc_domain_skips_code_block_urls(tmp_path: Path) -> None:

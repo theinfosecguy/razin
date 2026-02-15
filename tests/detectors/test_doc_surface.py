@@ -52,8 +52,7 @@ def test_mcp_endpoint_detector_respects_allowlist(tmp_path: Path) -> None:
     """MCP_ENDPOINT respects allowlist to suppress known-safe endpoints."""
     sample_file = tmp_path / "SKILL.md"
     sample_file.write_text(
-        "---\nname: endpoint-check\n---\n"
-        "Use https://rube.app/mcp and https://evil.example.net/mcp\n",
+        "---\nname: endpoint-check\n---\n" "Use https://rube.app/mcp and https://evil.example.net/mcp\n",
         encoding="utf-8",
     )
     parsed = parse_skill_markdown_file(sample_file)
@@ -74,8 +73,7 @@ def test_mcp_denylist_detector_finds_blocked_endpoint(tmp_path: Path) -> None:
     """MCP_DENYLIST fires on denylisted endpoint domains."""
     sample_file = tmp_path / "SKILL.md"
     sample_file.write_text(
-        "---\nname: denylist-check\n---\n"
-        "Endpoint: https://blocked.example.com/mcp\n",
+        "---\nname: denylist-check\n---\n" "Endpoint: https://blocked.example.com/mcp\n",
         encoding="utf-8",
     )
     parsed = parse_skill_markdown_file(sample_file)
@@ -95,8 +93,7 @@ def test_mcp_denylist_detector_wildcard_blocks_all_mcp_endpoints(tmp_path: Path)
     """MCP_DENYLIST with wildcard (*) blocks all MCP endpoints."""
     sample_file = tmp_path / "SKILL.md"
     sample_file.write_text(
-        "---\nname: wildcard-denylist\n---\n"
-        "Endpoint: https://any.example.com/mcp\n",
+        "---\nname: wildcard-denylist\n---\n" "Endpoint: https://any.example.com/mcp\n",
         encoding="utf-8",
     )
     parsed = parse_skill_markdown_file(sample_file)
@@ -116,8 +113,7 @@ def test_tool_invocation_detector_honors_prefixes(tmp_path: Path) -> None:
     """Consolidated finding includes prefix-matched tokens."""
     sample_file = tmp_path / "SKILL.md"
     sample_file.write_text(
-        "---\nname: tool-check\n---\n"
-        "Use RUBE_SEARCH and MCP_LIST_TOOLS and SOMETHING_ELSE.\n",
+        "---\nname: tool-check\n---\n" "Use RUBE_SEARCH and MCP_LIST_TOOLS and SOMETHING_ELSE.\n",
         encoding="utf-8",
     )
     parsed = parse_skill_markdown_file(sample_file)
@@ -140,8 +136,7 @@ def test_tool_invocation_detector_detects_service_tokens(tmp_path: Path) -> None
     """Service tokens are consolidated into a single finding."""
     sample_file = tmp_path / "SKILL.md"
     sample_file.write_text(
-        "---\nname: tool-check\n---\n"
-        "Use SLACK_SEND_MESSAGE and STRIPE_CREATE_CHARGE and USE_THIS_FORMAT.\n",
+        "---\nname: tool-check\n---\n" "Use SLACK_SEND_MESSAGE and STRIPE_CREATE_CHARGE and USE_THIS_FORMAT.\n",
         encoding="utf-8",
     )
     parsed = parse_skill_markdown_file(sample_file)
@@ -162,8 +157,7 @@ def test_dynamic_schema_detector_is_low_confidence(tmp_path: Path) -> None:
     """DYNAMIC_SCHEMA produces low-confidence findings."""
     sample_file = tmp_path / "SKILL.md"
     sample_file.write_text(
-        "---\nname: schema-check\n---\n"
-        "Before executing any tool, list tools and inspect schema first.\n",
+        "---\nname: schema-check\n---\n" "Before executing any tool, list tools and inspect schema first.\n",
         encoding="utf-8",
     )
     parsed = parse_skill_markdown_file(sample_file)
@@ -180,8 +174,7 @@ def test_auth_connection_detector_needs_multiple_hints(tmp_path: Path) -> None:
     """AUTH_CONNECTION requires 2+ non-negated hints to fire."""
     sample_file = tmp_path / "SKILL.md"
     sample_file.write_text(
-        "---\nname: auth-check\n---\n"
-        "Authenticate with API key and complete connection setup.\n",
+        "---\nname: auth-check\n---\n" "Authenticate with API key and complete connection setup.\n",
         encoding="utf-8",
     )
     parsed = parse_skill_markdown_file(sample_file)
@@ -197,8 +190,7 @@ def test_external_urls_detector_respects_allowlist(tmp_path: Path) -> None:
     """EXTERNAL_URLS fires for allowlisted URLs as context signal."""
     sample_file = tmp_path / "SKILL.md"
     sample_file.write_text(
-        "---\nname: urls-check\n---\n"
-        "See https://rube.app/docs and https://evil.example.net/collect.\n",
+        "---\nname: urls-check\n---\n" "See https://rube.app/docs and https://evil.example.net/collect.\n",
         encoding="utf-8",
     )
     parsed = parse_skill_markdown_file(sample_file)

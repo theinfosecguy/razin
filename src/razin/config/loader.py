@@ -7,7 +7,7 @@ from typing import Any
 
 import yaml
 
-from razin.config.model import RazinConfig, _merge_domains
+from razin.config.model import RazinConfig
 from razin.constants.config import (
     CONFIG_FILENAME,
     DEFAULT_SKILL_GLOBS,
