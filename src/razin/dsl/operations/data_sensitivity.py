@@ -4,6 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from razin.constants.data_sensitivity import (
+    FINANCIAL_KEYWORDS,
+    MEDICAL_KEYWORDS,
+    PII_KEYWORDS,
+)
 from razin.dsl.context import EvalContext
 from razin.dsl.operations.shared import (
     declared_name,
@@ -129,15 +134,11 @@ def run_data_sensitivity_check(
 
 def _infer_category_from_keywords(keywords: list[str]) -> str:
     """Infer a data category from matched sensitivity keywords."""
-    financial_kw = {"payment", "credit card", "bank account", "billing", "invoice", "tax", "payroll"}
-    medical_kw = {"medical", "health record", "patient", "diagnosis"}
-    pii_kw = {"social security", "ssn", "salary", "password", "credential"}
-
     for kw in keywords:
-        if kw in financial_kw:
+        if kw in FINANCIAL_KEYWORDS:
             return "financial"
-        if kw in medical_kw:
+        if kw in MEDICAL_KEYWORDS:
             return "medical/health"
-        if kw in pii_kw:
+        if kw in PII_KEYWORDS:
             return "PII"
     return "sensitive-data"

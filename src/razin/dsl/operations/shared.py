@@ -17,6 +17,7 @@ from razin.constants.detectors import (
     URL_PATTERN,
 )
 from razin.constants.docs import NEGATION_PREFIXES
+from razin.constants.naming import NON_ALNUM_DASH_PATTERN
 from razin.detectors.common import extract_domain, field_evidence
 from razin.model import Evidence, ParsedSkillDocument
 
@@ -214,7 +215,7 @@ def format_template(template: str, **kwargs: str) -> str:
 
 def tokenize_name(name: str) -> list[str]:
     """Split a skill/service name into lowercase tokens on non-alnum boundaries."""
-    return [t for t in re.split(r"[^a-z0-9]+", name.lower()) if t]
+    return [t for t in NON_ALNUM_DASH_PATTERN.split(name.lower()) if t]
 
 
 def service_matches_name(service: str, name: str) -> bool:

@@ -6,6 +6,7 @@ import re
 from typing import Any
 from urllib.parse import urlparse
 
+from razin.constants.detectors import UPPERCASE_TOKEN_PATTERN, URL_PATTERN
 from razin.dsl.context import EvalContext
 from razin.model import Evidence, FindingCandidate
 
@@ -173,8 +174,7 @@ def _detect_homoglyphs(
                 chars_desc = ", ".join(sorted(confusables))
                 signals.append(f"confusable/homoglyph token '{token}' ({chars_desc})")
 
-    url_pattern = re.compile(r"https?://[^\s\"'<>]+", re.IGNORECASE)
-    for match in url_pattern.finditer(text):
+    for match in URL_PATTERN.finditer(text):
         url = match.group(0)
         host = _extract_host(url)
         if host:
@@ -196,8 +196,7 @@ def _homoglyph_evidence(
         for token in _extract_uppercase_tokens(line):
             if _find_confusables_in_token(token, confusable_ranges):
                 return line_num, line.strip()[:200]
-        url_pattern = re.compile(r"https?://[^\s\"'<>]+", re.IGNORECASE)
-        for match in url_pattern.finditer(line):
+        for match in URL_PATTERN.finditer(line):
             host = _extract_host(match.group(0))
             if host and _find_confusables_in_token(host, confusable_ranges):
                 return line_num, line.strip()[:200]
@@ -206,11 +205,7 @@ def _homoglyph_evidence(
 
 def _extract_uppercase_tokens(line: str) -> list[str]:
     """Extract uppercase token-like words (3+ chars, underscores allowed)."""
-    return re.findall(
-        r"\b[A-Z\u0370-\u03FF\u0400-\u04FF\u2100-\u214F\uFF00-\uFFEF]"
-        r"[A-Z0-9_\u0370-\u03FF\u0400-\u04FF\u2100-\u214F\uFF00-\uFFEF]{2,}\b",
-        line,
-    )
+    return UPPERCASE_TOKEN_PATTERN.findall(line)
 
 
 def _find_confusables_in_token(
