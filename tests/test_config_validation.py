@@ -223,6 +223,43 @@ def test_tool_tier_valid_config_returns_no_errors(tmp_path: Path) -> None:
     assert validate_config_file(tmp_path) == []
 
 
+def test_data_sensitivity_invalid_type_returns_cfg009(tmp_path: Path) -> None:
+    """Non-mapping data_sensitivity value is flagged."""
+    _write_config(tmp_path, "data_sensitivity: invalid\n")
+    errors = validate_config_file(tmp_path)
+    assert any(e.code == CFG009 and "data_sensitivity" in e.field for e in errors)
+
+
+def test_data_sensitivity_unknown_key_returns_cfg004(tmp_path: Path) -> None:
+    """Unknown key inside data_sensitivity is flagged."""
+    _write_config(tmp_path, "data_sensitivity:\n  bogus_key:\n    - test\n")
+    errors = validate_config_file(tmp_path)
+    assert any(e.code == CFG004 and "data_sensitivity.bogus_key" in e.field for e in errors)
+
+
+def test_data_sensitivity_invalid_list_type_returns_cfg005(tmp_path: Path) -> None:
+    """Non-list value for data_sensitivity sub-key is flagged."""
+    _write_config(tmp_path, "data_sensitivity:\n  high_services: 123\n")
+    errors = validate_config_file(tmp_path)
+    assert any(e.code == CFG005 and "data_sensitivity.high_services" in e.field for e in errors)
+
+
+def test_data_sensitivity_valid_config_returns_no_errors(tmp_path: Path) -> None:
+    """Valid data_sensitivity produces no errors."""
+    _write_config(
+        tmp_path,
+        "data_sensitivity:\n  high_services:\n    - acme\n  high_keywords:\n    - secret\n",
+    )
+    assert validate_config_file(tmp_path) == []
+
+
+def test_data_sensitivity_service_categories_invalid_type(tmp_path: Path) -> None:
+    """Non-mapping service_categories value is flagged."""
+    _write_config(tmp_path, "data_sensitivity:\n  service_categories:\n    - wrong\n")
+    errors = validate_config_file(tmp_path)
+    assert any(e.code == CFG005 and "service_categories" in e.field for e in errors)
+
+
 @pytest.mark.parametrize(
     "yaml_content",
     [

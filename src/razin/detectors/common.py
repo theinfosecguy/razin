@@ -2,18 +2,15 @@
 
 from __future__ import annotations
 
-import re
 from urllib.parse import urlparse
 
+from razin.constants.detectors import TRAILING_PUNCT_RE
 from razin.model import DocumentField, Evidence, FindingCandidate, ParsedSkillDocument
-
-# Characters commonly appended by markdown syntax that are not valid URL endings.
-_TRAILING_PUNCT_RE = re.compile(r"[)`*.,;:!?\]]+$")
 
 
 def normalize_url(url: str) -> str:
     """Strip trailing markdown punctuation from an extracted URL."""
-    return _TRAILING_PUNCT_RE.sub("", url)
+    return TRAILING_PUNCT_RE.sub("", url)
 
 
 def field_evidence(parsed: ParsedSkillDocument, field: DocumentField) -> Evidence:

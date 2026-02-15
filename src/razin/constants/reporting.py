@@ -35,3 +35,17 @@ SARIF_SEVERITY_MAP: dict[str, str] = {
     "medium": "warning",
     "low": "note",
 }
+
+# ANSI escape codes for terminal colouring.
+ANSI_RESET: str = "\033[0m"
+ANSI_BOLD: str = "\033[1m"
+ANSI_RED: str = "\033[31;1m"
+ANSI_YELLOW: str = "\033[33;1m"
+ANSI_GREEN: str = "\033[32;1m"
+ANSI_DIM: str = "\033[2m"
+
+SEVERITY_COLORS: dict[str, str] = {
+    "high": ANSI_RED,
+    "medium": ANSI_YELLOW,
+    "low": ANSI_GREEN,
+}

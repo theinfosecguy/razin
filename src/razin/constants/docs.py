@@ -81,6 +81,18 @@ TOOL_CONSOLIDATION_MAX_SCORE: int = 50
 TOOL_CONSOLIDATION_TOP_N: int = 5
 
 DEFAULT_TOOL_PREFIXES: tuple[str, ...] = ("RUBE_", "MCP_")
+
+NEGATION_PREFIXES: tuple[str, ...] = (
+    "no ",
+    "not ",
+    "without ",
+    "don't need",
+    "doesn't require",
+    "not require",
+    "not needed",
+    "no need for",
+)
+
 DEFAULT_SERVICE_TOOL_PREFIXES: tuple[str, ...] = (
     "AIRTABLE",
     "AWS",

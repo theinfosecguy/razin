@@ -1,0 +1,13 @@
+rule_id: DATA_SENSITIVITY
+version: 1
+metadata:
+  title: "Data sensitivity classification"
+  description: "Skill integrates with a service that handles sensitive data categories."
+  recommendation: "Review the data sensitivity tier and ensure access controls, audit logging, and data handling policies are in place for the service category."
+  confidence: medium
+scoring:
+  base_score: 55
+match:
+  source: raw_text
+  strategy: data_sensitivity_check
+dedupe: false

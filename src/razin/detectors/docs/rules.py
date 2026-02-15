@@ -21,6 +21,7 @@ from razin.constants.docs import (
     MCP_ENDPOINT_SCORE,
     MCP_PATH_TOKEN,
     MCP_REQUIRED_SCORE,
+    NEGATION_PREFIXES,
     SERVICE_TOOL_MIN_TOTAL_LENGTH,
     SERVICE_TOOL_TOKEN_PATTERN,
     TOOL_CONSOLIDATION_MAX_SCORE,
@@ -428,7 +429,7 @@ def _best_evidence_for_hint(parsed: ParsedSkillDocument, hint: str) -> Evidence:
             continue
         # Skip negated lines.
         negated = False
-        for prefix in _NEGATION_PREFIXES:
+        for prefix in NEGATION_PREFIXES:
             idx = line_lower.find(hint_lower)
             window_start = max(0, idx - 30)
             window = line_lower[window_start:idx]
@@ -453,19 +454,6 @@ def _is_empty_requirement(value: object) -> bool:
     return False
 
 
-# Negation prefixes checked line-by-line for AUTH_CONNECTION hints.
-_NEGATION_PREFIXES: tuple[str, ...] = (
-    "no ",
-    "not ",
-    "without ",
-    "don't need",
-    "doesn't require",
-    "no need for",
-    "not require",
-    "not needed",
-)
-
-
 def _hint_is_negated(lowered_text: str, hint: str) -> bool:
     """Return True when *every* occurrence of `hint` in the text is negated."""
     if hint not in lowered_text:
@@ -475,7 +463,7 @@ def _hint_is_negated(lowered_text: str, hint: str) -> bool:
         if hint not in line:
             continue
         negated = False
-        for prefix in _NEGATION_PREFIXES:
+        for prefix in NEGATION_PREFIXES:
             idx = line.find(hint)
             # Check up to 30 chars before the hint for a negation prefix.
             window_start = max(0, idx - 30)

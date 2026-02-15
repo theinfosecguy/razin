@@ -18,13 +18,18 @@ from razin.constants.detectors import (
     IP_PATTERN,
     LOCAL_DEV_HOSTS,
     LOCAL_DEV_TLDS,
+    NON_SECRET_ENV_OPERATORS,
+    PROSE_MIN_WORDS,
     RESERVED_EXAMPLE_DOMAINS,
     SCRIPT_FILE_EXTENSIONS,
+    SECRET_ENV_KEYWORDS,
     SECRET_PLACEHOLDER_VALUE_PATTERN,
     URL_PATTERN,
 )
 from razin.constants.docs import (
     DEFAULT_SERVICE_TOOL_PREFIXES,
+    MCP_PATH_TOKEN,
+    NEGATION_PREFIXES,
     SERVICE_TOOL_MIN_TOTAL_LENGTH,
     SERVICE_TOOL_TOKEN_PATTERN,
     TOOL_CONSOLIDATION_MAX_SCORE,
@@ -45,57 +50,6 @@ from razin.detectors.common import (
 from razin.dsl.context import EvalContext
 from razin.model import Evidence, FindingCandidate, ParsedSkillDocument
 from razin.utils import normalize_similarity_name
-
-NEGATION_PREFIXES: tuple[str, ...] = (
-    "no ",
-    "not ",
-    "without ",
-    "don't need",
-    "doesn't require",
-    "not require",
-    "not needed",
-    "no need for",
-)
-
-MCP_PATH_TOKEN: str = "/mcp"
-
-_PROSE_MIN_WORDS_DEFAULT: int = 3
-
-_NON_SECRET_ENV_OPERATORS: frozenset[str] = frozenset(
-    {
-        "$add",
-        "$set",
-        "$setonce",
-        "$append",
-        "$prepend",
-        "$remove",
-        "$unset",
-        "$union",
-        "$delete",
-        "$inc",
-        "$push",
-        "$pull",
-        "$pop",
-        "$rename",
-        "$min",
-        "$max",
-        "$mul",
-        "$bit",
-    }
-)
-
-_SECRET_ENV_KEYWORDS: tuple[str, ...] = (
-    "key",
-    "token",
-    "secret",
-    "password",
-    "credential",
-    "auth",
-    "private",
-    "passwd",
-    "api_key",
-    "apikey",
-)
 
 
 def run_url_domain_filter(
@@ -305,7 +259,7 @@ def run_entropy_check(
     min_entropy: float = match_config.get("min_entropy", 4.5)
     base64_pattern_str: str | None = match_config.get("base64_pattern")
     skip_prose: bool = match_config.get("skip_prose", False)
-    prose_min_words: int = match_config.get("prose_min_words", _PROSE_MIN_WORDS_DEFAULT)
+    prose_min_words: int = match_config.get("prose_min_words", PROSE_MIN_WORDS)
 
     base64_re = re.compile(base64_pattern_str) if base64_pattern_str else None
     findings: list[FindingCandidate] = []
@@ -953,20 +907,150 @@ def _extract_host(url: str) -> str:
         return ""
 
 
-OP_REGISTRY: dict[str, Any] = {
-    "url_domain_filter": run_url_domain_filter,
-    "ip_address_scan": run_ip_address_scan,
-    "key_pattern_match": run_key_pattern_match,
-    "field_pattern_match": run_field_pattern_match,
-    "entropy_check": run_entropy_check,
-    "hint_count": run_hint_count,
-    "keyword_in_text": run_keyword_in_text,
-    "token_scan": run_token_scan,
-    "frontmatter_check": run_frontmatter_check,
-    "typosquat_check": run_typosquat_check,
-    "bundled_scripts_check": run_bundled_scripts_check,
-    "hidden_instruction_scan": run_hidden_instruction_scan,
-}
+def _tokenize_name(name: str) -> list[str]:
+    """Split a skill/service name into lowercase tokens on non-alnum boundaries."""
+    return [t for t in re.split(r"[^a-z0-9]+", name.lower()) if t]
+
+
+def _service_matches_name(service: str, name: str) -> bool:
+    """Return True when *service* appears as a whole token in *name*."""
+    return service in _tokenize_name(name)
+
+
+def _keyword_in_text(keyword: str, text: str) -> bool:
+    """Return True when *keyword* appears at word boundaries in *text*."""
+    pattern = r"\b" + re.escape(keyword) + r"\b"
+    return bool(re.search(pattern, text))
+
+
+def run_data_sensitivity_check(
+    ctx: EvalContext,
+    match_config: dict[str, Any],
+    metadata: dict[str, Any],
+    base_score: int,
+    do_dedupe: bool,
+) -> list[FindingCandidate]:
+    """Classify skill by data sensitivity of integrated services."""
+    from razin.constants.data_sensitivity import (
+        KEYWORD_BONUS,
+        SENSITIVITY_TIER_SCORES,
+        SERVICE_CATEGORY_MAP,
+    )
+
+    ds_config = ctx.config.data_sensitivity
+    custom_categories = ds_config.service_categories or {}
+    category_map = {**SERVICE_CATEGORY_MAP, **custom_categories}
+
+    skill_name_lower = ctx.skill_name.lower()
+    declared_name = _declared_name(ctx.parsed)
+
+    names_to_check = [skill_name_lower]
+    if declared_name:
+        names_to_check.append(declared_name.lower())
+
+    service_tier: str | None = None
+    matched_service: str | None = None
+
+    for name in names_to_check:
+        for svc in ds_config.high_services:
+            if _service_matches_name(svc, name):
+                service_tier = "high"
+                matched_service = svc
+                break
+        if service_tier:
+            break
+        for svc in ds_config.medium_services:
+            if _service_matches_name(svc, name):
+                service_tier = "medium"
+                matched_service = svc
+                break
+        if service_tier:
+            break
+        for svc in ds_config.low_services:
+            if _service_matches_name(svc, name):
+                service_tier = "low"
+                matched_service = svc
+                break
+        if service_tier:
+            break
+
+    body_lower = ctx.parsed.raw_text.lower()
+    high_kw_matches = [kw for kw in ds_config.high_keywords if _keyword_in_text(kw, body_lower)]
+    medium_kw_matches = [kw for kw in ds_config.medium_keywords if _keyword_in_text(kw, body_lower)]
+
+    if service_tier is None and not high_kw_matches and not medium_kw_matches:
+        return []
+
+    if service_tier is None:
+        if high_kw_matches:
+            service_tier = "high"
+        elif medium_kw_matches:
+            service_tier = "medium"
+
+    assert service_tier is not None
+    score = SENSITIVITY_TIER_SCORES.get(service_tier, base_score)
+
+    if high_kw_matches:
+        score = min(score + KEYWORD_BONUS, 100)
+
+    category = "unknown"
+    if matched_service and matched_service in category_map:
+        category = category_map[matched_service]
+    elif high_kw_matches:
+        category = _infer_category_from_keywords(high_kw_matches)
+    elif medium_kw_matches:
+        category = _infer_category_from_keywords(medium_kw_matches)
+
+    desc_parts: list[str] = []
+    if matched_service:
+        desc_parts.append(f"Skill integrates with {matched_service} ({service_tier}-sensitivity service).")
+    else:
+        desc_parts.append(f"Skill body contains {service_tier}-sensitivity data keywords.")
+    desc_parts.append(f"Category: {category}.")
+
+    if high_kw_matches:
+        kw_preview = ", ".join(high_kw_matches[:5])
+        desc_parts.append(f"High-sensitivity keywords: {kw_preview}.")
+    if medium_kw_matches:
+        kw_preview = ", ".join(medium_kw_matches[:5])
+        desc_parts.append(f"Medium-sensitivity keywords: {kw_preview}.")
+
+    description = " ".join(desc_parts)
+
+    snippet = f"service={matched_service or 'N/A'}, category={category}, tier={service_tier}"
+    evidence = Evidence(
+        path=str(ctx.parsed.file_path),
+        line=1,
+        snippet=snippet[:200],
+    )
+
+    return [
+        FindingCandidate(
+            rule_id="",
+            score=score,
+            confidence=metadata["confidence"],
+            title=metadata["title"],
+            description=description,
+            evidence=evidence,
+            recommendation=metadata["recommendation"],
+        )
+    ]
+
+
+def _infer_category_from_keywords(keywords: list[str]) -> str:
+    """Infer a data category from matched sensitivity keywords."""
+    financial_kw = {"payment", "credit card", "bank account", "billing", "invoice", "tax", "payroll"}
+    medical_kw = {"medical", "health record", "patient", "diagnosis"}
+    pii_kw = {"social security", "ssn", "salary", "password", "credential"}
+
+    for kw in keywords:
+        if kw in financial_kw:
+            return "financial"
+        if kw in medical_kw:
+            return "medical/health"
+        if kw in pii_kw:
+            return "PII"
+    return "sensitive-data"
 
 
 def _any_url(url: str, domain: str, ctx: EvalContext) -> bool:
@@ -1064,9 +1148,9 @@ def _is_non_secret_env_ref(value: str) -> bool:
     """Return True when env-var references are non-secret operators."""
     for match in ENV_REF_PATTERN.finditer(value):
         ref = match.group(0).lower().strip("${} ")
-        if ref in _NON_SECRET_ENV_OPERATORS:
+        if ref in NON_SECRET_ENV_OPERATORS:
             continue
-        if any(kw in ref for kw in _SECRET_ENV_KEYWORDS):
+        if any(kw in ref for kw in SECRET_ENV_KEYWORDS):
             return False
     return True
 

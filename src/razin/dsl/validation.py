@@ -11,6 +11,17 @@ from typing import Any
 
 import yaml
 
+from razin.constants.dsl_schema import (
+    ALLOWED_METADATA_KEYS,
+    ALLOWED_PROFILE_KEYS,
+    ALLOWED_TOP_KEYS,
+    REQUIRED_METADATA_KEYS,
+    REQUIRED_TOP_KEYS,
+    VALID_CONFIDENCES,
+    VALID_PROFILE_NAMES,
+    VALID_SOURCES,
+    VALID_STRATEGIES,
+)
 from razin.constants.validation import (
     RULE001,
     RULE002,
@@ -21,17 +32,6 @@ from razin.constants.validation import (
     RULE007,
     RULE008,
     RULE009,
-)
-from razin.dsl.schema import (
-    ALLOWED_METADATA_KEYS,
-    ALLOWED_PROFILE_KEYS,
-    ALLOWED_TOP_KEYS,
-    REQUIRED_METADATA_KEYS,
-    REQUIRED_TOP_KEYS,
-    VALID_CONFIDENCES,
-    VALID_PROFILE_NAMES,
-    VALID_SOURCES,
-    VALID_STRATEGIES,
 )
 from razin.exceptions.validation import ValidationError
 
