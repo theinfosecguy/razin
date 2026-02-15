@@ -5,6 +5,57 @@ from __future__ import annotations
 import re
 from re import Pattern
 
+ZERO_WIDTH_CHARS: frozenset[int] = frozenset(
+    {
+        0x200B,  # ZERO WIDTH SPACE
+        0x200C,  # ZERO WIDTH NON-JOINER
+        0x200D,  # ZERO WIDTH JOINER
+        0x200E,  # LEFT-TO-RIGHT MARK
+        0x200F,  # RIGHT-TO-LEFT MARK
+        0x2060,  # WORD JOINER
+        0x2061,  # FUNCTION APPLICATION
+        0x2062,  # INVISIBLE TIMES
+        0x2063,  # INVISIBLE SEPARATOR
+        0x2064,  # INVISIBLE PLUS
+    }
+)
+
+EMBEDDED_BOM_CODEPOINT: int = 0xFEFF
+
+HTML_COMMENT_PATTERN: Pattern[str] = re.compile(
+    r"<!--(.*?)-->",
+    re.DOTALL,
+)
+
+HIDDEN_INSTRUCTION_PHRASES: tuple[str, ...] = (
+    "ignore previous instructions",
+    "ignore all instructions",
+    "disregard instructions",
+    "disregard previous",
+    "override instructions",
+    "override previous",
+    "inject instructions",
+    "do not reveal",
+    "do not disclose",
+    "exfiltrate data",
+    "exfiltrate information",
+    "bypass security",
+    "bypass restrictions",
+    "bypass safety",
+    "hidden instruction",
+    "system prompt override",
+    "you are now",
+    "pretend you are",
+    "act as if",
+)
+
+HOMOGLYPH_CONFUSABLE_RANGES: tuple[tuple[int, int], ...] = (
+    (0x0400, 0x04FF),  # Cyrillic
+    (0x0370, 0x03FF),  # Greek
+    (0x2100, 0x214F),  # Letterlike Symbols
+    (0xFF00, 0xFFEF),  # Fullwidth Forms
+)
+
 URL_PATTERN: Pattern[str] = re.compile(r"https?://[^\s\"'<>]+", re.IGNORECASE)
 IP_PATTERN: Pattern[str] = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 BRACKET_IPV6_PATTERN: Pattern[str] = re.compile(r"\[([0-9A-Fa-f:]+)\]")

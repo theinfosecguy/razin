@@ -1,0 +1,14 @@
+rule_id: HIDDEN_INSTRUCTION
+version: 1
+metadata:
+  title: "Hidden instructions detected"
+  description: "Skill contains invisible characters or HTML comments with injection-like text that would not be visible in a normal markdown render."
+  recommendation: "Remove zero-width characters and suspicious HTML comments. Inspect raw file content for concealed instructions."
+  confidence: high
+scoring:
+  base_score: 90
+match:
+  source: raw_text
+  strategy: hidden_instruction_scan
+  min_signals: 1
+dedupe: false
