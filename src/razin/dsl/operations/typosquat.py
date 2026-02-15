@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from razin.types.dsl import EvalContext
 from razin.dsl.operations.shared import (
     declared_name,
     format_template,
     levenshtein_distance,
 )
 from razin.model import Evidence, FindingCandidate
+from razin.types.dsl import EvalContext
 from razin.utils import normalize_similarity_name
 
 

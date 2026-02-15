@@ -16,8 +16,8 @@ from razin.constants.docs import (
     TOOL_TOKEN_PATTERN,
 )
 from razin.detectors.common import field_evidence
-from razin.types.dsl import EvalContext
 from razin.model import Evidence, FindingCandidate
+from razin.types.dsl import EvalContext
 
 
 def run_token_scan(

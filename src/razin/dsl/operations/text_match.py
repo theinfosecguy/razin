@@ -12,7 +12,6 @@ from razin.constants.detectors import (
     SECRET_PLACEHOLDER_VALUE_PATTERN,
 )
 from razin.detectors.common import dedupe_candidates, field_evidence
-from razin.types.dsl import EvalContext
 from razin.dsl.operations.shared import (
     best_evidence_for_hint,
     first_field_with_keyword,
@@ -20,6 +19,7 @@ from razin.dsl.operations.shared import (
     hint_is_negated,
 )
 from razin.model import Evidence, FindingCandidate
+from razin.types.dsl import EvalContext
 
 
 def run_key_pattern_match(

@@ -16,11 +16,11 @@ import yaml
 
 from razin.config import RazinConfig
 from razin.dsl.compiler import CompiledRule, compile_rule
-from razin.types.dsl import EvalContext
-from razin.exceptions.dsl import DslCompileError, DslRuntimeError, DslSchemaError
 from razin.dsl.registry import OP_REGISTRY
 from razin.exceptions import ConfigError
+from razin.exceptions.dsl import DslCompileError, DslRuntimeError, DslSchemaError
 from razin.model import FindingCandidate, ParsedSkillDocument
+from razin.types.dsl import EvalContext
 
 logger = logging.getLogger(__name__)
 

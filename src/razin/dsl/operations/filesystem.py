@@ -6,8 +6,8 @@ from typing import Any
 
 from razin.constants.detectors import SCRIPT_FILE_EXTENSIONS
 from razin.constants.parsing import SNIPPET_MAX_LENGTH
-from razin.types.dsl import EvalContext
 from razin.model import Evidence, FindingCandidate
+from razin.types.dsl import EvalContext
 
 
 def run_bundled_scripts_check(

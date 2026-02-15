@@ -6,8 +6,8 @@ import pytest
 
 from razin.dsl import DslEngine
 from razin.dsl.compiler import CompiledRule, compile_rule
-from razin.exceptions.dsl import DslSchemaError
 from razin.dsl.schema import validate_rule
+from razin.exceptions.dsl import DslSchemaError
 
 from .conftest import _minimal_rule
 

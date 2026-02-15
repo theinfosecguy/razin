@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from razin.types.dsl import EvalContext
 from razin.dsl.operations.shared import (
     first_field_with_keyword,
     is_empty_value,
     resolve_frontmatter_path,
 )
 from razin.model import FindingCandidate
+from razin.types.dsl import EvalContext
 
 
 def run_frontmatter_check(

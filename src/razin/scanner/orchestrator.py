@@ -16,8 +16,8 @@ from razin.constants.engines import ENGINE_DSL
 from razin.constants.profiles import VALID_PROFILES
 from razin.constants.reporting import VALID_OUTPUT_FORMATS
 from razin.dsl import DslEngine
-from razin.exceptions.dsl import DslError
 from razin.exceptions import ConfigError, SkillParseError
+from razin.exceptions.dsl import DslError
 from razin.io import file_sha256
 from razin.model import ScanResult
 from razin.parsers import parse_skill_markdown_file

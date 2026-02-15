@@ -7,7 +7,6 @@ from typing import Any
 
 from razin.constants.detectors import PROSE_MIN_WORDS
 from razin.detectors.common import dedupe_candidates, field_evidence
-from razin.types.dsl import EvalContext
 from razin.dsl.operations.shared import (
     extract_raw_ip_addresses,
     is_non_public_ip,
@@ -15,6 +14,7 @@ from razin.dsl.operations.shared import (
     shannon_entropy,
 )
 from razin.model import FindingCandidate
+from razin.types.dsl import EvalContext
 
 
 def run_ip_address_scan(

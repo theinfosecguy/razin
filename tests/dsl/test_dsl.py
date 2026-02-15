@@ -13,10 +13,10 @@ from razin.config import RazinConfig, effective_detector_ids, load_config
 from razin.detectors import build_detectors
 from razin.dsl import DslEngine
 from razin.dsl.compiler import CompiledRule, compile_rule
-from razin.exceptions.dsl import DslRuntimeError, DslSchemaError
 from razin.dsl.runtime import RULES_DIR
 from razin.dsl.schema import validate_rule
 from razin.exceptions import ConfigError
+from razin.exceptions.dsl import DslRuntimeError, DslSchemaError
 from razin.model import FindingCandidate, ParsedSkillDocument
 from razin.parsers import parse_skill_markdown_file
 from razin.scanner.discovery import derive_skill_name

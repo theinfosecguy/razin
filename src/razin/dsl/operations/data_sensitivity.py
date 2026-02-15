@@ -9,13 +9,13 @@ from razin.constants.data_sensitivity import (
     MEDICAL_KEYWORDS,
     PII_KEYWORDS,
 )
-from razin.types.dsl import EvalContext
 from razin.dsl.operations.shared import (
     declared_name,
     keyword_in_text,
     service_matches_name,
 )
 from razin.model import Evidence, FindingCandidate
+from razin.types.dsl import EvalContext
 
 
 def run_data_sensitivity_check(
