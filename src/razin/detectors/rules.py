@@ -87,7 +87,7 @@ class NetRawIpDetector(Detector):
 class NetUnknownDomainDetector(Detector):
     """Detect network domains not in allowlist or explicitly denylisted.
 
-    Only fires for non-prose fields (code blocks).  Prose-sourced URLs are
+    Fires for code-block and config-line fields.  Pure prose-sourced URLs are
     handled by the lower-severity :class:`NetDocDomainDetector`.
     """
 
@@ -103,7 +103,7 @@ class NetUnknownDomainDetector(Detector):
         findings: list[FindingCandidate] = []
         strict = config.strict_subdomains
         for field in parsed.fields:
-            if field.field_source == "prose":
+            if field.field_source not in ("code_block", "config_line"):
                 continue
             for raw_url in URL_PATTERN.findall(field.value):
                 url = normalize_url(raw_url)
@@ -151,11 +151,12 @@ class NetUnknownDomainDetector(Detector):
 
 
 class NetDocDomainDetector(Detector):
-    """Detect non-allowlisted domains in prose documentation.
+    """Detect non-allowlisted or denylisted domains in prose documentation.
 
     Fires only for prose-sourced URL fields — markdown body text outside of
-    code blocks.  These carry lower risk than URLs in configuration or code
-    blocks and are reported with a reduced score.
+    code blocks and config-like lines.  Non-denylisted prose URLs carry lower
+    risk and are reported with a reduced score.  Denylisted prose URLs are
+    reported with high severity to enforce domain-deny policies.
     """
 
     rule_id = "NET_DOC_DOMAIN"
@@ -182,6 +183,17 @@ class NetDocDomainDetector(Detector):
                     continue
 
                 if is_denylisted(domain, config.denylist_domains):
+                    findings.append(
+                        FindingCandidate(
+                            rule_id=self.rule_id,
+                            score=NET_DENYLIST_DOMAIN_SCORE,
+                            confidence="high",
+                            title="Denylisted domain in docs",
+                            description=f"Documentation references '{domain}', which is denylisted.",
+                            evidence=field_evidence(parsed, field),
+                            recommendation="Remove or replace denylisted domains.",
+                        )
+                    )
                     continue
 
                 if is_allowlisted(domain, config.effective_allowlist_domains, strict=strict):

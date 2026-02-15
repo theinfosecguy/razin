@@ -787,12 +787,16 @@ def _is_allowlisted_only(domain: str, ctx: EvalContext) -> bool:
 
 
 def _not_allowlisted_prose(domain: str, ctx: EvalContext) -> bool | dict[str, Any]:
-    """For NET_DOC_DOMAIN: non-allowlisted domains in prose fields."""
+    """For NET_DOC_DOMAIN: non-allowlisted or denylisted domains in prose fields."""
     if ctx.config.suppress_local_hosts and _is_local_dev_host(domain):
         return False
 
     if is_denylisted(domain, ctx.config.denylist_domains):
-        return False
+        return {
+            "score": 80,
+            "confidence": "high",
+            "description": f"Documentation references '{domain}', which is denylisted.",
+        }
 
     if is_allowlisted(domain, ctx.config.effective_allowlist_domains, strict=ctx.config.strict_subdomains):
         return False
