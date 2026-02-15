@@ -3,30 +3,14 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
 from typing import Any
 
 from razin.dsl.errors import DslCompileError
-from razin.dsl.ops import OP_REGISTRY
+from razin.dsl.registry import OP_REGISTRY
 from razin.dsl.schema import validate_rule
+from razin.types.dsl import CompiledRule
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass(frozen=True)
-class CompiledRule:
-    """Typed execution plan for a single DSL rule."""
-
-    source_path: str
-    rule_id: str
-    public_rule_id: str
-    version: int
-    strategy_name: str
-    match_config: dict[str, Any]
-    metadata: dict[str, Any]
-    base_score: int
-    dedupe: bool
-    profiles: dict[str, dict[str, Any]]
 
 
 def compile_rule(data: dict[str, Any], source_path: str) -> CompiledRule:

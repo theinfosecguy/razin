@@ -18,6 +18,13 @@ from razin.constants.config import (
     DEFAULT_SKILL_GLOBS,
     DEFAULT_TOOL_PREFIXES_CONFIG,
 )
+from razin.constants.data_sensitivity import (
+    HIGH_SENSITIVITY_KEYWORDS,
+    HIGH_SENSITIVITY_SERVICES,
+    LOW_SENSITIVITY_SERVICES,
+    MEDIUM_SENSITIVITY_KEYWORDS,
+    MEDIUM_SENSITIVITY_SERVICES,
+)
 from razin.constants.docs import (
     TOOL_TIER_DESTRUCTIVE_KEYWORDS,
     TOOL_TIER_WRITE_KEYWORDS,
@@ -34,6 +41,7 @@ from razin.constants.profiles import (
 )
 from razin.constants.validation import (
     ALLOWED_CONFIG_KEYS,
+    ALLOWED_DATA_SENSITIVITY_KEYS,
     ALLOWED_DETECTOR_KEYS,
     ALLOWED_TOOL_TIER_KEYS,
     ALLOWED_TYPOSQUAT_KEYS,
@@ -50,22 +58,7 @@ from razin.constants.validation import (
 )
 from razin.exceptions import ConfigError
 from razin.exceptions.validation import ValidationError
-
-
-@dataclass(frozen=True)
-class ToolTierConfig:
-    """Keyword tiers for tool token risk classification."""
-
-    destructive: tuple[str, ...] = TOOL_TIER_DESTRUCTIVE_KEYWORDS
-    write: tuple[str, ...] = TOOL_TIER_WRITE_KEYWORDS
-
-
-@dataclass(frozen=True)
-class DetectorConfig:
-    """Detector enablement toggles."""
-
-    enabled: tuple[str, ...] = ()
-    disabled: tuple[str, ...] = ()
+from razin.types.config import DataSensitivityConfig, DetectorConfig, ToolTierConfig
 
 
 @dataclass(frozen=True)
@@ -82,6 +75,7 @@ class RazinConfig:
     tool_prefixes: tuple[str, ...] = DEFAULT_TOOL_PREFIXES_CONFIG
     detectors: DetectorConfig = DetectorConfig()
     tool_tier_keywords: ToolTierConfig = ToolTierConfig()
+    data_sensitivity: DataSensitivityConfig = DataSensitivityConfig()
     typosquat_baseline: tuple[str, ...] = ()
     skill_globs: tuple[str, ...] = DEFAULT_SKILL_GLOBS
     max_file_mb: int = DEFAULT_MAX_FILE_MB
@@ -151,6 +145,12 @@ def load_config(root: Path, config_path: Path | None = None) -> RazinConfig:
     if not isinstance(tool_tier_raw, dict):
         raise ConfigError("tool_tier_keywords must be a mapping")
 
+    data_sensitivity_raw = raw.get("data_sensitivity", {})
+    if data_sensitivity_raw is None:
+        data_sensitivity_raw = {}
+    if not isinstance(data_sensitivity_raw, dict):
+        raise ConfigError("data_sensitivity must be a mapping")
+
     tool_tier = ToolTierConfig(
         destructive=tuple(
             kw.upper()
@@ -214,6 +214,7 @@ def load_config(root: Path, config_path: Path | None = None) -> RazinConfig:
         ),
         typosquat_baseline=tuple(_ensure_string_list(typosquat_raw.get("baseline", []), "typosquat.baseline")),
         tool_tier_keywords=tool_tier,
+        data_sensitivity=_build_data_sensitivity_config(data_sensitivity_raw),
         skill_globs=tuple(_ensure_string_list(raw.get("skill_globs", DEFAULT_SKILL_GLOBS), "skill_globs")),
         max_file_mb=max_file_mb,
     )
@@ -245,6 +246,14 @@ def config_fingerprint(config: RazinConfig, max_file_mb_override: int | None = N
         "typosquat_baseline": list(config.typosquat_baseline),
         "tool_tier_destructive": list(config.tool_tier_keywords.destructive),
         "tool_tier_write": list(config.tool_tier_keywords.write),
+        "data_sensitivity_high_services": list(config.data_sensitivity.high_services),
+        "data_sensitivity_medium_services": list(config.data_sensitivity.medium_services),
+        "data_sensitivity_low_services": list(config.data_sensitivity.low_services),
+        "data_sensitivity_high_keywords": list(config.data_sensitivity.high_keywords),
+        "data_sensitivity_medium_keywords": list(config.data_sensitivity.medium_keywords),
+        "data_sensitivity_service_categories": sorted(
+            (config.data_sensitivity.service_categories or {}).items()
+        ),
         "skill_globs": list(config.skill_globs),
         "max_file_mb": (max_file_mb_override if max_file_mb_override is not None else config.max_file_mb),
     }
@@ -270,6 +279,66 @@ def _merge_domains(*domain_sets: tuple[str, ...]) -> tuple[str, ...]:
     for domains in domain_sets:
         merged.update(domains)
     return tuple(sorted(merged))
+
+
+def _build_data_sensitivity_config(raw: dict[str, Any]) -> DataSensitivityConfig:
+    """Build a DataSensitivityConfig from the raw data_sensitivity YAML block."""
+    high_services = tuple(
+        s.lower()
+        for s in _ensure_string_list(
+            raw.get("high_services", list(HIGH_SENSITIVITY_SERVICES)),
+            "data_sensitivity.high_services",
+        )
+        if s.strip()
+    )
+    medium_services = tuple(
+        s.lower()
+        for s in _ensure_string_list(
+            raw.get("medium_services", list(MEDIUM_SENSITIVITY_SERVICES)),
+            "data_sensitivity.medium_services",
+        )
+        if s.strip()
+    )
+    low_services = tuple(
+        s.lower()
+        for s in _ensure_string_list(
+            raw.get("low_services", list(LOW_SENSITIVITY_SERVICES)),
+            "data_sensitivity.low_services",
+        )
+        if s.strip()
+    )
+    high_keywords = tuple(
+        k.lower()
+        for k in _ensure_string_list(
+            raw.get("high_keywords", list(HIGH_SENSITIVITY_KEYWORDS)),
+            "data_sensitivity.high_keywords",
+        )
+        if k.strip()
+    )
+    medium_keywords = tuple(
+        k.lower()
+        for k in _ensure_string_list(
+            raw.get("medium_keywords", list(MEDIUM_SENSITIVITY_KEYWORDS)),
+            "data_sensitivity.medium_keywords",
+        )
+        if k.strip()
+    )
+
+    service_categories_raw = raw.get("service_categories")
+    service_categories: dict[str, str] | None = None
+    if service_categories_raw is not None:
+        if not isinstance(service_categories_raw, dict):
+            raise ConfigError("data_sensitivity.service_categories must be a mapping")
+        service_categories = {str(k).lower(): str(v) for k, v in service_categories_raw.items()}
+
+    return DataSensitivityConfig(
+        high_services=high_services,
+        medium_services=medium_services,
+        low_services=low_services,
+        high_keywords=high_keywords,
+        medium_keywords=medium_keywords,
+        service_categories=service_categories,
+    )
 
 
 def validate_config_file(
@@ -418,6 +487,7 @@ def validate_config_file(
     _validate_detectors_block(raw, path_str, errors)
     _validate_typosquat_block(raw, path_str, errors)
     _validate_tool_tier_block(raw, path_str, errors)
+    _validate_data_sensitivity_block(raw, path_str, errors)
 
     return errors
 
@@ -592,3 +662,65 @@ def _suggest_key(unknown: str, allowed: frozenset[str]) -> str:
     if matches:
         return f"did you mean `{matches[0]}`?"
     return ""
+
+
+def _validate_data_sensitivity_block(
+    raw: dict[str, Any],
+    path_str: str,
+    errors: list[ValidationError],
+) -> None:
+    """Validate the ``data_sensitivity`` nested mapping in razin.yaml."""
+    if "data_sensitivity" not in raw:
+        return
+    ds = raw["data_sensitivity"]
+    if ds is None:
+        return
+    if not isinstance(ds, dict):
+        errors.append(
+            ValidationError(
+                code=CFG009,
+                path=path_str,
+                field="data_sensitivity",
+                message="`data_sensitivity` must be a mapping",
+            )
+        )
+        return
+
+    for key in sorted(ds.keys()):
+        if key not in ALLOWED_DATA_SENSITIVITY_KEYS:
+            errors.append(
+                ValidationError(
+                    code=CFG004,
+                    path=path_str,
+                    field=f"data_sensitivity.{key}",
+                    message=f"unknown key `{key}` in `data_sensitivity`",
+                    hint=_suggest_key(key, ALLOWED_DATA_SENSITIVITY_KEYS),
+                )
+            )
+
+    for sub_key in ("high_services", "medium_services", "low_services", "high_keywords", "medium_keywords"):
+        if sub_key in ds:
+            val = ds[sub_key]
+            if val is not None and (not isinstance(val, (list, tuple)) or not all(isinstance(i, str) for i in val)):
+                errors.append(
+                    ValidationError(
+                        code=CFG005,
+                        path=path_str,
+                        field=f"data_sensitivity.{sub_key}",
+                        message=f"invalid type for `data_sensitivity.{sub_key}`",
+                        hint="expected a list of strings",
+                    )
+                )
+
+    if "service_categories" in ds:
+        val = ds["service_categories"]
+        if val is not None and not isinstance(val, dict):
+            errors.append(
+                ValidationError(
+                    code=CFG005,
+                    path=path_str,
+                    field="data_sensitivity.service_categories",
+                    message="invalid type for `data_sensitivity.service_categories`",
+                    hint="expected a mapping of service name to category string",
+                )
+            )

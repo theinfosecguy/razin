@@ -7,12 +7,12 @@ from pathlib import Path
 import pytest
 
 from razin.config import (
-    DetectorConfig,
     RazinConfig,
     config_fingerprint,
     effective_detector_ids,
     load_config,
 )
+from razin.types.config import DetectorConfig
 from razin.constants.config import DEFAULT_DETECTORS
 from razin.constants.domains import DEFAULT_ALLOWLISTED_DOMAINS
 from razin.exceptions import ConfigError
@@ -130,10 +130,37 @@ def test_profile_changes_fingerprint() -> None:
 
 def test_tool_tier_keywords_change_fingerprint() -> None:
     """Changing tool tier keywords invalidates the config fingerprint."""
-    from razin.config import ToolTierConfig
+    from razin.types.config import ToolTierConfig
 
     default = RazinConfig()
     custom = RazinConfig(tool_tier_keywords=ToolTierConfig(destructive=("NUKE",), write=("DEPLOY",)))
+    assert config_fingerprint(default) != config_fingerprint(custom)
+
+
+def test_data_sensitivity_high_keywords_change_fingerprint() -> None:
+    """Changing high_keywords invalidates the config fingerprint."""
+    from razin.types.config import DataSensitivityConfig
+
+    default = RazinConfig()
+    custom = RazinConfig(data_sensitivity=DataSensitivityConfig(high_keywords=("custom-keyword",)))
+    assert config_fingerprint(default) != config_fingerprint(custom)
+
+
+def test_data_sensitivity_medium_keywords_change_fingerprint() -> None:
+    """Changing medium_keywords invalidates the config fingerprint."""
+    from razin.types.config import DataSensitivityConfig
+
+    default = RazinConfig()
+    custom = RazinConfig(data_sensitivity=DataSensitivityConfig(medium_keywords=("custom-medium",)))
+    assert config_fingerprint(default) != config_fingerprint(custom)
+
+
+def test_data_sensitivity_service_categories_change_fingerprint() -> None:
+    """Changing service_categories invalidates the config fingerprint."""
+    from razin.types.config import DataSensitivityConfig
+
+    default = RazinConfig()
+    custom = RazinConfig(data_sensitivity=DataSensitivityConfig(service_categories={"acme": "internal"}))
     assert config_fingerprint(default) != config_fingerprint(custom)
 
 
