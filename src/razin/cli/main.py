@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from razin import __version__
+from razin.cli.handlers import evaluate_fail_thresholds, handle_validate_config
 from razin.constants.branding import CLI_DESCRIPTION
 from razin.constants.reporting import VALID_OUTPUT_FORMATS
 from razin.exceptions import ConfigError, RazinError
@@ -89,6 +90,19 @@ def build_parser() -> argparse.ArgumentParser:
     scan.add_argument("--no-stdout", action="store_true", help="Silence stdout output")
     scan.add_argument("--no-color", action="store_true", help="Disable colored output")
     scan.add_argument("-v", "--verbose", action="store_true", help="Show cache stats and diagnostics")
+    scan.add_argument(
+        "--fail-on",
+        choices=["high", "medium", "low"],
+        default=None,
+        help="Exit 1 if any finding meets or exceeds this severity (for CI gating)",
+    )
+    scan.add_argument(
+        "--fail-on-score",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Exit 1 if aggregate score meets or exceeds N (0-100, for CI gating)",
+    )
 
     validate = subparsers.add_parser("validate-config", help="Validate configuration without scanning")
     validate.add_argument("-r", "--root", type=Path, required=True, help="Workspace root path")
@@ -121,7 +135,7 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
     if args.command == "validate-config":
-        return _handle_validate_config(args)
+        return handle_validate_config(args)
 
     if args.command != "scan":
         parser.error(f"Unsupported command: {args.command}")
@@ -148,6 +162,13 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"Configuration error: unknown output format(s): {', '.join(sorted(invalid_formats))}. "
             f"Valid formats: {', '.join(sorted(VALID_OUTPUT_FORMATS))}",
+            file=sys.stderr,
+        )
+        return 2
+
+    if args.fail_on_score is not None and not (0 <= args.fail_on_score <= 100):
+        print(
+            "Configuration error: --fail-on-score must be between 0 and 100",
             file=sys.stderr,
         )
         return 2
@@ -189,23 +210,7 @@ def main(argv: list[str] | None = None) -> int:
         reporter = StdoutReporter(result, color=use_color, verbose=args.verbose)
         print(reporter.render())
 
-    return 0
-
-
-def _handle_validate_config(args: argparse.Namespace) -> int:
-    """Run config + rule validation and report results."""
-    errors = preflight_validate(
-        root=args.root,
-        config_path=args.config,
-        rules_dir=args.rules_dir,
-        rule_files=(tuple(args.rule_file) if args.rule_file else None),
-    )
-    if errors:
-        print(format_errors(errors), file=sys.stderr)
-        return 2
-
-    print("Configuration is valid.")
-    return 0
+    return evaluate_fail_thresholds(result, fail_on=args.fail_on, fail_on_score=args.fail_on_score)
 
 
 if __name__ == "__main__":
