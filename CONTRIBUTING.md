@@ -61,3 +61,26 @@ uv run black src tests
 - Frozen dataclasses for data models.
 - No decorative comment separators (`# -----`, `# =====`).
 - `pathlib` for paths, pure functions in the core, side effects at the edges.
+
+## Module boundaries
+
+Key rules:
+
+- **Constants** go in `src/razin/constants/` (one module per domain). Never define constants inline in feature modules.
+- **Exceptions** go in `src/razin/exceptions/`. Never define custom exceptions inline in feature modules.
+- **Shared types** go in `src/razin/types/`.
+- **Detector helpers** (domain extraction, allowlist matching, evidence building) go in `detectors/common.py`, not duplicated across detector files.
+- **DSL operations** go in `dsl/operations/` (one module per operation family). The `dsl/ops.py` facade re-exports them.
+- **Scanner pipeline helpers** go in `scanner/pipeline/`. The `scanner/orchestrator.py` facade re-exports them.
+- **Config submodules** go in `config/` (model, loader, validator, fingerprint). The `config/__init__.py` facade re-exports them.
+
+
+## Test placement
+
+- Tests mirror source module structure: `src/razin/dsl/` tests go in `tests/dsl/`.
+- Split test files by behavioral domain, not by test count.
+- Place shared helpers in the directory's `conftest.py`.
+- Use `@pytest.mark.parametrize` with explicit `id` labels for table-driven tests.
+- Use `@patch` / `@patch.object` as decorators, not `with patch(...)` context managers.
+- Plain functions for tests, not classes, unless shared setup genuinely requires it.
+

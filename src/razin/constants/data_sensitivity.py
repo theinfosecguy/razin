@@ -134,3 +134,34 @@ SENSITIVITY_TIER_SCORES: dict[str, int] = {
 }
 
 KEYWORD_BONUS: int = 10
+
+FINANCIAL_KEYWORDS: frozenset[str] = frozenset(
+    {
+        "payment",
+        "credit card",
+        "bank account",
+        "billing",
+        "invoice",
+        "tax",
+        "payroll",
+    }
+)
+
+MEDICAL_KEYWORDS: frozenset[str] = frozenset(
+    {
+        "medical",
+        "health record",
+        "patient",
+        "diagnosis",
+    }
+)
+
+PII_KEYWORDS: frozenset[str] = frozenset(
+    {
+        "social security",
+        "ssn",
+        "salary",
+        "password",
+        "credential",
+    }
+)

@@ -5,9 +5,9 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from razin.dsl.errors import DslCompileError
 from razin.dsl.registry import OP_REGISTRY
 from razin.dsl.schema import validate_rule
+from razin.exceptions.dsl import DslCompileError
 from razin.types.dsl import CompiledRule
 
 logger = logging.getLogger(__name__)

@@ -155,6 +155,11 @@ RULE_ID_PATTERN: re.Pattern[str] = re.compile(r"^[A-Z][A-Z0-9_]+$")
 
 TRAILING_PUNCT_RE: re.Pattern[str] = re.compile(r"[)`*.,;:!?\]]+$")
 
+UPPERCASE_TOKEN_PATTERN: re.Pattern[str] = re.compile(
+    r"\b[A-Z\u0370-\u03FF\u0400-\u04FF\u2100-\u214F\uFF00-\uFFEF]"
+    r"[A-Z0-9_\u0370-\u03FF\u0400-\u04FF\u2100-\u214F\uFF00-\uFFEF]{2,}\b",
+)
+
 PROSE_MIN_WORDS: int = 3
 
 # Patterns that look like env-var references but are API operators or
