@@ -12,10 +12,15 @@ Razin is a local scanner for SKILL.md-defined agent skills. It performs static a
 - [Install](#install)
 - [Usage](#usage)
 - [Workflow](#workflow)
-- [Python (Primary)](#python-primary)
-- [Docker (Optional)](#docker-optional)
+  - [Python (Primary)](#python-primary)
+  - [Docker (Optional)](#docker-optional)
 - [Config File](#config-file)
+- [Detection Rules](#detection-rules)
 - [Output Formats](#output-formats)
+  - [JSON (default)](#json-default)
+  - [CSV](#csv)
+  - [SARIF](#sarif)
+  - [Multiple formats](#multiple-formats)
 - [Releasing](#releasing)
 - [Outputs](#outputs)
 - [Contributing](#contributing)
@@ -191,6 +196,8 @@ detectors:
     - DYNAMIC_SCHEMA
     - AUTH_CONNECTION
     - EXTERNAL_URLS
+    - PROMPT_INJECTION
+    - HIDDEN_INSTRUCTION
   disabled: []
 typosquat:
   baseline:
@@ -201,6 +208,22 @@ max_file_mb: 2
 ```
 
 By default, subdomain matching is enabled: allowlisting `github.com` also covers `docs.github.com`. Set `strict_subdomains: true` to require exact domain matches only.
+
+## Detection Rules
+
+Razin ships 18 bundled DSL rules. Key rules by category:
+
+**Network and Supply Chain**: `NET_RAW_IP`, `NET_UNKNOWN_DOMAIN`, `NET_DOC_DOMAIN`, `EXTERNAL_URLS`, `MCP_REQUIRED`, `MCP_ENDPOINT`, `MCP_DENYLIST`
+
+**Secrets and Execution**: `SECRET_REF`, `EXEC_FIELDS`, `OPAQUE_BLOB`, `BUNDLED_SCRIPTS`
+
+**Tool and Schema**: `TOOL_INVOCATION`, `DYNAMIC_SCHEMA`, `AUTH_CONNECTION`, `TYPOSQUAT`
+
+**LLM Threat Detection**:
+
+- `PROMPT_INJECTION` (score 80, confidence medium): Detects prompt injection patterns using strong/weak hint classification with negation awareness. Strong hints include phrases like "ignore previous instructions", "you are now", "do not reveal". Requires at least 2 hints with at least 1 strong hint. Negation-prefixed phrases (e.g., "do not ignore previous instructions") are correctly excluded.
+
+- `HIDDEN_INSTRUCTION` (score 90, confidence high): Detects content hidden from normal markdown rendering. Scans for zero-width Unicode characters (U+200B through U+2064), HTML comments containing injection phrases, embedded BOM characters in body text, and mixed-script/homoglyph tokens or domains. Leading BOM (encoding metadata) is ignored; only embedded occurrences are flagged.
 
 ## Output Formats
 
