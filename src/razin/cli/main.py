@@ -89,6 +89,12 @@ def build_parser() -> argparse.ArgumentParser:
     scan.add_argument("--no-stdout", action="store_true", help="Silence stdout output")
     scan.add_argument("--no-color", action="store_true", help="Disable colored output")
     scan.add_argument("-v", "--verbose", action="store_true", help="Show cache stats and diagnostics")
+    scan.add_argument(
+        "--group-by",
+        choices=["skill", "rule"],
+        default=None,
+        help="Group findings by skill or rule (default: flat table)",
+    )
 
     validate = subparsers.add_parser("validate-config", help="Validate configuration without scanning")
     validate.add_argument("-r", "--root", type=Path, required=True, help="Workspace root path")
@@ -186,7 +192,12 @@ def main(argv: list[str] | None = None) -> int:
 
     if not args.no_stdout:
         use_color = not args.no_color and sys.stdout.isatty()
-        reporter = StdoutReporter(result, color=use_color, verbose=args.verbose)
+        reporter = StdoutReporter(
+            result,
+            color=use_color,
+            verbose=args.verbose,
+            group_by=args.group_by,
+        )
         print(reporter.render())
 
     return 0
