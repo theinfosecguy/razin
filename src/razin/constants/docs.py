@@ -51,9 +51,6 @@ AUTH_WEAK_HINTS: tuple[str, ...] = (
     "secret",
 )
 
-# Combined for backward compat where needed.
-AUTH_CONNECTION_HINTS: tuple[str, ...] = AUTH_STRONG_HINTS + AUTH_WEAK_HINTS
-
 TOOL_TIER_DESTRUCTIVE_KEYWORDS: tuple[str, ...] = (
     "DELETE",
     "REMOVE",
