@@ -12,4 +12,6 @@ match:
   strategy: url_domain_filter
   url_filter: skip_ip_addresses
   domain_check: not_allowlisted
+  field_source_filter:
+    - code_block
 dedupe: true

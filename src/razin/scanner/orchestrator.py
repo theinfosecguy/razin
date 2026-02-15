@@ -419,7 +419,7 @@ def _suppress_redundant_candidates(candidates: list[FindingCandidate]) -> list[F
     kept: list[FindingCandidate] = []
     for candidate in candidates:
         evidence_key = (candidate.evidence.path, candidate.evidence.line)
-        if candidate.rule_id == "NET_UNKNOWN_DOMAIN" and evidence_key in mcp_evidence:
+        if candidate.rule_id in {"NET_UNKNOWN_DOMAIN", "NET_DOC_DOMAIN"} and evidence_key in mcp_evidence:
             continue
         kept.append(candidate)
 

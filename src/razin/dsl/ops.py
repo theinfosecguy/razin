@@ -109,6 +109,7 @@ def run_url_domain_filter(
     url_filter_name = match_config.get("url_filter", "any_url")
     domain_check_name = match_config["domain_check"]
     score_map: dict[str, int] = match_config.get("score_map", {})
+    field_source_filter: list[str] | None = match_config.get("field_source_filter")
 
     url_filter_fn = _URL_FILTERS[url_filter_name]
     domain_check_fn = _DOMAIN_CHECKS[domain_check_name]
@@ -117,6 +118,8 @@ def run_url_domain_filter(
     findings: list[FindingCandidate] = []
 
     for field in ctx.parsed.fields:
+        if field_source_filter and field.field_source not in field_source_filter:
+            continue
         for raw_url in URL_PATTERN.findall(field.value):
             url = normalize_url(raw_url)
             domain = extract_domain(url)
@@ -758,7 +761,7 @@ def _not_allowlisted(domain: str, ctx: EvalContext) -> bool | dict[str, Any]:
             "description": f"Configuration references '{domain}', which is denylisted.",
         }
 
-    if is_allowlisted(domain, ctx.config.effective_allowlist_domains):
+    if is_allowlisted(domain, ctx.config.effective_allowlist_domains, strict=ctx.config.strict_subdomains):
         return False
 
     score = 55 if ctx.config.allowlist_domains else 35
@@ -775,16 +778,35 @@ def _is_denylisted_domain(domain: str, ctx: EvalContext) -> bool:
 
 
 def _not_mcp_allowlisted(domain: str, ctx: EvalContext) -> bool:
-    return not is_allowlisted(domain, ctx.config.mcp_allowlist_domains)
+    return not is_allowlisted(domain, ctx.config.mcp_allowlist_domains, strict=ctx.config.strict_subdomains)
 
 
 def _is_allowlisted_only(domain: str, ctx: EvalContext) -> bool:
     """For EXTERNAL_URLS: only fire for allowlisted domains."""
-    return is_allowlisted(domain, ctx.config.allowlist_domains)
+    return is_allowlisted(domain, ctx.config.allowlist_domains, strict=ctx.config.strict_subdomains)
+
+
+def _not_allowlisted_prose(domain: str, ctx: EvalContext) -> bool | dict[str, Any]:
+    """For NET_DOC_DOMAIN: non-allowlisted domains in prose fields."""
+    if ctx.config.suppress_local_hosts and _is_local_dev_host(domain):
+        return False
+
+    if is_denylisted(domain, ctx.config.denylist_domains):
+        return False
+
+    if is_allowlisted(domain, ctx.config.effective_allowlist_domains, strict=ctx.config.strict_subdomains):
+        return False
+
+    return {
+        "score": 15,
+        "confidence": "low",
+        "description": f"Documentation references external domain '{domain}'.",
+    }
 
 
 _DOMAIN_CHECKS: dict[str, Any] = {
     "not_allowlisted": _not_allowlisted,
+    "not_allowlisted_prose": _not_allowlisted_prose,
     "is_denylisted": _is_denylisted_domain,
     "not_mcp_allowlisted": _not_mcp_allowlisted,
     "is_allowlisted_only": _is_allowlisted_only,
