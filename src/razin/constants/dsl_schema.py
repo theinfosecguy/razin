@@ -22,22 +22,16 @@ VALID_STRATEGIES: frozenset[str] = frozenset(
 
 VALID_CONFIDENCES: frozenset[str] = frozenset({"low", "medium", "high"})
 
-VALID_SOURCES: frozenset[str] = frozenset(
-    {"fields", "keys", "raw_text", "frontmatter", "file_system"}
-)
+VALID_SOURCES: frozenset[str] = frozenset({"fields", "keys", "raw_text", "frontmatter", "file_system"})
 
-REQUIRED_TOP_KEYS: frozenset[str] = frozenset(
-    {"rule_id", "version", "metadata", "scoring", "match"}
-)
+REQUIRED_TOP_KEYS: frozenset[str] = frozenset({"rule_id", "version", "metadata", "scoring", "match"})
 ALLOWED_TOP_KEYS: frozenset[str] = REQUIRED_TOP_KEYS | {
     "dedupe",
     "profiles",
     "public_rule_id",
 }
 
-REQUIRED_METADATA_KEYS: frozenset[str] = frozenset(
-    {"title", "recommendation", "confidence"}
-)
+REQUIRED_METADATA_KEYS: frozenset[str] = frozenset({"title", "recommendation", "confidence"})
 ALLOWED_METADATA_KEYS: frozenset[str] = REQUIRED_METADATA_KEYS | {
     "description",
     "description_template",

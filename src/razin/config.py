@@ -251,9 +251,7 @@ def config_fingerprint(config: RazinConfig, max_file_mb_override: int | None = N
         "data_sensitivity_low_services": list(config.data_sensitivity.low_services),
         "data_sensitivity_high_keywords": list(config.data_sensitivity.high_keywords),
         "data_sensitivity_medium_keywords": list(config.data_sensitivity.medium_keywords),
-        "data_sensitivity_service_categories": sorted(
-            (config.data_sensitivity.service_categories or {}).items()
-        ),
+        "data_sensitivity_service_categories": sorted((config.data_sensitivity.service_categories or {}).items()),
         "skill_globs": list(config.skill_globs),
         "max_file_mb": (max_file_mb_override if max_file_mb_override is not None else config.max_file_mb),
     }
