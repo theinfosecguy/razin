@@ -173,10 +173,12 @@ mcp_denylist_domains:
 tool_prefixes:
   - RUBE_
   - MCP_
+strict_subdomains: false
 detectors:
   enabled:
     - NET_RAW_IP
     - NET_UNKNOWN_DOMAIN
+    - NET_DOC_DOMAIN
     - SECRET_REF
     - EXEC_FIELDS
     - OPAQUE_BLOB
@@ -197,6 +199,8 @@ skill_globs:
   - "**/SKILL.md"
 max_file_mb: 2
 ```
+
+By default, subdomain matching is enabled: allowlisting `github.com` also covers `docs.github.com`. Set `strict_subdomains: true` to require exact domain matches only.
 
 ## Output Formats
 
