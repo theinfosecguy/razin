@@ -236,6 +236,121 @@ No need for API key or token.
     assert yaml_findings == []
 
 
+def test_auth_connection_parity_auth_link_pattern(tmp_path: Path) -> None:
+    """Parity: 'auth link' (strong) + 'connection' (weak) fires in both engines."""
+    content = """---
+name: rube-test
+---
+# Rube MCP
+
+Follow the returned auth link to complete connection setup.
+"""
+    path = _skill_file(tmp_path, content)
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig()
+
+    py_det = AuthConnectionDetector()
+    yaml_det = _get_yaml_detector("AUTH_CONNECTION")
+
+    py_findings = py_det.run(skill_name="rube-test", parsed=parsed, config=config)
+    yaml_findings = yaml_det.run(skill_name="rube-test", parsed=parsed, config=config)
+
+    _compare_findings(py_findings, yaml_findings)
+    assert len(py_findings) > 0
+
+
+def test_auth_connection_parity_authorization_hint(tmp_path: Path) -> None:
+    """Parity: 'authorization' (strong) + 'api key' (weak) fires in both engines."""
+    content = """---
+name: authz-test
+---
+# AuthZ
+
+Complete the authorization flow and provide your api key.
+"""
+    path = _skill_file(tmp_path, content)
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig()
+
+    py_det = AuthConnectionDetector()
+    yaml_det = _get_yaml_detector("AUTH_CONNECTION")
+
+    py_findings = py_det.run(skill_name="authz-test", parsed=parsed, config=config)
+    yaml_findings = yaml_det.run(skill_name="authz-test", parsed=parsed, config=config)
+
+    _compare_findings(py_findings, yaml_findings)
+    assert len(py_findings) > 0
+
+
+def test_auth_connection_parity_manage_connections_tool(tmp_path: Path) -> None:
+    """Parity: 'oauth' (strong) + 'RUBE_MANAGE_CONNECTIONS' (weak) fires in both engines."""
+    content = """---
+name: rube-oauth
+---
+# Rube OAuth
+
+Set up oauth and call RUBE_MANAGE_CONNECTIONS to link account.
+"""
+    path = _skill_file(tmp_path, content)
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig()
+
+    py_det = AuthConnectionDetector()
+    yaml_det = _get_yaml_detector("AUTH_CONNECTION")
+
+    py_findings = py_det.run(skill_name="rube-oauth", parsed=parsed, config=config)
+    yaml_findings = yaml_det.run(skill_name="rube-oauth", parsed=parsed, config=config)
+
+    _compare_findings(py_findings, yaml_findings)
+    assert len(py_findings) > 0
+
+
+def test_auth_connection_parity_weak_only_credentials(tmp_path: Path) -> None:
+    """Parity: 'credentials' + 'connection' (both weak) produce no finding in either engine."""
+    content = """---
+name: weak-cred
+---
+# Weak Cred
+
+Set up credentials and connection to the service.
+"""
+    path = _skill_file(tmp_path, content)
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig()
+
+    py_det = AuthConnectionDetector()
+    yaml_det = _get_yaml_detector("AUTH_CONNECTION")
+
+    py_findings = py_det.run(skill_name="weak-cred", parsed=parsed, config=config)
+    yaml_findings = yaml_det.run(skill_name="weak-cred", parsed=parsed, config=config)
+
+    assert py_findings == []
+    assert yaml_findings == []
+
+
+def test_auth_connection_parity_negated_authorization(tmp_path: Path) -> None:
+    """Parity: 'no authorization required' is negated; no finding in either engine."""
+    content = """---
+name: neg-authz
+---
+# Negated
+
+No authorization required. Just set up the connection.
+"""
+    path = _skill_file(tmp_path, content)
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig()
+
+    py_det = AuthConnectionDetector()
+    yaml_det = _get_yaml_detector("AUTH_CONNECTION")
+
+    py_findings = py_det.run(skill_name="neg-authz", parsed=parsed, config=config)
+    yaml_findings = yaml_det.run(skill_name="neg-authz", parsed=parsed, config=config)
+
+    assert py_findings == []
+    assert yaml_findings == []
+
+
 def test_opaque_blob_parity_risky_fixture(basic_repo_root: Path) -> None:
     risky = basic_repo_root / "skills" / "risky_skill" / "SKILL.md"
     config = load_config(basic_repo_root)
