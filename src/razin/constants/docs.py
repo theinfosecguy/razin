@@ -38,6 +38,10 @@ AUTH_STRONG_HINTS: tuple[str, ...] = (
     "authentication",
     "oauth",
     "login",
+    "auth link",
+    "auth url",
+    "authorization",
+    "authorize",
 )
 
 # Weak hints: words commonly found in non-auth contexts (pagination tokens,
@@ -49,6 +53,8 @@ AUTH_WEAK_HINTS: tuple[str, ...] = (
     "connect",
     "connection",
     "secret",
+    "credentials",
+    "manage_connections",
 )
 
 TOOL_TIER_DESTRUCTIVE_KEYWORDS: tuple[str, ...] = (

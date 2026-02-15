@@ -19,12 +19,18 @@ match:
     - "authentication"
     - "oauth"
     - "login"
+    - "auth link"
+    - "auth url"
+    - "authorization"
+    - "authorize"
   weak_hints:
     - "api key"
     - "token"
     - "connect"
     - "connection"
     - "secret"
+    - "credentials"
+    - "manage_connections"
   min_hint_count: 2
   require_strong: true
   negation_aware: true
