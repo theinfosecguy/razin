@@ -36,7 +36,7 @@ def test_typosquat_ignores_short_names(tmp_path: Path) -> None:
     assert findings == []
 
 
-def test_mcp_required_detector_finds_frontmatter_requirement(basic_repo_root) -> None:
+def test_mcp_required_detector_finds_frontmatter_requirement(basic_repo_root: Path) -> None:
     """MCP_REQUIRED fires when requires.mcp is in frontmatter."""
     risky_file = basic_repo_root / "skills" / "risky_skill" / "SKILL.md"
     parsed = parse_skill_markdown_file(risky_file)

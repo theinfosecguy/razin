@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/theinfosecguy/razin/schemas/summary.schema.json",
+  "title": "Razin Summary",
+  "description": "Per-skill summary report produced by a Razin scan.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "skill",
+    "overall_score",
+    "overall_severity",
+    "finding_count",
+    "counts_by_severity",
+    "top_risks"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "Schema version identifier.",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "skill": {
+      "type": "string",
+      "description": "Skill name."
+    },
+    "overall_score": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Aggregate risk score on a 0-100 scale."
+    },
+    "overall_severity": {
+      "$ref": "#/$defs/Severity"
+    },
+    "finding_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total number of findings for this skill."
+    },
+    "counts_by_severity": {
+      "type": "object",
+      "required": ["low", "medium", "high"],
+      "properties": {
+        "low": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "medium": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "high": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "description": "Finding counts keyed by severity."
+    },
+    "top_risks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TopRisk"
+      },
+      "description": "Highest-scoring findings sorted by (-score, id)."
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "TopRisk": {
+      "type": "object",
+      "required": ["id", "rule_id", "title", "severity", "score", "evidence"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Finding identifier."
+        },
+        "rule_id": {
+          "type": "string",
+          "description": "Detector rule identifier."
+        },
+        "title": {
+          "type": "string",
+          "description": "Short finding title."
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity"
+        },
+        "score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Risk score."
+        },
+        "evidence": {
+          "$ref": "#/$defs/Evidence"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Evidence": {
+      "type": "object",
+      "required": ["path", "line", "snippet"],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "line": {
+          "type": ["integer", "null"]
+        },
+        "snippet": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Severity": {
+      "type": "string",
+      "enum": ["low", "medium", "high"]
+    }
+  }
+}
