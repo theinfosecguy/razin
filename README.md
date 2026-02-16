@@ -103,6 +103,8 @@ CLI flags:
 - `--no-stdout`: silence stdout output
 - `--no-color`: disable colored output
 - `--group-by <skill|rule>`: group findings by skill or rule (default: flat table)
+- `--fail-on <high|medium|low>`: exit 1 if any finding meets or exceeds this severity (for CI gating)
+- `--fail-on-score <N>`: exit 1 if aggregate score meets or exceeds N (0-100, for CI gating)
 
 Rules source behavior:
 
@@ -130,6 +132,19 @@ razin scan -r . -R ./enterprise-rules --rules-mode overlay -o output/
 
 # Override a specific bundled rule
 razin scan -r . -f ./custom_auth.yaml --rules-mode overlay --duplicate-policy override -o output/
+```
+
+CI gating examples:
+
+```bash
+# Fail CI if any high-severity finding exists
+razin scan -r . --fail-on high --no-stdout
+
+# Fail CI if aggregate risk score is 70 or higher
+razin scan -r . --fail-on-score 70 --no-stdout
+
+# Combine both (either triggers exit 1)
+razin scan -r . --fail-on medium --fail-on-score 50 --no-stdout
 ```
 
 ## Workflow
