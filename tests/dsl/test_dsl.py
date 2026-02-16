@@ -642,6 +642,57 @@ def test_typosquat_no_baseline(tmp_path: Path) -> None:
     assert len(findings) == 0
 
 
+def test_typosquat_self_match_prevented_folder_name(tmp_path: Path) -> None:
+    """Skill name present in baseline is not flagged as a typosquat of itself."""
+    path = _skill_file(tmp_path, "---\nname: slack-automation\n---\n# Slack\nA skill.\n")
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig(typosquat_baseline=("slack-automation", "gmail-automation"))
+    engine = DslEngine(rule_ids=frozenset({"TYPOSQUAT"}))
+    findings = engine.run_all(skill_name="slack-automation", parsed=parsed, config=config)
+    assert len(findings) == 0
+
+
+def test_typosquat_self_match_prevented_declared_name(tmp_path: Path) -> None:
+    """Declared frontmatter name in baseline is skipped as self-match."""
+    path = _skill_file(tmp_path, "---\nname: SlackBot\n---\n# Slack\nA skill.\n")
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig(typosquat_baseline=("slackbot", "gmail-automation"))
+    engine = DslEngine(rule_ids=frozenset({"TYPOSQUAT"}))
+    findings = engine.run_all(skill_name="slack-automation", parsed=parsed, config=config)
+    assert len(findings) == 0
+
+
+def test_typosquat_self_match_both_forms(tmp_path: Path) -> None:
+    """Both folder and declared names in baseline are skipped."""
+    path = _skill_file(tmp_path, "---\nname: SlackBot\n---\n# Slack\nA skill.\n")
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig(typosquat_baseline=("slack-automation", "slackbot", "gmail-automation"))
+    engine = DslEngine(rule_ids=frozenset({"TYPOSQUAT"}))
+    findings = engine.run_all(skill_name="slack-automation", parsed=parsed, config=config)
+    assert len(findings) == 0
+
+
+def test_typosquat_similar_name_still_caught(tmp_path: Path) -> None:
+    """Similar but non-self names are still caught as typosquats."""
+    path = _skill_file(tmp_path, "---\nname: slakc-automation\n---\n# Slakc\nA skill.\n")
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig(typosquat_baseline=("slack-automation", "gmail-automation"))
+    engine = DslEngine(rule_ids=frozenset({"TYPOSQUAT"}))
+    findings = engine.run_all(skill_name="slakc-automation", parsed=parsed, config=config)
+    assert len(findings) == 1
+    assert findings[0].score == 76
+
+
+def test_typosquat_short_names_skipped(tmp_path: Path) -> None:
+    """Both names shorter than min_name_length produce zero findings."""
+    path = _skill_file(tmp_path, "---\nname: pdf\n---\n# PDF\nA skill.\n")
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig(typosquat_baseline=("pfd",))
+    engine = DslEngine(rule_ids=frozenset({"TYPOSQUAT"}))
+    findings = engine.run_all(skill_name="pdf", parsed=parsed, config=config)
+    assert len(findings) == 0
+
+
 def test_auth_requires_strong_hint(tmp_path: Path) -> None:
     path = _skill_file(
         tmp_path,

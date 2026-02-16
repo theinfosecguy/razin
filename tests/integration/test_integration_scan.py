@@ -296,3 +296,117 @@ def test_mcp_remote_cache_invalidates_when_mcp_json_changes(tmp_path: Path) -> N
 
     assert "MCP_REMOTE_RAW_IP" in second_rules
     assert second.cache_misses >= 1
+
+
+def _write_skill(folder: Path, name: str, body: str = "A skill.\n") -> None:
+    """Create a minimal SKILL.md inside *folder* with a frontmatter name."""
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "SKILL.md").write_text(
+        f"---\nname: {name}\n---\n# {name}\n{body}",
+        encoding="utf-8",
+    )
+
+
+def test_auto_derives_baseline_two_similar_skills(tmp_path: Path) -> None:
+    """Auto-derived baseline detects typosquats without explicit config."""
+    root = tmp_path / "workspace"
+    _write_skill(root / "slack-automation", "slack-automation")
+    _write_skill(root / "slakc-automation", "slakc-automation")
+    out = tmp_path / "out"
+
+    result = scan_workspace(root=root, out=out, no_cache=True, profile="strict")
+
+    typo_findings = [f for f in result.findings if f.rule_id == "TYPOSQUAT"]
+    assert len(typo_findings) >= 1
+
+
+def test_auto_derives_baseline_no_similar_skills(tmp_path: Path) -> None:
+    """Dissimilar skill names produce no TYPOSQUAT findings."""
+    root = tmp_path / "workspace"
+    _write_skill(root / "slack-automation", "slack-automation")
+    _write_skill(root / "gmail-automation", "gmail-automation")
+    out = tmp_path / "out"
+
+    result = scan_workspace(root=root, out=out, no_cache=True, profile="strict")
+
+    typo_findings = [f for f in result.findings if f.rule_id == "TYPOSQUAT"]
+    assert len(typo_findings) == 0
+
+
+def test_explicit_baseline_overrides_auto_derive(tmp_path: Path) -> None:
+    """Explicit typosquat.baseline in config overrides auto-derivation."""
+    root = tmp_path / "workspace"
+    _write_skill(root / "slack-automation", "slack-automation")
+    _write_skill(root / "slakc-automation", "slakc-automation")
+    (root / "razin.yaml").write_text(
+        "typosquat:\n  baseline:\n    - unrelated-baseline\n",
+        encoding="utf-8",
+    )
+    out = tmp_path / "out"
+
+    result = scan_workspace(root=root, out=out, no_cache=True, profile="strict")
+
+    typo_findings = [f for f in result.findings if f.rule_id == "TYPOSQUAT"]
+    assert len(typo_findings) == 0
+
+
+def test_single_skill_no_auto_derive(tmp_path: Path) -> None:
+    """Single-skill workspace produces no TYPOSQUAT findings."""
+    root = tmp_path / "workspace"
+    _write_skill(root / "solo-skill", "solo-skill")
+    out = tmp_path / "out"
+
+    result = scan_workspace(root=root, out=out, no_cache=True, profile="strict")
+
+    typo_findings = [f for f in result.findings if f.rule_id == "TYPOSQUAT"]
+    assert len(typo_findings) == 0
+
+
+def test_auto_derive_updates_cache_fingerprint(tmp_path: Path) -> None:
+    """Adding a skill changes the baseline and invalidates the cache."""
+    root = tmp_path / "workspace"
+    _write_skill(root / "slack-automation", "slack-automation")
+    _write_skill(root / "gmail-automation", "gmail-automation")
+    out = tmp_path / "out"
+
+    first = scan_workspace(root=root, out=out, profile="strict")
+    assert first.cache_misses == 2
+
+    _write_skill(root / "slakc-automation", "slakc-automation")
+    second = scan_workspace(root=root, out=out, profile="strict")
+    assert second.cache_misses >= 1
+
+    typo_findings = [f for f in second.findings if f.rule_id == "TYPOSQUAT"]
+    assert len(typo_findings) >= 1
+
+
+def test_auto_derive_bom_no_self_typosquat(tmp_path: Path) -> None:
+    """BOM-prefixed SKILL.md does not produce self-typosquat false positive."""
+    root = tmp_path / "workspace"
+    folder = root / "slackbot"
+    folder.mkdir(parents=True)
+    content = "\ufeff---\nname: slackb0t\n---\n# slackb0t\nA skill.\n"
+    (folder / "SKILL.md").write_text(content, encoding="utf-8")
+    _write_skill(root / "gmail-tool", "gmail-tool")
+    out = tmp_path / "out"
+
+    result = scan_workspace(root=root, out=out, no_cache=True, profile="strict")
+
+    typo_findings = [f for f in result.findings if f.rule_id == "TYPOSQUAT"]
+    assert len(typo_findings) == 0
+
+
+def test_auto_derive_alt_delimiter_no_self_typosquat(tmp_path: Path) -> None:
+    """SKILL.md with ``...`` frontmatter delimiter does not produce self-typosquat."""
+    root = tmp_path / "workspace"
+    folder = root / "slackbot"
+    folder.mkdir(parents=True)
+    content = "---\nname: slackb0t\n...\n# slackb0t\nA skill.\n"
+    (folder / "SKILL.md").write_text(content, encoding="utf-8")
+    _write_skill(root / "gmail-tool", "gmail-tool")
+    out = tmp_path / "out"
+
+    result = scan_workspace(root=root, out=out, no_cache=True, profile="strict")
+
+    typo_findings = [f for f in result.findings if f.rule_id == "TYPOSQUAT"]
+    assert len(typo_findings) == 0
