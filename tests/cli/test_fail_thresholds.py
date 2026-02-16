@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -33,7 +33,7 @@ def _empty_result(**overrides: Any) -> ScanResult:
 
 def _make_finding(
     *,
-    severity: str = "high",
+    severity: Literal["low", "medium", "high"] = "high",
     score: int = 80,
     rule_id: str = "NET_RAW_IP",
 ) -> Finding:
