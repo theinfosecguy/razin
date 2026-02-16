@@ -58,6 +58,7 @@ class Finding:
 class Summary:
     """Per-skill summary report."""
 
+    schema_version: str
     skill: str
     overall_score: int
     overall_severity: Severity
@@ -67,7 +68,9 @@ class Summary:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert summary to a JSON-serializable dictionary."""
-        return asdict(self)
+        data = asdict(self)
+        data["top_risks"] = list(data["top_risks"])
+        return data
 
 
 @dataclass(frozen=True)

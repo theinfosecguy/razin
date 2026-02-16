@@ -8,6 +8,7 @@ from razin.constants.reporting import (
     FINDINGS_FILENAME,
     REPORT_TEMP_PREFIX,
     REPORT_TEMP_SUFFIX,
+    SCHEMA_VERSION,
     SUMMARY_FILENAME,
 )
 from razin.io import write_json_atomic
@@ -101,6 +102,7 @@ def build_summary(
     ]
 
     return Summary(
+        schema_version=SCHEMA_VERSION,
         skill=skill_name,
         overall_score=overall_score,
         overall_severity=overall_severity,
