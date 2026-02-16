@@ -176,3 +176,21 @@ def test_parse_skill_config_line_inside_code_block_stays_code_block(tmp_path: Pa
 
     webhook_field = next(f for f in parsed.fields if "webhook" in f.value)
     assert webhook_field.field_source == "code_block"
+
+
+def test_parse_skill_raises_for_binary_file(tmp_path: Path) -> None:
+    """Binary SKILL.md raises SkillParseError instead of UnicodeDecodeError."""
+    skill_md = tmp_path / "SKILL.md"
+    skill_md.write_bytes(b"\x89PNG\r\n\x1a\n\x00\x00\x00\xb0compiled\xff\xfe")
+
+    with pytest.raises(SkillParseError, match="not valid UTF-8"):
+        parse_skill_markdown_file(skill_md)
+
+
+def test_parse_skill_raises_for_utf16_file(tmp_path: Path) -> None:
+    """UTF-16 encoded SKILL.md raises SkillParseError."""
+    skill_md = tmp_path / "SKILL.md"
+    skill_md.write_bytes("---\nname: test\n---\n# Hello\n".encode("utf-16"))
+
+    with pytest.raises(SkillParseError, match="not valid UTF-8"):
+        parse_skill_markdown_file(skill_md)
