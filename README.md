@@ -21,6 +21,7 @@ Razin is a local scanner for SKILL.md-defined agent skills. It performs static a
   - [CSV](#csv)
   - [SARIF](#sarif)
   - [Multiple formats](#multiple-formats)
+- [Development](#development)
 - [Releasing](#releasing)
 - [Outputs](#outputs)
 - [Contributing](#contributing)
@@ -284,6 +285,20 @@ Generate all formats in one run:
 
 ```bash
 razin scan -r . -o output/ --output-format json,csv,sarif
+```
+
+## Development
+
+A Makefile provides common developer workflows. All targets delegate to `uv`.
+
+```bash
+make help       # Show available targets
+make install    # Install project with dev dependencies
+make lint       # Run ruff linter on src and tests
+make format     # Format code with black and isort
+make test       # Run test suite
+make ci         # Run all checks (isort, black, ruff, mypy)
+make clean      # Remove scan outputs and cache
 ```
 
 ## Outputs
