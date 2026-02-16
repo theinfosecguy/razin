@@ -10,7 +10,8 @@ from razin.constants.reporting import (
     ANSI_YELLOW,
     SEVERITY_COLORS,
 )
-from razin.model import ScanResult
+from razin.model import Finding, ScanResult
+from razin.scanner.score import aggregate_overall_score, aggregate_severity
 from razin.types import Severity
 
 
@@ -40,16 +41,32 @@ class StdoutReporter:
         *,
         color: bool = True,
         verbose: bool = False,
+        group_by: str | None = None,
     ) -> None:
+        """Initialise the reporter.
+
+        Parameters
+
+        result:
+            Completed scan result to render.
+        color:
+            Enable ANSI colour output.
+        verbose:
+            Show cache hit/miss statistics.
+        group_by:
+            Group findings by ``"skill"`` or ``"rule"``.  *None* renders
+            the default flat table.
+        """
         self._result = result
         self._color = color
         self._verbose = verbose
+        self._group_by = group_by
 
     def render(self) -> str:
         """Render the full stdout report as a single string."""
         sections = [
             self._render_header(),
-            self._render_findings_table(),
+            self._render_grouped_table() if self._group_by else self._render_findings_table(),
         ]
         return "\n".join(section for section in sections if section)
 
@@ -129,6 +146,49 @@ class StdoutReporter:
             )
             lines.append(row)
         lines.append(bot_border)
+        return "\n".join(lines)
+
+    def _render_grouped_table(self) -> str:
+        """Render findings grouped by skill or rule with per-group aggregates."""
+        findings = self._result.findings
+        if not findings:
+            return ""
+
+        groups: dict[str, list[Finding]] = {}
+        for f in findings:
+            key = f.skill if self._group_by == "skill" else f.rule_id
+            groups.setdefault(key, []).append(f)
+
+        lines: list[str] = [f"  Findings (grouped by {self._group_by})", ""]
+
+        for group_key in sorted(groups, key=lambda k: -max(f.score for f in groups[k])):
+            group = groups[group_key]
+            score = aggregate_overall_score(
+                list(group),
+                min_rule_score=self._result.aggregate_min_rule_score,
+            )
+            sev = aggregate_severity(
+                score,
+                high_min=self._result.high_severity_min,
+                medium_min=self._result.medium_severity_min,
+            )
+            count = len(group)
+
+            s_str = _color_score(score) if self._color else str(score)
+            v_str = _color_severity(sev) if self._color else sev
+
+            lines.append(f"  [{group_key}]  score={s_str}  severity={v_str}  findings={count}")
+
+            detail_key = "rule_id" if self._group_by == "skill" else "skill"
+
+            for f in sorted(group, key=lambda x: (-x.score, x.id)):
+                detail = getattr(f, detail_key)
+                fs = _color_score(f.score) if self._color else str(f.score)
+                fv = _color_severity(f.severity) if self._color else f.severity
+                lines.append(f"    {detail:<25}  {fs:>7}  {fv}")
+
+            lines.append("")
+
         return "\n".join(lines)
 
 

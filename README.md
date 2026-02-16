@@ -78,6 +78,13 @@ Long-form equivalent (for scripts and clarity):
 razin scan --root . --output-dir output/ --profile strict --no-cache
 ```
 
+Grouped output by skill or rule:
+
+```bash
+razin scan -r . --group-by skill
+razin scan -r . --group-by rule
+```
+
 CLI flags:
 
 - `-r`, `--root <path>`: workspace root to scan
@@ -95,6 +102,7 @@ CLI flags:
 - `--output-format <formats>`: comma-separated output formats: `json`, `csv`, `sarif` (default: `json`)
 - `--no-stdout`: silence stdout output
 - `--no-color`: disable colored output
+- `--group-by <skill|rule>`: group findings by skill or rule (default: flat table)
 - `--fail-on <high|medium|low>`: exit 1 if any finding meets or exceeds this severity (for CI gating)
 - `--fail-on-score <N>`: exit 1 if aggregate score meets or exceeds N (0-100, for CI gating)
 

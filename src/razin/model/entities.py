@@ -118,3 +118,6 @@ class ScanResult:
     warnings: tuple[str, ...]
     cache_hits: int
     cache_misses: int
+    high_severity_min: int = 70
+    medium_severity_min: int = 40
+    aggregate_min_rule_score: int = 40

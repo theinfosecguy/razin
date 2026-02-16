@@ -268,4 +268,7 @@ def scan_workspace(
         warnings=tuple(warnings),
         cache_hits=cache_hits,
         cache_misses=cache_misses,
+        high_severity_min=config.high_severity_min,
+        medium_severity_min=config.medium_severity_min,
+        aggregate_min_rule_score=config.aggregate_min_rule_score,
     )

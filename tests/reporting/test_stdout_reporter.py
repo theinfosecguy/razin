@@ -43,6 +43,9 @@ def _make_result(
     duration: float = 1.234,
     cache_hits: int = 2,
     cache_misses: int = 3,
+    high_severity_min: int = 70,
+    medium_severity_min: int = 40,
+    aggregate_min_rule_score: int = 40,
 ) -> ScanResult:
     resolved_counts: dict[Severity, int] = {"high": 3, "medium": 4, "low": 3} if counts is None else counts
 
@@ -57,6 +60,9 @@ def _make_result(
         warnings=(),
         cache_hits=cache_hits,
         cache_misses=cache_misses,
+        high_severity_min=high_severity_min,
+        medium_severity_min=medium_severity_min,
+        aggregate_min_rule_score=aggregate_min_rule_score,
     )
 
 
@@ -281,3 +287,101 @@ def test_golden_snapshot_no_color() -> None:
 
     # No ANSI escapes in no-color mode
     assert "\033[" not in output
+
+
+def test_grouped_by_skill_shows_group_headers() -> None:
+    """Two skills with findings produce both [skill-name] headers."""
+    findings = [
+        _make_finding(skill="alpha-skill", rule_id="NET_RAW_IP", score=80, finding_id="a1"),
+        _make_finding(skill="beta-skill", rule_id="SECRET_REF", score=60, severity="medium", finding_id="b1"),
+    ]
+    result = _make_result(findings=findings)
+    output = StdoutReporter(result, color=False, group_by="skill").render()
+    assert "[alpha-skill]" in output
+    assert "[beta-skill]" in output
+    assert "grouped by skill" in output
+
+
+def test_grouped_by_rule_shows_group_headers() -> None:
+    """Two rules produce both [RULE_ID] headers."""
+    findings = [
+        _make_finding(skill="s1", rule_id="NET_RAW_IP", score=80, finding_id="a1"),
+        _make_finding(skill="s2", rule_id="SECRET_REF", score=60, severity="medium", finding_id="b1"),
+    ]
+    result = _make_result(findings=findings)
+    output = StdoutReporter(result, color=False, group_by="rule").render()
+    assert "[NET_RAW_IP]" in output
+    assert "[SECRET_REF]" in output
+    assert "grouped by rule" in output
+
+
+def test_grouped_no_findings_produces_no_table() -> None:
+    """Empty findings produce no grouped table section."""
+    result = _make_result(findings=[])
+    output = StdoutReporter(result, color=False, group_by="skill").render()
+    assert "grouped" not in output
+
+
+def test_grouped_default_is_flat_table() -> None:
+    """group_by=None renders the flat table with column headers, not grouped."""
+    findings = [_make_finding(score=80)]
+    result = _make_result(findings=findings)
+    output = StdoutReporter(result, color=False, group_by=None).render()
+    assert "Skill" in output
+    assert "grouped" not in output
+
+
+def test_grouped_by_skill_no_color() -> None:
+    """color=False produces no ANSI escape sequences in grouped output."""
+    findings = [
+        _make_finding(skill="s1", rule_id="NET_RAW_IP", score=80, finding_id="a1"),
+    ]
+    result = _make_result(findings=findings)
+    output = StdoutReporter(result, color=False, group_by="skill").render()
+    assert "\033[" not in output
+
+
+def test_grouped_by_skill_shows_per_group_score() -> None:
+    """Group header contains score=, severity=, and findings=N."""
+    findings = [
+        _make_finding(skill="s1", rule_id="NET_RAW_IP", score=80, finding_id="a1"),
+        _make_finding(skill="s1", rule_id="SECRET_REF", score=50, severity="medium", finding_id="a2"),
+    ]
+    result = _make_result(findings=findings)
+    output = StdoutReporter(result, color=False, group_by="skill").render()
+    assert "score=" in output
+    assert "severity=" in output
+    assert "findings=2" in output
+
+
+def test_grouped_sorts_by_risk_descending() -> None:
+    """Group with highest score appears before group with lower score."""
+    findings = [
+        _make_finding(skill="low-risk", rule_id="NET_RAW_IP", score=30, severity="low", finding_id="l1"),
+        _make_finding(skill="high-risk", rule_id="SECRET_REF", score=80, finding_id="h1"),
+    ]
+    result = _make_result(findings=findings)
+    output = StdoutReporter(result, color=False, group_by="skill").render()
+    high_pos = output.index("[high-risk]")
+    low_pos = output.index("[low-risk]")
+    assert high_pos < low_pos
+
+
+def test_grouped_severity_uses_profile_thresholds() -> None:
+    """Profile thresholds from ScanResult determine grouped header severity label."""
+    findings = [
+        _make_finding(skill="s1", rule_id="MCP_ENDPOINT", score=70, severity="medium", finding_id="m1"),
+    ]
+    # Balanced profile thresholds (high>=80) label score 70 as medium.
+    result = _make_result(
+        findings=findings,
+        high_severity_min=80,
+        medium_severity_min=50,
+    )
+    output = StdoutReporter(
+        result,
+        color=False,
+        group_by="skill",
+    ).render()
+    assert "severity=medium" in output
+    assert "severity=high" not in output
