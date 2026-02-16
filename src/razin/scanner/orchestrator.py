@@ -22,7 +22,7 @@ from razin.io import file_sha256
 from razin.model import ScanResult
 from razin.parsers import parse_skill_markdown_file
 from razin.scanner.cache import build_scan_fingerprint, load_cache, new_cache, save_cache
-from razin.scanner.discovery import derive_skill_name, discover_skill_files
+from razin.scanner.discovery import collect_all_skill_names, derive_skill_name, discover_skill_files
 from razin.scanner.mcp_remote import collect_mcp_remote_candidates
 from razin.scanner.pipeline.cache_utils import (
     get_or_create_cache_namespace,
@@ -92,6 +92,15 @@ def scan_workspace(
     )
 
     skill_files = discover_skill_files(root, config.skill_globs, resolved_max_file_mb)
+
+    if not config.typosquat_baseline and len(skill_files) >= 2:
+        auto_baseline = collect_all_skill_names(skill_files, root)
+        config = replace(config, typosquat_baseline=auto_baseline)
+        logger.info(
+            "Auto-derived typosquat baseline with %d names from %d skills",
+            len(auto_baseline),
+            len(skill_files),
+        )
 
     try:
         dsl_engine = DslEngine(

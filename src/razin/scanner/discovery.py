@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
+
+import yaml
 
 from razin.constants.discovery import SKILL_MARKDOWN_FILENAME
 from razin.utils import sanitize_output_name
+
+logger = logging.getLogger(__name__)
 
 
 def discover_skill_files(root: Path, skill_globs: tuple[str, ...], max_file_mb: int) -> list[Path]:
@@ -60,3 +65,63 @@ def _fallback_relative_name(file_path: Path, root: Path) -> str:
         return candidate
     except ValueError:
         return file_path.stem
+
+
+def collect_all_skill_names(skill_files: list[Path], root: Path) -> tuple[str, ...]:
+    """Collect all skill names from discovered files via lightweight frontmatter parsing.
+
+    For each SKILL.md, extracts the ``name`` field from YAML frontmatter
+    (if present) and falls back to ``derive_skill_name()`` otherwise.
+    Returns a sorted, deduplicated tuple of sanitized names.
+    """
+    names: set[str] = set()
+
+    for path in skill_files:
+        fm_name = _extract_frontmatter_name(path)
+        derived = derive_skill_name(path, root, declared_name=fm_name)
+        names.add(derived)
+        if fm_name:
+            sanitized_fm = sanitize_skill_name(fm_name)
+            if sanitized_fm != derived:
+                names.add(sanitized_fm)
+        folder_derived = derive_skill_name(path, root, declared_name=None)
+        if folder_derived != derived:
+            names.add(folder_derived)
+
+    return tuple(sorted(names))
+
+
+def _extract_frontmatter_name(path: Path) -> str | None:
+    """Extract the ``name`` field from YAML frontmatter without full document parsing.
+
+    Returns ``None`` on any read or parse failure, logging a warning.
+    """
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        logger.warning("Pre-pass: cannot read %s: %s", path, exc)
+        return None
+
+    text = text.lstrip("\ufeff")
+
+    if not text.startswith("---"):
+        return None
+
+    end = text.find("\n---", 3)
+    if end == -1:
+        end = text.find("\n...", 3)
+    if end == -1:
+        return None
+
+    try:
+        fm = yaml.safe_load(text[3:end])
+    except yaml.YAMLError as exc:
+        logger.warning("Pre-pass: malformed YAML frontmatter in %s: %s", path, exc)
+        return None
+
+    if isinstance(fm, dict):
+        name = fm.get("name")
+        if isinstance(name, str) and name.strip():
+            return name.strip()
+
+    return None
