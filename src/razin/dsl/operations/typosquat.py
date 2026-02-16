@@ -11,7 +11,7 @@ from razin.dsl.operations.shared import (
 )
 from razin.model import Evidence, FindingCandidate
 from razin.types.dsl import EvalContext
-from razin.utils import normalize_similarity_name
+from razin.utils import normalize_similarity_name, sanitize_output_name
 
 
 def run_typosquat_check(
@@ -35,8 +35,16 @@ def run_typosquat_check(
     if not baseline:
         return []
 
-    names_to_check = [ctx.skill_name]
+    self_names: set[str] = set()
+    self_names.add(normalize_similarity_name(ctx.skill_name))
     decl = declared_name(ctx.parsed)
+    if decl:
+        self_names.add(normalize_similarity_name(decl))
+    folder_name = sanitize_output_name(ctx.parsed.file_path.parent.name)
+    if folder_name:
+        self_names.add(normalize_similarity_name(folder_name))
+
+    names_to_check = [ctx.skill_name]
     if decl:
         names_to_check.append(decl)
 
@@ -44,7 +52,7 @@ def run_typosquat_check(
         normalized = normalize_similarity_name(candidate_name)
         for base in baseline:
             base_norm = normalize_similarity_name(base)
-            if normalized == base_norm:
+            if base_norm in self_names:
                 continue
             dist = levenshtein_distance(normalized, base_norm)
             too_close = dist <= max_distance
