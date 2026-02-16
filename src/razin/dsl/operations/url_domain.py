@@ -150,11 +150,6 @@ def _not_mcp_allowlisted(domain: str, ctx: EvalContext) -> bool:
     return not is_allowlisted(domain, ctx.config.mcp_allowlist_domains, strict=ctx.config.strict_subdomains)
 
 
-def _is_allowlisted_only(domain: str, ctx: EvalContext) -> bool:
-    """For EXTERNAL_URLS: only fire for allowlisted domains."""
-    return is_allowlisted(domain, ctx.config.allowlist_domains, strict=ctx.config.strict_subdomains)
-
-
 def _not_allowlisted_prose(domain: str, ctx: EvalContext) -> bool | dict[str, Any]:
     """For NET_DOC_DOMAIN: non-allowlisted or denylisted domains in prose fields."""
     if ctx.config.suppress_local_hosts and is_local_dev_host(domain):
@@ -182,5 +177,4 @@ _DOMAIN_CHECKS: dict[str, Any] = {
     "not_allowlisted_prose": _not_allowlisted_prose,
     "is_denylisted": _is_denylisted_domain,
     "not_mcp_allowlisted": _not_mcp_allowlisted,
-    "is_allowlisted_only": _is_allowlisted_only,
 }

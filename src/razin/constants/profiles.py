@@ -6,7 +6,7 @@ and aggregate behavior without changing which detectors run:
 - ``strict``: All findings contribute to aggregate; no domain suppression
   beyond explicit allowlists.  Suitable for high-assurance review.
 - ``balanced``: Context-only signals (TOOL_INVOCATION, DYNAMIC_SCHEMA,
-  MCP_REQUIRED, EXTERNAL_URLS) are excluded from aggregate scoring.
+  MCP_REQUIRED) are excluded from aggregate scoring.
   Local/dev hosts are always suppressed.  Suitable for team triage.
 - ``audit``: All findings are reported but aggregate score is always 0
   (informational-only).  Suitable for exploration and labeling.

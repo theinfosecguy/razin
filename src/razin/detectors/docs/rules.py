@@ -16,7 +16,6 @@ from razin.constants.docs import (
     DEFAULT_SERVICE_TOOL_PREFIXES,
     DYNAMIC_SCHEMA_HINTS,
     DYNAMIC_SCHEMA_SCORE,
-    EXTERNAL_URLS_SCORE,
     MCP_DENYLIST_SCORE,
     MCP_ENDPOINT_SCORE,
     MCP_PATH_TOKEN,
@@ -331,47 +330,6 @@ class AuthConnectionDetector(Detector):
         ]
 
 
-class ExternalUrlsDetector(Detector):
-    """Detect external URLs present anywhere in skill documentation.
-
-    This is a context-level signal.  When the same URL domain is also
-    flagged by the policy-level NET_UNKNOWN_DOMAIN detector (i.e. the
-    domain is not on the allowlist), this detector skips it to avoid
-    duplicate evidence.  It fires only for allowlisted-domain URLs that
-    NET_UNKNOWN_DOMAIN would not cover.
-    """
-
-    rule_id = "EXTERNAL_URLS"
-
-    def run(
-        self,
-        *,
-        skill_name: str,
-        parsed: ParsedSkillDocument,
-        config: RazinConfig,
-    ) -> list[FindingCandidate]:
-        findings: list[FindingCandidate] = []
-
-        for field, url, domain in _iter_urls(parsed):
-            # Skip non-allowlisted domains — those are covered by the
-            # policy-level NET_UNKNOWN_DOMAIN detector.
-            if not is_allowlisted(domain, config.allowlist_domains, strict=config.strict_subdomains):
-                continue
-            findings.append(
-                FindingCandidate(
-                    rule_id=self.rule_id,
-                    score=EXTERNAL_URLS_SCORE,
-                    confidence="low",
-                    title="External URL in docs",
-                    description=f"Documentation references external URL '{url}'.",
-                    evidence=field_evidence(parsed, field),
-                    recommendation=("Review external URLs and constrain network access where " "possible."),
-                )
-            )
-
-        return dedupe_candidates(findings)
-
-
 DOC_DETECTOR_CLASSES: tuple[type[Detector], ...] = (
     McpRequiredDetector,
     McpEndpointDetector,
@@ -379,7 +337,6 @@ DOC_DETECTOR_CLASSES: tuple[type[Detector], ...] = (
     ToolInvocationDetector,
     DynamicSchemaDetector,
     AuthConnectionDetector,
-    ExternalUrlsDetector,
 )
 
 
