@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/theinfosecguy/razin/schemas/findings.schema.json",
+  "title": "Razin Findings",
+  "description": "Array of findings produced by a Razin scan for a single skill.",
+  "type": "array",
+  "items": {
+    "$ref": "#/$defs/Finding"
+  },
+  "$defs": {
+    "Finding": {
+      "type": "object",
+      "required": [
+        "id",
+        "severity",
+        "score",
+        "confidence",
+        "title",
+        "description",
+        "evidence",
+        "skill",
+        "rule_id",
+        "recommendation"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique finding identifier."
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity"
+        },
+        "score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Risk score on a 0-100 scale."
+        },
+        "confidence": {
+          "$ref": "#/$defs/Confidence"
+        },
+        "title": {
+          "type": "string",
+          "description": "Short human-readable title."
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed finding description."
+        },
+        "evidence": {
+          "$ref": "#/$defs/Evidence"
+        },
+        "skill": {
+          "type": "string",
+          "description": "Skill name this finding belongs to."
+        },
+        "rule_id": {
+          "type": "string",
+          "description": "Detector rule that produced this finding."
+        },
+        "recommendation": {
+          "type": "string",
+          "description": "Suggested remediation action."
+        }
+      },
+      "additionalProperties": false
+    },
+    "Evidence": {
+      "type": "object",
+      "required": ["path", "line", "snippet"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "File path relative to scan root."
+        },
+        "line": {
+          "type": ["integer", "null"],
+          "description": "Line number (1-based) or null if unavailable."
+        },
+        "snippet": {
+          "type": "string",
+          "description": "Relevant source snippet."
+        }
+      },
+      "additionalProperties": false
+    },
+    "Severity": {
+      "type": "string",
+      "enum": ["low", "medium", "high"],
+      "description": "Severity level."
+    },
+    "Confidence": {
+      "type": "string",
+      "enum": ["low", "medium", "high"],
+      "description": "Confidence level."
+    }
+  }
+}
