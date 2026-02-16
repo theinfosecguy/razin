@@ -1,11 +1,17 @@
 """Tests for discovery, skill-name derivation, and name collection."""
 
+import os
 from pathlib import Path
 
 import pytest
 
 from razin.parsers import parse_skill_markdown_file
-from razin.scanner.discovery import collect_all_skill_names, derive_skill_name, sanitize_skill_name
+from razin.scanner.discovery import (
+    collect_all_skill_names,
+    derive_skill_name,
+    discover_skill_files,
+    sanitize_skill_name,
+)
 
 
 def test_frontmatter_name_takes_precedence(fixtures_root: Path) -> None:
@@ -99,7 +105,7 @@ def test_collect_names_handles_malformed_yaml(tmp_path: Path) -> None:
 
 
 def test_collect_names_handles_binary_file(tmp_path: Path) -> None:
-    """Binary SKILL.md falls back to folder name without crashing."""
+    """Binary SKILL.md is excluded from baseline without crashing."""
     folder = tmp_path / "binary-skill"
     folder.mkdir()
     (folder / "SKILL.md").write_bytes(b"\x00\x01\x02\xff\xfe\xfd")
@@ -107,7 +113,7 @@ def test_collect_names_handles_binary_file(tmp_path: Path) -> None:
 
     names = collect_all_skill_names(files, tmp_path)
 
-    assert "binary-skill" in names
+    assert "binary-skill" not in names
 
 
 def test_collect_names_empty_list(tmp_path: Path) -> None:
@@ -161,3 +167,69 @@ def test_collect_names_alt_delimiter_frontmatter(tmp_path: Path) -> None:
     names = collect_all_skill_names(files, tmp_path)
 
     assert "altbot" in names
+
+
+def test_discover_symlink_outside_root(tmp_path: Path) -> None:
+    """Symlinked SKILL.md resolving outside root does not crash discovery."""
+    external = tmp_path / "external"
+    external.mkdir()
+    real_skill = external / "SKILL.md"
+    real_skill.write_text("---\nname: external\n---\n# External\n", encoding="utf-8")
+
+    root = tmp_path / "workspace"
+    skill_dir = root / "linked-skill"
+    skill_dir.mkdir(parents=True)
+    link_path = skill_dir / "SKILL.md"
+    os.symlink(real_skill, link_path)
+
+    files = discover_skill_files(root, ("**/SKILL.md",), max_file_mb=10)
+
+    assert len(files) == 1
+
+
+def test_discover_symlink_inside_root(tmp_path: Path) -> None:
+    """Symlinked SKILL.md resolving inside root works normally."""
+    root = tmp_path / "workspace"
+    real_dir = root / "real-skill"
+    real_dir.mkdir(parents=True)
+    (real_dir / "SKILL.md").write_text("---\nname: real\n---\n# Real\n", encoding="utf-8")
+
+    link_dir = root / "link-skill"
+    link_dir.mkdir(parents=True)
+    os.symlink(real_dir / "SKILL.md", link_dir / "SKILL.md")
+
+    files = discover_skill_files(root, ("**/SKILL.md",), max_file_mb=10)
+
+    assert len(files) >= 1
+
+
+def test_discover_symlink_deterministic_order(tmp_path: Path) -> None:
+    """Discovery with mixed real and symlinked files produces deterministic order."""
+    external = tmp_path / "external"
+    external.mkdir()
+    (external / "SKILL.md").write_text("---\nname: ext\n---\n# Ext\n", encoding="utf-8")
+
+    root = tmp_path / "workspace"
+    _write_skill(root / "alpha-skill", frontmatter="name: alpha\n")
+    link_dir = root / "beta-linked"
+    link_dir.mkdir(parents=True)
+    os.symlink(external / "SKILL.md", link_dir / "SKILL.md")
+
+    first = discover_skill_files(root, ("**/SKILL.md",), max_file_mb=10)
+    second = discover_skill_files(root, ("**/SKILL.md",), max_file_mb=10)
+
+    assert first == second
+
+
+def test_collect_names_binary_excluded_from_baseline(tmp_path: Path) -> None:
+    """Binary file does not contribute to typosquat baseline, preventing ghost matches."""
+    binary_dir = tmp_path / "slack-automation"
+    binary_dir.mkdir()
+    (binary_dir / "SKILL.md").write_bytes(b"\x89PNG\r\n\x1a\n\x00\xb0\xff\xfe")
+    _write_skill(tmp_path / "gmail-tool", frontmatter="name: gmail-tool\n")
+    files = sorted(tmp_path.rglob("SKILL.md"))
+
+    names = collect_all_skill_names(files, tmp_path)
+
+    assert "slack-automation" not in names
+    assert "gmail-tool" in names

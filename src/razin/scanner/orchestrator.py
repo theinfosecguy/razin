@@ -77,6 +77,15 @@ def scan_workspace(
     if not root.is_dir():
         raise ConfigError(f"Scan root does not exist or is not a directory: {root}")
 
+    if out is not None:
+        try:
+            out.mkdir(parents=True, exist_ok=True)
+            _probe = out / ".razin_write_probe"
+            _probe.touch()
+            _probe.unlink()
+        except (PermissionError, OSError) as exc:
+            raise ConfigError(f"Output directory is not writable: {out} ({exc})") from exc
+
     config = load_config(root, config_path)
     if profile is not None and profile in VALID_PROFILES:
         config = replace(config, profile=profile)  # type: ignore[arg-type]

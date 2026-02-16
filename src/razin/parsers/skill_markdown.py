@@ -21,7 +21,10 @@ from razin.model import DocumentField, DocumentKey, ParsedSkillDocument
 
 def parse_skill_markdown_file(path: Path) -> ParsedSkillDocument:
     """Parse a SKILL.md file and extract frontmatter plus line metadata."""
-    raw_text = path.read_text(encoding="utf-8")
+    try:
+        raw_text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        raise SkillParseError(f"File is not valid UTF-8 text: {path} ({exc})") from exc
     normalized = raw_text.lstrip("\ufeff")
     lines = normalized.splitlines()
 
