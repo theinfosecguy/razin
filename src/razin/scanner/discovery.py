@@ -29,7 +29,16 @@ def discover_skill_files(root: Path, skill_globs: tuple[str, ...], max_file_mb: 
                 continue
             discovered.add(path.resolve())
 
-    return sorted(discovered, key=lambda path: path.relative_to(root.resolve()).as_posix())
+    resolved_root = root.resolve()
+
+    def _sort_key(p: Path) -> str:
+        """Return a relative sort key, falling back to absolute for external symlinks."""
+        try:
+            return p.relative_to(resolved_root).as_posix()
+        except ValueError:
+            return p.as_posix()
+
+    return sorted(discovered, key=_sort_key)
 
 
 def derive_skill_name(file_path: Path, root: Path, *, declared_name: str | None = None) -> str:
@@ -78,6 +87,9 @@ def collect_all_skill_names(skill_files: list[Path], root: Path) -> tuple[str, .
 
     for path in skill_files:
         fm_name = _extract_frontmatter_name(path)
+        if fm_name is None and not _is_readable_text(path):
+            logger.debug("Pre-pass: skipping unreadable file from baseline: %s", path)
+            continue
         derived = derive_skill_name(path, root, declared_name=fm_name)
         names.add(derived)
         if fm_name:
@@ -89,6 +101,15 @@ def collect_all_skill_names(skill_files: list[Path], root: Path) -> tuple[str, .
             names.add(folder_derived)
 
     return tuple(sorted(names))
+
+
+def _is_readable_text(path: Path) -> bool:
+    """Return True if *path* can be read as UTF-8 text."""
+    try:
+        path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return False
+    return True
 
 
 def _extract_frontmatter_name(path: Path) -> str | None:
