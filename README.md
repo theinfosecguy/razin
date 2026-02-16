@@ -219,7 +219,6 @@ detectors:
     - TOOL_INVOCATION
     - DYNAMIC_SCHEMA
     - AUTH_CONNECTION
-    - EXTERNAL_URLS
     - PROMPT_INJECTION
     - HIDDEN_INSTRUCTION
   disabled: []
@@ -235,9 +234,9 @@ By default, subdomain matching is enabled: allowlisting `github.com` also covers
 
 ## Detection Rules
 
-Razin ships 18 bundled DSL rules. Key rules by category:
+Razin ships 17 bundled DSL rules. Key rules by category:
 
-**Network and Supply Chain**: `NET_RAW_IP`, `NET_UNKNOWN_DOMAIN`, `NET_DOC_DOMAIN`, `EXTERNAL_URLS`, `MCP_REQUIRED`, `MCP_ENDPOINT`, `MCP_DENYLIST`
+**Network and Supply Chain**: `NET_RAW_IP`, `NET_UNKNOWN_DOMAIN`, `NET_DOC_DOMAIN`, `MCP_REQUIRED`, `MCP_ENDPOINT`, `MCP_DENYLIST`
 
 **Secrets and Execution**: `SECRET_REF`, `EXEC_FIELDS`, `OPAQUE_BLOB`, `BUNDLED_SCRIPTS`
 

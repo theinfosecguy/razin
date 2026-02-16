@@ -77,8 +77,8 @@ def test_score_does_not_saturate_with_few_medium_findings() -> None:
     findings = [
         _finding(20, "TOOL_INVOCATION"),
         _finding(35, "NET_UNKNOWN_DOMAIN"),
-        _finding(12, "EXTERNAL_URLS"),
         _finding(15, "DYNAMIC_SCHEMA"),
+        _finding(15, "NET_DOC_DOMAIN"),
         _finding(28, "MCP_REQUIRED"),
     ]
     score = aggregate_overall_score(findings)
@@ -123,7 +123,7 @@ def test_balanced_context_signals_excluded() -> None:
     findings = [
         _finding(20, "TOOL_INVOCATION"),
         _finding(15, "DYNAMIC_SCHEMA"),
-        _finding(12, "EXTERNAL_URLS"),
+        _finding(15, "NET_DOC_DOMAIN"),
     ]
     score = aggregate_overall_score(findings, min_rule_score=40)
     assert score == 0

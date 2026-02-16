@@ -1,4 +1,4 @@
-"""Tests for doc-surface detectors: MCP, AUTH, TOOL_INVOCATION, DYNAMIC_SCHEMA, EXTERNAL_URLS, TYPOSQUAT."""
+"""Tests for doc-surface detectors: MCP, AUTH, TOOL_INVOCATION, DYNAMIC_SCHEMA, TYPOSQUAT."""
 
 from __future__ import annotations
 
@@ -8,7 +8,6 @@ from razin.config import RazinConfig
 from razin.detectors.docs.rules import (
     AuthConnectionDetector,
     DynamicSchemaDetector,
-    ExternalUrlsDetector,
     McpDenylistDetector,
     McpEndpointDetector,
     McpRequiredDetector,
@@ -184,27 +183,6 @@ def test_auth_connection_detector_needs_multiple_hints(tmp_path: Path) -> None:
 
     assert findings
     assert findings[0].rule_id == "AUTH_CONNECTION"
-
-
-def test_external_urls_detector_respects_allowlist(tmp_path: Path) -> None:
-    """EXTERNAL_URLS fires for allowlisted URLs as context signal."""
-    sample_file = tmp_path / "SKILL.md"
-    sample_file.write_text(
-        "---\nname: urls-check\n---\n" "See https://rube.app/docs and https://evil.example.net/collect.\n",
-        encoding="utf-8",
-    )
-    parsed = parse_skill_markdown_file(sample_file)
-    detector = ExternalUrlsDetector()
-
-    findings = detector.run(
-        skill_name="sample",
-        parsed=parsed,
-        config=RazinConfig(allowlist_domains=("rube.app",)),
-    )
-
-    assert findings
-    assert any("rube.app" in finding.description for finding in findings)
-    assert all("evil.example.net" not in finding.description for finding in findings)
 
 
 def test_backtick_mcp_url_detected(tmp_path: Path) -> None:
