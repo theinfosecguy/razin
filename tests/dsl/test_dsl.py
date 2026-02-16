@@ -137,7 +137,7 @@ def test_compile_rejects_unregistered_strategy() -> None:
 
 def test_load_all_bundled_rules() -> None:
     engine = DslEngine()
-    assert engine.rule_count == 19
+    assert engine.rule_count == 18
     assert "AUTH_CONNECTION" in engine.rule_ids
     assert "NET_RAW_IP" in engine.rule_ids
     assert "PROMPT_INJECTION" in engine.rule_ids
@@ -356,7 +356,6 @@ PYTHON_DSL_MAP: dict[str, list[str]] = {
     "TOOL_INVOCATION": ["TOOL_INVOCATION"],
     "DYNAMIC_SCHEMA": ["DYNAMIC_SCHEMA"],
     "AUTH_CONNECTION": ["AUTH_CONNECTION"],
-    "EXTERNAL_URLS": ["EXTERNAL_URLS"],
     "NET_DOC_DOMAIN": ["NET_DOC_DOMAIN"],
     "PROMPT_INJECTION": ["PROMPT_INJECTION"],
     "HIDDEN_INSTRUCTION": ["HIDDEN_INSTRUCTION"],
@@ -1090,7 +1089,7 @@ def test_rules_dir_not_found_fails_fast(tmp_path: Path) -> None:
 def test_all_yaml_files_valid() -> None:
     """All bundled YAML rule files parse and compile without error."""
     engine = DslEngine()
-    assert engine.rule_count == 19
+    assert engine.rule_count == 18
     assert len(engine.rule_ids) == len(set(engine.rule_ids))
 
 
@@ -1250,7 +1249,7 @@ def test_overlay_no_custom_source_uses_bundled_only() -> None:
     """Overlay without custom source just loads bundled rules."""
     engine = DslEngine(rules_mode="overlay")
 
-    assert engine.rule_count == 19
+    assert engine.rule_count == 18
     assert "AUTH_CONNECTION" in engine.rule_ids
 
 
@@ -1258,7 +1257,7 @@ def test_replace_mode_without_custom_uses_bundled() -> None:
     """Replace mode with no custom source falls back to bundled."""
     engine = DslEngine(rules_mode="replace")
 
-    assert engine.rule_count == 19
+    assert engine.rule_count == 18
 
 
 def test_overlay_fingerprint_differs_from_replace(tmp_path: Path) -> None:

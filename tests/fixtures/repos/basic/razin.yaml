@@ -22,7 +22,6 @@ detectors:
     - TOOL_INVOCATION
     - DYNAMIC_SCHEMA
     - AUTH_CONNECTION
-    - EXTERNAL_URLS
     - NET_DOC_DOMAIN
 typosquat:
   baseline:
