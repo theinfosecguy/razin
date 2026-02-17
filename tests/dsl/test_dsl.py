@@ -1655,6 +1655,11 @@ def test_data_sensitivity_stripe_financial(tmp_path: Path) -> None:
     assert "financial" in findings[0].description.lower()
     assert "stripe" in findings[0].description.lower()
     assert findings[0].score >= 65
+    assert findings[0].evidence.line is not None
+    assert findings[0].evidence.line > 1
+    assert "service=" not in findings[0].evidence.snippet
+    assert "category_source=service" in findings[0].description
+    assert "signal_source=service_text" in findings[0].description
 
 
 def test_data_sensitivity_gmail_communication(tmp_path: Path) -> None:
@@ -1671,6 +1676,8 @@ def test_data_sensitivity_gmail_communication(tmp_path: Path) -> None:
     assert "communication/pii" in findings[0].description.lower()
     assert "gmail" in findings[0].description.lower()
     assert findings[0].score >= 65
+    assert "category_source=service" in findings[0].description
+    assert "signal_source=service_text" in findings[0].description
 
 
 def test_data_sensitivity_nasa_low(tmp_path: Path) -> None:
@@ -1686,6 +1693,7 @@ def test_data_sensitivity_nasa_low(tmp_path: Path) -> None:
     assert len(findings) == 1
     assert "public-data" in findings[0].description.lower()
     assert findings[0].score <= 20
+    assert "category_source=service" in findings[0].description
 
 
 def test_data_sensitivity_clean_skill(tmp_path: Path) -> None:
@@ -1715,13 +1723,16 @@ def test_data_sensitivity_keyword_only(tmp_path: Path) -> None:
     assert len(findings) == 1
     assert "financial" in findings[0].description.lower()
     assert "payment" in findings[0].description.lower() or "credit card" in findings[0].description.lower()
+    assert "category_source=keyword" in findings[0].description
+    assert "signal_source=keyword_high" in findings[0].description
 
 
 def test_data_sensitivity_github_medium(tmp_path: Path) -> None:
     """DATA_SENSITIVITY fires on github-automation with medium sensitivity."""
     path = _skill_file(
         tmp_path,
-        "---\nname: github-automation\n---\n# GitHub\n" "Manage repositories and pull requests.\n",
+        "---\nname: github-automation\n---\n# GitHub\n"
+        "Manage private repository permissions and pull requests.\n",
     )
     parsed = parse_skill_markdown_file(path)
     config = RazinConfig()
@@ -1730,6 +1741,7 @@ def test_data_sensitivity_github_medium(tmp_path: Path) -> None:
     assert len(findings) == 1
     assert "source-code" in findings[0].description.lower()
     assert findings[0].score == 40
+    assert "signal_source=service_text+keyword_medium" in findings[0].description
 
 
 def test_data_sensitivity_custom_config(tmp_path: Path) -> None:
@@ -1751,6 +1763,7 @@ def test_data_sensitivity_custom_config(tmp_path: Path) -> None:
     findings = engine.run_all(skill_name="acme-automation", parsed=parsed, config=config)
     assert len(findings) == 1
     assert findings[0].score >= 65
+    assert "signal_source=service_text" in findings[0].description
 
 
 def test_data_sensitivity_keyword_bonus_increases_score(tmp_path: Path) -> None:
@@ -1767,6 +1780,7 @@ def test_data_sensitivity_keyword_bonus_increases_score(tmp_path: Path) -> None:
     assert len(findings) == 1
     # Medium service (40) + keyword bonus (10) = 50
     assert findings[0].score == 50
+    assert "signal_source=service_text+keyword_high" in findings[0].description
 
 
 def test_data_sensitivity_no_substring_service_match(tmp_path: Path) -> None:
@@ -1786,7 +1800,7 @@ def test_data_sensitivity_token_service_match(tmp_path: Path) -> None:
     """DATA_SENSITIVITY correctly matches 'linear' in 'linear-automation'."""
     path = _skill_file(
         tmp_path,
-        "---\nname: linear-automation\n---\n# Linear\n" "Manage issues and projects in Linear.\n",
+        "---\nname: linear-automation\n---\n# Linear\n" "Manage confidential issues and projects in Linear.\n",
     )
     parsed = parse_skill_markdown_file(path)
     config = RazinConfig()
@@ -1794,6 +1808,19 @@ def test_data_sensitivity_token_service_match(tmp_path: Path) -> None:
     findings = engine.run_all(skill_name="linear-automation", parsed=parsed, config=config)
     assert len(findings) == 1
     assert "linear" in findings[0].description.lower()
+
+
+def test_data_sensitivity_medium_service_without_keywords_is_suppressed(tmp_path: Path) -> None:
+    """DATA_SENSITIVITY suppresses medium-tier service matches without keyword context."""
+    path = _skill_file(
+        tmp_path,
+        "---\nname: github-automation\n---\n# GitHub\n" "Manage repositories and pull requests.\n",
+    )
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig()
+    engine = DslEngine(rule_ids=frozenset({"DATA_SENSITIVITY"}))
+    findings = engine.run_all(skill_name="github-automation", parsed=parsed, config=config)
+    assert len(findings) == 0
 
 
 def test_data_sensitivity_no_substring_keyword_match(tmp_path: Path) -> None:
@@ -1821,6 +1848,41 @@ def test_data_sensitivity_keyword_at_word_boundary(tmp_path: Path) -> None:
     findings = engine.run_all(skill_name="finance-tool", parsed=parsed, config=config)
     assert len(findings) == 1
     assert "tax" in findings[0].description.lower()
+
+
+def test_data_sensitivity_name_only_service_match_is_suppressed(tmp_path: Path) -> None:
+    """DATA_SENSITIVITY does not fire when service appears only in skill name."""
+    path = _skill_file(
+        tmp_path,
+        "---\nname: stripe-automation\n---\n# Utilities Helper\n" "Analyze records without external integrations.\n",
+    )
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig()
+    engine = DslEngine(rule_ids=frozenset({"DATA_SENSITIVITY"}))
+    findings = engine.run_all(skill_name="stripe-automation", parsed=parsed, config=config)
+    assert len(findings) == 0
+
+
+def test_data_sensitivity_weak_medium_keywords_do_not_trigger(tmp_path: Path) -> None:
+    """DATA_SENSITIVITY ignores weak medium keywords without stronger context."""
+    from razin.types.config import DataSensitivityConfig
+
+    path = _skill_file(
+        tmp_path,
+        "---\nname: custom-automation\n---\n# Custom\n" "Share internal notes with employee updates.\n",
+    )
+    parsed = parse_skill_markdown_file(path)
+    ds_config = DataSensitivityConfig(
+        high_services=(),
+        medium_services=(),
+        low_services=(),
+        high_keywords=(),
+        medium_keywords=("internal", "employee"),
+    )
+    config = RazinConfig(data_sensitivity=ds_config)
+    engine = DslEngine(rule_ids=frozenset({"DATA_SENSITIVITY"}))
+    findings = engine.run_all(skill_name="custom-automation", parsed=parsed, config=config)
+    assert len(findings) == 0
 
 
 @pytest.mark.parametrize(
