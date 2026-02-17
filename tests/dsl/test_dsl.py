@@ -1731,8 +1731,7 @@ def test_data_sensitivity_github_medium(tmp_path: Path) -> None:
     """DATA_SENSITIVITY fires on github-automation with medium sensitivity."""
     path = _skill_file(
         tmp_path,
-        "---\nname: github-automation\n---\n# GitHub\n"
-        "Manage private repository permissions and pull requests.\n",
+        "---\nname: github-automation\n---\n# GitHub\n" "Manage private repository permissions and pull requests.\n",
     )
     parsed = parse_skill_markdown_file(path)
     config = RazinConfig()

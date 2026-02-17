@@ -122,9 +122,7 @@ def run_data_sensitivity_check(
     description = " ".join(desc_parts)
 
     evidence = (
-        service_evidence
-        or _first_evidence(high_keyword_matches)
-        or _first_evidence(medium_strong_keyword_matches)
+        service_evidence or _first_evidence(high_keyword_matches) or _first_evidence(medium_strong_keyword_matches)
     )
     if evidence is None:
         return []
