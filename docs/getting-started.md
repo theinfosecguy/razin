@@ -18,7 +18,7 @@ Local development install:
 
 ```bash
 uv sync --dev
-uv run razin --help
+razin --help
 ```
 
 ## Pick a scan root
@@ -41,7 +41,7 @@ workspace/
 ## First scan (write reports)
 
 ```bash
-uv run razin scan -r . -o output/
+razin scan -r . -o output/
 ```
 
 This writes:
@@ -55,8 +55,8 @@ This writes:
 Run with grouped stdout output:
 
 ```bash
-uv run razin scan -r . --group-by skill
-uv run razin scan -r . --group-by rule
+razin scan -r . --group-by skill
+razin scan -r . --group-by rule
 ```
 
 Inspect generated JSON artifacts:
@@ -69,13 +69,13 @@ cat output/<skill-name>/findings.json
 ## Validate config before scanning
 
 ```bash
-uv run razin validate-config -r .
+razin validate-config -r .
 ```
 
 For an explicit config path:
 
 ```bash
-uv run razin validate-config -r . -c ./configs/razin.yaml
+razin validate-config -r . -c ./configs/razin.yaml
 ```
 
 ## Common usage patterns
@@ -83,23 +83,23 @@ uv run razin validate-config -r . -c ./configs/razin.yaml
 ### Use a stricter policy profile
 
 ```bash
-uv run razin scan -r . -o output/ --profile strict --no-cache
+razin scan -r . -o output/ --profile strict --no-cache
 ```
 
 ### Export CSV and SARIF along with JSON
 
 ```bash
-uv run razin scan -r . -o output/ --output-format json,csv,sarif
+razin scan -r . -o output/ --output-format json,csv,sarif
 ```
 
 ### Run a CI gate (no stdout noise)
 
 ```bash
 # Fail if any high-severity finding exists
-uv run razin scan -r . --fail-on high --no-stdout
+razin scan -r . --fail-on high --no-stdout
 
 # Fail if aggregate score is 70 or above
-uv run razin scan -r . --fail-on-score 70 --no-stdout
+razin scan -r . --fail-on-score 70 --no-stdout
 ```
 
 ### Use custom rules
@@ -107,13 +107,13 @@ uv run razin scan -r . --fail-on-score 70 --no-stdout
 Replace bundled rules with a custom directory:
 
 ```bash
-uv run razin scan -r . -R ./enterprise-rules --rules-mode replace
+razin scan -r . -R ./enterprise-rules --rules-mode replace
 ```
 
 Overlay custom rules on top of bundled rules:
 
 ```bash
-uv run razin scan -r . -R ./enterprise-rules --rules-mode overlay --duplicate-policy override
+razin scan -r . -R ./enterprise-rules --rules-mode overlay --duplicate-policy override
 ```
 
 ## Important flag constraints

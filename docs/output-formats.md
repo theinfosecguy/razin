@@ -6,7 +6,7 @@ You can also request CSV and SARIF global exports.
 ## JSON
 
 ```bash
-uv run razin scan -r . -o output/ --output-format json
+razin scan -r . -o output/ --output-format json
 ```
 
 Writes per-skill artifacts:
@@ -17,7 +17,7 @@ Writes per-skill artifacts:
 ## CSV
 
 ```bash
-uv run razin scan -r . -o output/ --output-format csv
+razin scan -r . -o output/ --output-format csv
 ```
 
 Writes:
@@ -27,7 +27,7 @@ Writes:
 ## SARIF
 
 ```bash
-uv run razin scan -r . -o output/ --output-format sarif
+razin scan -r . -o output/ --output-format sarif
 ```
 
 Writes:
@@ -37,14 +37,14 @@ Writes:
 ## Multiple formats in one run
 
 ```bash
-uv run razin scan -r . -o output/ --output-format json,csv,sarif
+razin scan -r . -o output/ --output-format json,csv,sarif
 ```
 
 ## Stdout grouping
 
 ```bash
-uv run razin scan -r . --group-by skill
-uv run razin scan -r . --group-by rule
+razin scan -r . --group-by skill
+razin scan -r . --group-by rule
 ```
 
 ## Cache artifact

@@ -6,23 +6,23 @@ Razin supports CI gating by severity threshold and aggregate score.
 
 ```bash
 # Fail if any high-severity finding exists
-uv run razin scan -r . --fail-on high --no-stdout
+razin scan -r . --fail-on high --no-stdout
 
 # Fail if aggregate score is 70 or above
-uv run razin scan -r . --fail-on-score 70 --no-stdout
+razin scan -r . --fail-on-score 70 --no-stdout
 
 # Either condition can fail the job
-uv run razin scan -r . --fail-on medium --fail-on-score 50 --no-stdout
+razin scan -r . --fail-on medium --fail-on-score 50 --no-stdout
 ```
 
 ## Rulepack composition in CI
 
 ```bash
 # Merge enterprise rules and fail on duplicate IDs
-uv run razin scan -r . -R ./enterprise-rules --rules-mode overlay --duplicate-policy error
+razin scan -r . -R ./enterprise-rules --rules-mode overlay --duplicate-policy error
 
 # Merge enterprise rules and let custom duplicates override bundled rules
-uv run razin scan -r . -R ./enterprise-rules --rules-mode overlay --duplicate-policy override
+razin scan -r . -R ./enterprise-rules --rules-mode overlay --duplicate-policy override
 ```
 
 ## Example GitHub Actions step
@@ -30,7 +30,7 @@ uv run razin scan -r . -R ./enterprise-rules --rules-mode overlay --duplicate-po
 ```yaml
 - name: Run Razin gate
   run: |
-    uv run razin scan \
+    razin scan \
       --root . \
       --output-dir output/ \
       --profile strict \

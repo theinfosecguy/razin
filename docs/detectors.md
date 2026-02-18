@@ -8,7 +8,7 @@ Razin produces findings from two detector engines:
 Run and group findings by rule:
 
 ```bash
-uv run razin scan -r . --group-by rule
+razin scan -r . --group-by rule
 ```
 
 ## Detection pipeline
@@ -103,5 +103,5 @@ detectors:
 Then run:
 
 ```bash
-uv run razin scan -r . -c razin.yaml --group-by rule
+razin scan -r . -c razin.yaml --group-by rule
 ```

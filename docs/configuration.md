@@ -4,7 +4,7 @@ Razin reads config from `<root>/razin.yaml` by default.
 Override config path per run with `--config`.
 
 ```bash
-uv run razin scan -r . -c ./configs/razin.yaml -o output/
+razin scan -r . -c ./configs/razin.yaml -o output/
 ```
 
 ## Schema overview
@@ -116,7 +116,7 @@ When both config and CLI supply values:
 - `--duplicate-policy` is valid only when `--rules-mode overlay`.
 
 ```bash
-uv run razin scan -r . -R ./enterprise-rules --rules-mode overlay --duplicate-policy override
+razin scan -r . -R ./enterprise-rules --rules-mode overlay --duplicate-policy override
 ```
 
 ## Validation first workflow
@@ -124,8 +124,8 @@ uv run razin scan -r . -R ./enterprise-rules --rules-mode overlay --duplicate-po
 Before scanning with custom config/rules:
 
 ```bash
-uv run razin validate-config -r . -c razin.yaml
-uv run razin validate-config -r . -R ./enterprise-rules
+razin validate-config -r . -c razin.yaml
+razin validate-config -r . -R ./enterprise-rules
 ```
 
 This catches schema/type/conflict issues early and returns deterministic error codes.

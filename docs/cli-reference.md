@@ -8,8 +8,8 @@ Razin exposes two primary commands:
 Get command help locally:
 
 ```bash
-uv run razin scan -h
-uv run razin validate-config -h
+razin scan -h
+razin validate-config -h
 ```
 
 ## `razin scan`
@@ -17,7 +17,7 @@ uv run razin validate-config -h
 Example:
 
 ```bash
-uv run razin scan -r . -o output/ --profile balanced
+razin scan -r . -o output/ --profile balanced
 ```
 
 ### Flags
@@ -70,13 +70,13 @@ Razin enforces several combinations explicitly:
 
 ```bash
 # Use only rules from a custom directory (replace bundled)
-uv run razin scan -r . -R ./enterprise-rules --rules-mode replace
+razin scan -r . -R ./enterprise-rules --rules-mode replace
 
 # Overlay custom rules on bundled rules and fail on duplicate rule IDs
-uv run razin scan -r . -R ./enterprise-rules --rules-mode overlay --duplicate-policy error
+razin scan -r . -R ./enterprise-rules --rules-mode overlay --duplicate-policy error
 
 # Overlay custom rules and let custom duplicate IDs override bundled rules
-uv run razin scan -r . -f ./rules/auth_override.yaml --rules-mode overlay --duplicate-policy override
+razin scan -r . -f ./rules/auth_override.yaml --rules-mode overlay --duplicate-policy override
 ```
 
 ## `razin validate-config`
@@ -84,7 +84,7 @@ uv run razin scan -r . -f ./rules/auth_override.yaml --rules-mode overlay --dupl
 Example:
 
 ```bash
-uv run razin validate-config -r . -c razin.yaml
+razin validate-config -r . -c razin.yaml
 ```
 
 ### Flags
@@ -114,8 +114,8 @@ For automation and CI:
 
 ```bash
 # Quiet CI run with both severity and score gates
-uv run razin scan -r . --fail-on medium --fail-on-score 50 --no-stdout
+razin scan -r . --fail-on medium --fail-on-score 50 --no-stdout
 
 # Validate custom rule files only
-uv run razin validate-config -r . -f ./rules/custom_1.yaml -f ./rules/custom_2.yaml
+razin validate-config -r . -f ./rules/custom_1.yaml -f ./rules/custom_2.yaml
 ```
