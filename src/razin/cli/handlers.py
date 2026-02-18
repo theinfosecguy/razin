@@ -14,7 +14,9 @@ from razin.cli.init_flow import (
     default_init_config,
     prompt_yes_no,
     render_init_yaml,
+    render_init_yaml_from_scan,
 )
+from razin.cli.init_from_scan import collect_domain_candidates_from_output
 from razin.config import validate_config_file
 from razin.constants.config import CONFIG_FILENAME
 from razin.constants.init import INIT_CONFIG_TEMP_PREFIX, INIT_CONFIG_TEMP_SUFFIX
@@ -74,12 +76,55 @@ def handle_init(args: argparse.Namespace) -> int:
     target_path = args.config.resolve() if args.config is not None else (root / CONFIG_FILENAME)
 
     try:
-        draft = default_init_config() if args.yes else collect_init_config(read=input, write=print)
+        if args.from_scan is not None:
+            draft = default_init_config()
+        else:
+            draft = default_init_config() if args.yes else collect_init_config(read=input, write=print)
     except (EOFError, KeyboardInterrupt):
         print("Init cancelled.", file=sys.stderr)
         return 130
 
-    rendered = render_init_yaml(draft)
+    if args.from_scan is None:
+        rendered = render_init_yaml(draft)
+    else:
+        from_scan_dir = args.from_scan.resolve()
+        if not from_scan_dir.is_dir():
+            print(f"Configuration error: scan output directory does not exist: {from_scan_dir}", file=sys.stderr)
+            return 2
+        print(f"Analyzing scan output from {from_scan_dir}", file=sys.stderr)
+        analysis = collect_domain_candidates_from_output(from_scan_dir)
+        print(
+            "Found "
+            f"{analysis.findings_files_discovered} findings files; "
+            f"parsed {analysis.findings_files_loaded}.",
+            file=sys.stderr,
+        )
+        print(
+            "Matched findings: "
+            f"NET_DOC_DOMAIN={analysis.net_doc_findings_considered}, "
+            f"MCP_ENDPOINT={analysis.mcp_endpoint_findings_considered}.",
+            file=sys.stderr,
+        )
+        print(
+            "Generated candidate domains: "
+            f"allowlist_domains={len(analysis.allowlist_candidates)}, "
+            f"mcp_allowlist_domains={len(analysis.mcp_allowlist_candidates)}.",
+            file=sys.stderr,
+        )
+        if not analysis.allowlist_candidates and not analysis.mcp_allowlist_candidates:
+            print(
+                "No domain candidates were discovered from NET_DOC_DOMAIN or MCP_ENDPOINT findings.",
+                file=sys.stderr,
+            )
+        for warning in analysis.warnings:
+            print(f"warning: {warning}", file=sys.stderr)
+        rendered = render_init_yaml_from_scan(
+            config=draft,
+            output_dir=from_scan_dir,
+            allowlist_candidates=analysis.allowlist_candidates,
+            mcp_allowlist_candidates=analysis.mcp_allowlist_candidates,
+        )
+
     validation_errors = _validate_generated_config(root=root, rendered=rendered)
     if validation_errors:
         print(format_errors(validation_errors), file=sys.stderr)
