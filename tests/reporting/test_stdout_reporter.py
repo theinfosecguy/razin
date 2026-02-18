@@ -50,6 +50,9 @@ def _make_result(
     high_severity_min: int = 70,
     medium_severity_min: int = 40,
     aggregate_min_rule_score: int = 40,
+    rules_executed: tuple[str, ...] = (),
+    rules_disabled: tuple[str, ...] = (),
+    disable_sources: dict[str, Literal["config", "cli-disable", "cli-only"]] | None = None,
 ) -> ScanResult:
     resolved_counts: dict[Severity, int] = {"high": 3, "medium": 4, "low": 3} if counts is None else counts
 
@@ -67,6 +70,9 @@ def _make_result(
         high_severity_min=high_severity_min,
         medium_severity_min=medium_severity_min,
         aggregate_min_rule_score=aggregate_min_rule_score,
+        rules_executed=rules_executed,
+        rules_disabled=rules_disabled,
+        disable_sources=(disable_sources or {}),
     )
 
 
@@ -102,6 +108,21 @@ def test_header_shows_duration() -> None:
     result = _make_result(duration=2.567)
     output = StdoutReporter(result, color=False).render()
     assert "2.567s" in output
+
+
+def test_header_shows_rule_selection_metadata() -> None:
+    """Header includes rule execution and disable-source details when present."""
+    result = _make_result(
+        rules_executed=("SECRET_REF", "OPAQUE_BLOB"),
+        rules_disabled=("MCP_REQUIRED", "AUTH_CONNECTION"),
+        disable_sources={"MCP_REQUIRED": "config", "AUTH_CONNECTION": "cli-disable"},
+    )
+    output = StdoutReporter(result, color=False).render()
+    assert "Rules run" in output
+    assert "Rules off" in output
+    assert "Off source" in output
+    assert "config 1" in output
+    assert "cli-disable 1" in output
 
 
 def test_header_shows_inline_severity_breakdown() -> None:

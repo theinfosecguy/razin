@@ -85,6 +85,61 @@ def test_build_parser_rule_file_repeatable(tmp_path: Path) -> None:
     assert args.rule_file == [tmp_path / "a.yaml", tmp_path / "b.yaml"]
 
 
+def test_build_parser_disable_rule_repeatable(tmp_path: Path) -> None:
+    """--disable-rule accepts multiple values."""
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "scan",
+            "--root",
+            str(tmp_path),
+            "--disable-rule",
+            "MCP_REQUIRED",
+            "--disable-rule",
+            "AUTH_CONNECTION",
+        ]
+    )
+
+    assert args.disable_rule == ["MCP_REQUIRED", "AUTH_CONNECTION"]
+    assert args.only_rules == []
+
+
+def test_build_parser_only_rules_repeatable(tmp_path: Path) -> None:
+    """--only-rules accepts multiple values."""
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "scan",
+            "--root",
+            str(tmp_path),
+            "--only-rules",
+            "SECRET_REF",
+            "--only-rules",
+            "OPAQUE_BLOB",
+        ]
+    )
+
+    assert args.only_rules == ["SECRET_REF", "OPAQUE_BLOB"]
+    assert args.disable_rule == []
+
+
+def test_build_parser_rejects_disable_rule_and_only_rules(tmp_path: Path) -> None:
+    """--disable-rule and --only-rules are mutually exclusive."""
+    parser = build_parser()
+    with pytest.raises(SystemExit):
+        parser.parse_args(
+            [
+                "scan",
+                "--root",
+                str(tmp_path),
+                "--disable-rule",
+                "MCP_REQUIRED",
+                "--only-rules",
+                "SECRET_REF",
+            ]
+        )
+
+
 def test_build_parser_rejects_conflicting_rule_sources(tmp_path: Path) -> None:
     parser = build_parser()
 
@@ -225,6 +280,23 @@ def test_duplicate_policy_error_rejected_without_overlay(capsys) -> None:  # typ
     captured = capsys.readouterr()
     assert code == 2
     assert "only valid with --rules-mode overlay" in captured.err
+
+
+def test_unknown_disable_rule_returns_configuration_error(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """Unknown --disable-rule values are rejected with exit code 2."""
+    code = main(
+        [
+            "scan",
+            "--root",
+            str(tmp_path),
+            "--disable-rule",
+            "DOES_NOT_EXIST",
+            "--no-stdout",
+        ]
+    )
+    captured = capsys.readouterr()
+    assert code == 2
+    assert "Unknown rule IDs for --disable-rule" in captured.err
 
 
 def test_build_parser_help_includes_ascii_banner() -> None:
@@ -417,3 +489,39 @@ def test_main_passes_output_filter_flags(mock_scan: MagicMock, _mock_validate: M
     call_kwargs = mock_scan.call_args[1]
     assert call_kwargs["min_severity"] == "medium"
     assert call_kwargs["security_only"] is True
+
+
+@patch("razin.cli.main.preflight_validate", return_value=[])
+@patch("razin.cli.main.scan_workspace")
+def test_main_passes_disable_rule_flags(mock_scan: MagicMock, _mock_validate: MagicMock) -> None:
+    """scan_workspace receives disable/only rule controls from CLI."""
+    mock_scan.return_value = ScanResult(
+        scanned_files=0,
+        total_findings=0,
+        aggregate_score=0,
+        aggregate_severity="low",
+        counts_by_severity={"high": 0, "medium": 0, "low": 0},
+        findings=(),
+        duration_seconds=0.0,
+        warnings=(),
+        cache_hits=0,
+        cache_misses=0,
+    )
+
+    code = main(
+        [
+            "scan",
+            "--root",
+            ".",
+            "--disable-rule",
+            "MCP_REQUIRED",
+            "--disable-rule",
+            "AUTH_CONNECTION",
+            "--no-stdout",
+        ]
+    )
+
+    assert code == 0
+    call_kwargs = mock_scan.call_args[1]
+    assert call_kwargs["disable_rules"] == ("MCP_REQUIRED", "AUTH_CONNECTION")
+    assert call_kwargs["only_rules"] == ()

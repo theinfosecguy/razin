@@ -105,6 +105,21 @@ def test_summary_contains_schema_version(sample_findings: list[Finding]) -> None
     assert payload["schema_version"] == SCHEMA_VERSION
 
 
+def test_summary_includes_rule_selection_metadata(sample_findings: list[Finding]) -> None:
+    """Summary exposes rule execution/disable metadata when provided."""
+    summary = build_summary(
+        "test-skill",
+        sample_findings,
+        rules_executed=("SECRET_REF",),
+        rules_disabled=("MCP_REQUIRED",),
+        disable_sources={"MCP_REQUIRED": "config"},
+    )
+    payload = summary.to_dict()
+    assert payload["rules_executed"] == ["SECRET_REF"]
+    assert payload["rules_disabled"] == ["MCP_REQUIRED"]
+    assert payload["disable_sources"] == {"MCP_REQUIRED": "config"}
+
+
 def test_empty_findings_validates(findings_schema: dict[str, Any]) -> None:
     """An empty findings array must be valid."""
     jsonschema.validate(instance=[], schema=findings_schema)
