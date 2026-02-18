@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 from razin import __version__
-from razin.cli.handlers import evaluate_fail_thresholds, handle_validate_config
+from razin.cli.handlers import evaluate_fail_thresholds, handle_init, handle_validate_config
 from razin.constants.branding import CLI_DESCRIPTION
 from razin.constants.reporting import VALID_OUTPUT_FORMATS
 from razin.exceptions import ConfigError, RazinError
@@ -130,6 +130,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="Custom DSL rule file path (repeat for multiple files)",
     )
 
+    init = subparsers.add_parser("init", help="Generate a starter razin.yaml")
+    init.add_argument(
+        "-r",
+        "--root",
+        type=Path,
+        default=Path("."),
+        help="Workspace root path (default: current directory)",
+    )
+    init.add_argument("-c", "--config", type=Path, help="Config file path (default: <root>/razin.yaml)")
+    init.add_argument("-y", "--yes", action="store_true", help="Use defaults and skip prompts")
+    init.add_argument("--dry-run", action="store_true", help="Print proposed config without writing file")
+
     return parser
 
 
@@ -142,6 +154,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "validate-config":
         return handle_validate_config(args)
+
+    if args.command == "init":
+        return handle_init(args)
 
     if args.command != "scan":
         parser.error(f"Unsupported command: {args.command}")

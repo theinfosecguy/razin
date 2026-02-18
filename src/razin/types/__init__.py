@@ -3,6 +3,7 @@
 from .cache import CacheFileEntry, CacheNamespace, CachePayload
 from .common import Confidence, JsonObject, JsonScalar, JsonValue, Severity
 from .config import DataSensitivityConfig, DetectorConfig, ToolTierConfig
+from .init_config import InitConfigDraft
 
 __all__ = [
     "CacheFileEntry",
@@ -16,4 +17,5 @@ __all__ = [
     "JsonValue",
     "Severity",
     "ToolTierConfig",
+    "InitConfigDraft",
 ]
