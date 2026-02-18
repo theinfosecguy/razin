@@ -35,13 +35,14 @@ from razin.scanner.pipeline.config_resolution import (
     resolve_engine,
     resolve_rule_sources,
 )
+from razin.scanner.pipeline.rule_selection import resolve_effective_rule_selection
 from razin.scanner.pipeline.conversion import (
     candidate_to_finding,
     deserialize_findings,
     suppress_redundant_candidates,
 )
 from razin.scanner.score import aggregate_overall_score, aggregate_severity, rule_counts, severity_counts
-from razin.types import CacheFileEntry, RuleOverrideConfig, Severity
+from razin.types import CacheFileEntry, RuleDisableSource, RuleOverrideConfig, Severity
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +72,8 @@ def scan_workspace(
     output_formats: tuple[str, ...] = ("json",),
     min_severity: Severity | None = None,
     security_only: bool = False,
+    disable_rules: tuple[str, ...] = (),
+    only_rules: tuple[str, ...] = (),
 ) -> ScanResult:
     """Scan a workspace and optionally write per-skill findings and summaries."""
     invalid_formats = set(output_formats) - VALID_OUTPUT_FORMATS
@@ -132,7 +135,7 @@ def scan_workspace(
         logger.warning(warning)
 
     try:
-        dsl_engine = DslEngine(
+        full_dsl_engine = DslEngine(
             rule_ids=None,
             rules_dir=resolved_rules_dir,
             rule_files=resolved_rule_files,
@@ -141,17 +144,39 @@ def scan_workspace(
         )
     except DslError as exc:
         raise ConfigError(str(exc)) from exc
-    rulepack_fingerprint = dsl_engine.fingerprint()
-    loaded_rule_ids = set(dsl_engine.public_rule_ids)
-    active_rule_overrides = {
-        rule_id: override for rule_id, override in config.rule_overrides.items() if rule_id in loaded_rule_ids
-    }
-    unknown_rule_overrides = sorted(set(config.rule_overrides) - loaded_rule_ids)
-    for rule_id in unknown_rule_overrides:
+
+    loaded_rule_ids = tuple(dict.fromkeys(full_dsl_engine.public_rule_ids))
+    selection = resolve_effective_rule_selection(
+        loaded_rule_ids=loaded_rule_ids,
+        config_rule_overrides=config.rule_overrides,
+        cli_disable_rules=disable_rules,
+        cli_only_rules=only_rules,
+    )
+    for rule_id in selection.unknown_config_rule_ids:
         warning = f"Unknown rule_overrides entry '{rule_id}' has no loaded rule and will be ignored."
         warnings.append(warning)
         logger.warning(warning)
+
+    if selection.executed_rule_ids == loaded_rule_ids:
+        dsl_engine = full_dsl_engine
+    else:
+        try:
+            dsl_engine = DslEngine(
+                rule_ids=frozenset(selection.executed_rule_ids),
+                rules_dir=resolved_rules_dir,
+                rule_files=resolved_rule_files,
+                rules_mode=rules_mode,
+                duplicate_policy=duplicate_policy,
+            )
+        except DslError as exc:
+            raise ConfigError(str(exc)) from exc
+
+    rulepack_fingerprint = dsl_engine.fingerprint()
+    active_rule_overrides = selection.active_rule_overrides
     serialized_rule_overrides = _serialize_rule_overrides(active_rule_overrides)
+    rules_executed = selection.executed_rule_ids
+    rules_disabled = selection.disabled_rule_ids
+    disable_sources = selection.disable_sources
 
     findings_by_skill: dict[str, list] = {}
 
@@ -278,6 +303,9 @@ def scan_workspace(
                     filters=output_filters,
                 ),
                 rule_overrides=serialized_rule_overrides,
+                rules_executed=rules_executed,
+                rules_disabled=rules_disabled,
+                disable_sources=_serialize_disable_sources(disable_sources),
             )
         all_findings.extend(skill_findings)
 
@@ -302,6 +330,9 @@ def scan_workspace(
                 rule_distribution=rule_counts(all_findings),
                 filter_metadata=filter_metadata,
                 rule_overrides=serialized_rule_overrides,
+                rules_executed=rules_executed,
+                rules_disabled=rules_disabled,
+                disable_sources=_serialize_disable_sources(disable_sources),
             )
 
     if not no_cache and out is not None and cache_path is not None:
@@ -340,6 +371,9 @@ def scan_workspace(
         aggregate_min_rule_score=config.aggregate_min_rule_score,
         counts_by_rule=counts_by_rule,
         active_rule_overrides={rule_id: override for rule_id, override in sorted(serialized_rule_overrides.items())},
+        rules_executed=rules_executed,
+        rules_disabled=rules_disabled,
+        disable_sources=_serialize_disable_sources(disable_sources),
     )
 
 
@@ -359,3 +393,10 @@ def _serialize_rule_overrides(
         if values:
             serialized[rule_id] = values
     return serialized
+
+
+def _serialize_disable_sources(
+    disable_sources: dict[str, RuleDisableSource],
+) -> dict[str, RuleDisableSource]:
+    """Render disabled rule source metadata with deterministic key ordering."""
+    return {rule_id: disable_sources[rule_id] for rule_id in sorted(disable_sources)}

@@ -50,5 +50,6 @@ class DetectorConfig:
 class RuleOverrideConfig:
     """Per-rule override settings from ``razin.yaml``."""
 
+    enabled: bool = True
     max_severity: Severity | None = None
     min_severity: Severity | None = None
