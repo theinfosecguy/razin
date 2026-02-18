@@ -1,0 +1,35 @@
+site_name: Razin
+site_description: Static analysis scanner for SKILL.md-defined agent skills
+site_url: https://theinfosecguy.github.io/razin/
+repo_url: https://github.com/theinfosecguy/razin
+repo_name: theinfosecguy/razin
+
+strict: true
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - CLI Reference: cli-reference.md
+  - Configuration: configuration.md
+  - Detectors: detectors.md
+  - Output Formats: output-formats.md
+  - Docker: docker.md
+  - CI and Exit Codes: ci-and-exit-codes.md
+  - Troubleshooting: troubleshooting.md
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - content.code.copy
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - fenced_code
+  - tables
+  - toc:
+      permalink: true
+
+extra:
+  generator: false
