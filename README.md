@@ -321,6 +321,7 @@ Skill name derivation precedence:
 1. Frontmatter `name` (if present)
 2. Nearest folder containing `SKILL.md`
 3. Sanitized relative path from scan root
+4. If multiple files resolve to the same name, Razin appends a deterministic suffix per file path
 
 ## Contributing
 

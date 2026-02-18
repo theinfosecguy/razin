@@ -22,7 +22,7 @@ from razin.io import file_sha256
 from razin.model import ScanResult
 from razin.parsers import parse_skill_markdown_file
 from razin.scanner.cache import build_scan_fingerprint, load_cache, new_cache, save_cache
-from razin.scanner.discovery import collect_all_skill_names, derive_skill_name, discover_skill_files
+from razin.scanner.discovery import assign_unique_skill_names, collect_all_skill_names, discover_skill_files
 from razin.scanner.mcp_remote import collect_mcp_remote_candidates
 from razin.scanner.pipeline.cache_utils import (
     get_or_create_cache_namespace,
@@ -43,6 +43,14 @@ from razin.scanner.score import aggregate_overall_score, aggregate_severity, sev
 from razin.types import CacheFileEntry
 
 logger = logging.getLogger(__name__)
+
+
+def _path_for_warning(path: Path, root: Path) -> str:
+    """Render a warning-friendly path relative to the scan root when possible."""
+    try:
+        return path.relative_to(root).as_posix()
+    except ValueError:
+        return path.as_posix()
 
 
 def scan_workspace(
@@ -110,6 +118,15 @@ def scan_workspace(
             len(auto_baseline),
             len(skill_files),
         )
+    skill_names_by_file, duplicate_name_groups = assign_unique_skill_names(skill_files, root)
+    for base_name, paths in sorted(duplicate_name_groups.items()):
+        rendered_paths = ", ".join(_path_for_warning(path, root) for path in paths)
+        warning = (
+            f"Duplicate skill name '{base_name}' resolved across multiple files "
+            f"({rendered_paths}); applying deterministic suffixes."
+        )
+        warnings.append(warning)
+        logger.warning(warning)
 
     try:
         dsl_engine = DslEngine(
@@ -148,6 +165,7 @@ def scan_workspace(
     for path in skill_files:
         cache_key = str(path)
         discovered_keys.add(cache_key)
+        skill_name = skill_names_by_file[path]
         mcp_dependency = resolve_mcp_dependency_signature(path=path, root=root, warnings=warnings)
 
         try:
@@ -161,10 +179,13 @@ def scan_workspace(
             continue
 
         entry = cache_files.get(cache_key)
-        if is_cache_hit(entry, sha256=sha256, mtime_ns=mtime_ns, mcp_dependency=mcp_dependency):
+        if (
+            is_cache_hit(entry, sha256=sha256, mtime_ns=mtime_ns, mcp_dependency=mcp_dependency)
+            and isinstance(entry, dict)
+            and entry.get("skill_name") == skill_name
+        ):
             assert isinstance(entry, dict)
             cache_hits += 1
-            skill_name = entry["skill_name"]
             cached_findings = deserialize_findings(entry["findings"])
             findings_by_skill.setdefault(skill_name, []).extend(cached_findings)
             continue
@@ -178,14 +199,6 @@ def scan_workspace(
             logger.warning(warning)
             cache_files.pop(cache_key, None)
             continue
-
-        declared_name = None
-        if isinstance(parsed.frontmatter, dict):
-            name_value = parsed.frontmatter.get("name")
-            if isinstance(name_value, str) and name_value.strip():
-                declared_name = name_value.strip()
-
-        skill_name = derive_skill_name(path, root, declared_name=declared_name)
         findings_by_skill.setdefault(skill_name, [])
 
         candidates = dsl_engine.run_all(skill_name=skill_name, parsed=parsed, config=config)
