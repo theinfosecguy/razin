@@ -32,6 +32,22 @@ uv run isort src tests
 uv run black src tests
 ```
 
+## Docs workflow
+
+Docs are treated as first-class release artifacts.
+
+- Canonical source: `docs/`
+- README role: quick start only, with links to full docs
+- Ownership: the author of a behavior/config change updates related docs in the same PR
+
+Run docs checks locally before opening a PR:
+
+```bash
+uv sync --group docs
+uv run mkdocs build --strict
+uv run mdformat --check README.md docs
+```
+
 ## Branch and PR flow
 
 1. Create a branch from `main` with a descriptive scope name (e.g., `feat/csv-output`, `fix/parser-edge-case`).
