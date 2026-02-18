@@ -47,6 +47,21 @@ rule_overrides:
 
 With this override, `MCP_REQUIRED` findings are capped before fail checks run.
 
+Rule-disable controls also affect CI because disabled rules do not execute:
+
+```yaml
+rule_overrides:
+  MCP_REQUIRED:
+    enabled: false
+```
+
+Equivalent one-run CLI controls:
+
+```bash
+razin scan -r . --disable-rule MCP_REQUIRED
+razin scan -r . --only-rules SECRET_REF --only-rules OPAQUE_BLOB
+```
+
 ## Rulepack composition in CI
 
 ```bash

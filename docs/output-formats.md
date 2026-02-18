@@ -24,6 +24,7 @@ JSON details:
   - `counts_by_rule`
   - optional `output_filter` metadata (`shown`, `total`, `filtered`, `min_severity`, `security_only`)
   - optional `rule_overrides` metadata
+  - optional rule-selection metadata: `rules_executed`, `rules_disabled`, `disable_sources`
 
 ## CSV
 
@@ -68,6 +69,7 @@ SARIF details:
   - `ruleDistribution`
   - optional `filter`
   - optional `ruleOverrides`
+  - optional `rules_executed`, `rules_disabled`, `disable_sources`
 
 ## Multiple formats in one run
 
