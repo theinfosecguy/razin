@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import cast
 
 from razin.constants.config import (
     RULE_DISABLE_SOURCE_CLI_DISABLE,
@@ -45,10 +46,13 @@ def resolve_effective_rule_selection(
 
     config_disabled_set = {rule_id for rule_id, override in known_overrides.items() if not override.enabled}
 
+    disable_sources: dict[str, RuleDisableSource]
     if cli_only_set:
         executed_rule_ids = tuple(rule_id for rule_id in loaded_rule_ids if rule_id in cli_only_set)
         disabled_rule_ids = tuple(rule_id for rule_id in loaded_rule_ids if rule_id not in cli_only_set)
-        disable_sources = {rule_id: RULE_DISABLE_SOURCE_CLI_ONLY for rule_id in disabled_rule_ids}
+        disable_sources = {
+            rule_id: cast(RuleDisableSource, RULE_DISABLE_SOURCE_CLI_ONLY) for rule_id in disabled_rule_ids
+        }
     else:
         executed_rule_ids = tuple(
             rule_id
@@ -57,12 +61,12 @@ def resolve_effective_rule_selection(
         )
         executed_set = set(executed_rule_ids)
         disabled_rule_ids = tuple(rule_id for rule_id in loaded_rule_ids if rule_id not in executed_set)
-        disable_sources: dict[str, RuleDisableSource] = {}
+        disable_sources = {}
         for rule_id in disabled_rule_ids:
             if rule_id in config_disabled_set:
-                disable_sources[rule_id] = RULE_DISABLE_SOURCE_CONFIG
+                disable_sources[rule_id] = cast(RuleDisableSource, RULE_DISABLE_SOURCE_CONFIG)
             else:
-                disable_sources[rule_id] = RULE_DISABLE_SOURCE_CLI_DISABLE
+                disable_sources[rule_id] = cast(RuleDisableSource, RULE_DISABLE_SOURCE_CLI_DISABLE)
 
     executed_set = set(executed_rule_ids)
     active_rule_overrides = {

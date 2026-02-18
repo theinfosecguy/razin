@@ -35,12 +35,12 @@ from razin.scanner.pipeline.config_resolution import (
     resolve_engine,
     resolve_rule_sources,
 )
-from razin.scanner.pipeline.rule_selection import resolve_effective_rule_selection
 from razin.scanner.pipeline.conversion import (
     candidate_to_finding,
     deserialize_findings,
     suppress_redundant_candidates,
 )
+from razin.scanner.pipeline.rule_selection import resolve_effective_rule_selection
 from razin.scanner.score import aggregate_overall_score, aggregate_severity, rule_counts, severity_counts
 from razin.types import CacheFileEntry, RuleDisableSource, RuleOverrideConfig, Severity
 

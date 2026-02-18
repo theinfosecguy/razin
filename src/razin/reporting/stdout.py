@@ -5,11 +5,6 @@ from __future__ import annotations
 from collections import Counter
 
 from razin.constants.branding import ASCII_LOGO_LINES, SCAN_SUMMARY_TITLE
-from razin.constants.config import (
-    RULE_DISABLE_SOURCE_CLI_DISABLE,
-    RULE_DISABLE_SOURCE_CLI_ONLY,
-    RULE_DISABLE_SOURCE_CONFIG,
-)
 from razin.constants.reporting import (
     ANSI_GREEN,
     ANSI_RED,
@@ -281,10 +276,10 @@ class StdoutReporter:
     def _format_disable_sources(disable_sources: dict[str, RuleDisableSource]) -> str:
         """Render disable source counts in fixed source order."""
         counts = Counter(disable_sources.values())
-        ordered_sources = (
-            RULE_DISABLE_SOURCE_CONFIG,
-            RULE_DISABLE_SOURCE_CLI_DISABLE,
-            RULE_DISABLE_SOURCE_CLI_ONLY,
+        ordered_sources: tuple[RuleDisableSource, ...] = (
+            "config",
+            "cli-disable",
+            "cli-only",
         )
         parts: list[str] = []
         for source in ordered_sources:
