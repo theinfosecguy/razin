@@ -1,0 +1,155 @@
+"""Interactive helpers and rendering for ``razin init``."""
+
+from __future__ import annotations
+
+import difflib
+from collections.abc import Callable
+from pathlib import Path
+from typing import cast
+
+from razin.constants.config import DEFAULT_MAX_FILE_MB
+from razin.constants.init import (
+    INIT_ADVANCED_SECTION_COMMENTS,
+    INIT_DEFAULT_PROFILE,
+    INIT_GENERATED_HEADER,
+    INIT_PROFILE_CHOICES,
+)
+from razin.constants.profiles import ProfileName
+from razin.types.init_config import InitConfigDraft
+
+
+def default_init_config() -> InitConfigDraft:
+    """Return non-interactive defaults for ``razin init --yes``."""
+    return InitConfigDraft()
+
+
+def parse_csv_domains(raw: str) -> tuple[str, ...]:
+    """Normalize comma-separated domains to a sorted, deduplicated tuple."""
+    domains = [part.strip().lower() for part in raw.split(",")]
+    cleaned = [domain for domain in domains if domain]
+    return tuple(sorted(set(cleaned)))
+
+
+def prompt_yes_no(
+    question: str,
+    *,
+    default: bool,
+    read: Callable[[str], str],
+    write: Callable[[str], None],
+) -> bool:
+    """Prompt for a yes/no answer and return the resolved boolean value."""
+    hint = "[Y/n]" if default else "[y/N]"
+    while True:
+        answer = read(f"{question} {hint}: ").strip().lower()
+        if not answer:
+            return default
+        if answer in {"y", "yes"}:
+            return True
+        if answer in {"n", "no"}:
+            return False
+        write("Please enter yes or no.")
+
+
+def collect_init_config(*, read: Callable[[str], str], write: Callable[[str], None]) -> InitConfigDraft:
+    """Collect interactive answers for ``razin init``."""
+    profile = _prompt_profile(read=read, write=write)
+    allowlist_domains = parse_csv_domains(read("allowlist_domains (comma-separated, optional): "))
+    mcp_allowlist_domains = parse_csv_domains(read("mcp_allowlist_domains (comma-separated, optional): "))
+    denylist_domains = parse_csv_domains(read("denylist_domains (comma-separated, optional): "))
+    mcp_denylist_domains = parse_csv_domains(read("mcp_denylist_domains (comma-separated, optional): "))
+    strict_subdomains = prompt_yes_no("Enable strict_subdomains?", default=False, read=read, write=write)
+    ignore_default_allowlist = prompt_yes_no(
+        "Enable ignore_default_allowlist?",
+        default=False,
+        read=read,
+        write=write,
+    )
+    max_file_mb = _prompt_positive_int("max_file_mb", DEFAULT_MAX_FILE_MB, read=read, write=write)
+    return InitConfigDraft(
+        profile=profile,
+        allowlist_domains=allowlist_domains,
+        mcp_allowlist_domains=mcp_allowlist_domains,
+        denylist_domains=denylist_domains,
+        mcp_denylist_domains=mcp_denylist_domains,
+        strict_subdomains=strict_subdomains,
+        ignore_default_allowlist=ignore_default_allowlist,
+        max_file_mb=max_file_mb,
+    )
+
+
+def render_init_yaml(config: InitConfigDraft) -> str:
+    """Render deterministic starter YAML for ``razin init``."""
+    lines = [
+        INIT_GENERATED_HEADER,
+        f"profile: {config.profile}",
+        *_render_string_list("allowlist_domains", config.allowlist_domains),
+        *_render_string_list("mcp_allowlist_domains", config.mcp_allowlist_domains),
+        *_render_string_list("denylist_domains", config.denylist_domains),
+        *_render_string_list("mcp_denylist_domains", config.mcp_denylist_domains),
+        f"strict_subdomains: {'true' if config.strict_subdomains else 'false'}",
+        f"ignore_default_allowlist: {'true' if config.ignore_default_allowlist else 'false'}",
+        f"max_file_mb: {config.max_file_mb}",
+        "",
+        *INIT_ADVANCED_SECTION_COMMENTS,
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def build_unified_diff(existing: str, proposed: str, path: Path) -> str:
+    """Build a unified diff between existing and proposed YAML content."""
+    diff_lines = list(
+        difflib.unified_diff(
+            existing.splitlines(),
+            proposed.splitlines(),
+            fromfile=f"{path} (current)",
+            tofile=f"{path} (proposed)",
+            lineterm="",
+        )
+    )
+    if not diff_lines:
+        return "No changes detected."
+    return "\n".join(diff_lines)
+
+
+def _render_string_list(key: str, values: tuple[str, ...]) -> list[str]:
+    """Render a YAML key whose value is a list of strings."""
+    normalized_values = tuple(sorted(set(values)))
+    if not normalized_values:
+        return [f"{key}: []"]
+    rendered = [f"{key}:"]
+    rendered.extend(f"  - {value}" for value in normalized_values)
+    return rendered
+
+
+def _prompt_profile(*, read: Callable[[str], str], write: Callable[[str], None]) -> ProfileName:
+    """Prompt for one of the supported profile names."""
+    choices = ", ".join(INIT_PROFILE_CHOICES)
+    while True:
+        answer = read(f"profile ({choices}) [{INIT_DEFAULT_PROFILE}]: ").strip().lower()
+        if not answer:
+            return cast(ProfileName, INIT_DEFAULT_PROFILE)
+        if answer in INIT_PROFILE_CHOICES:
+            return cast(ProfileName, answer)
+        write(f"Invalid profile '{answer}'. Choose one of: {choices}.")
+
+
+def _prompt_positive_int(
+    key: str,
+    default: int,
+    *,
+    read: Callable[[str], str],
+    write: Callable[[str], None],
+) -> int:
+    """Prompt for a positive integer with a default fallback."""
+    while True:
+        answer = read(f"{key} [{default}]: ").strip()
+        if not answer:
+            return default
+        try:
+            parsed = int(answer)
+        except ValueError:
+            write("Please enter a positive integer.")
+            continue
+        if parsed > 0:
+            return parsed
+        write("Please enter a positive integer.")
