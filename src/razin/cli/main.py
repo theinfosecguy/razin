@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from razin import __version__
+from razin.cli.domain_analysis import build_dominant_domain_hints
 from razin.cli.handlers import evaluate_fail_thresholds, handle_init, handle_validate_config
 from razin.constants.branding import CLI_DESCRIPTION
 from razin.constants.reporting import VALID_OUTPUT_FORMATS
@@ -141,6 +142,11 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("-c", "--config", type=Path, help="Config file path (default: <root>/razin.yaml)")
     init.add_argument("-y", "--yes", action="store_true", help="Use defaults and skip prompts")
     init.add_argument("--dry-run", action="store_true", help="Print proposed config without writing file")
+    init.add_argument(
+        "--from-scan",
+        type=Path,
+        help="Scan output directory used to generate commented allowlist candidates",
+    )
 
     return parser
 
@@ -235,6 +241,8 @@ def main(argv: list[str] | None = None) -> int:
             group_by=args.group_by,
         )
         print(reporter.render())
+        for hint in build_dominant_domain_hints(result.findings):
+            print(hint, file=sys.stderr)
 
     return evaluate_fail_thresholds(result, fail_on=args.fail_on, fail_on_score=args.fail_on_score)
 
