@@ -77,7 +77,8 @@ razin scan -r . -o output/ --output-format json,csv,sarif
 
 ## Next docs to read
 
-- CLI flags and interactions: `docs/cli-reference.md`
-- Config details and `rule_overrides`: `docs/configuration.md`
-- Output format schemas: `docs/output-formats.md`
-- CI behavior: `docs/ci-and-exit-codes.md`
+- [CLI flags and interactions](cli-reference.md)
+- [How to write custom rules](custom-rules.md)
+- [Config details and `rule_overrides`](configuration.md)
+- [Output format schemas](output-formats.md)
+- [CI behavior](ci-and-exit-codes.md)
