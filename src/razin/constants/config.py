@@ -7,8 +7,12 @@ from razin.constants.docs import DEFAULT_TOOL_PREFIXES
 CONFIG_FILENAME: str = "razin.yaml"
 DEFAULT_MAX_FILE_MB: int = 2
 
-RULE_OVERRIDE_ALLOWED_KEYS: frozenset[str] = frozenset({"max_severity", "min_severity"})
+RULE_OVERRIDE_ALLOWED_KEYS: frozenset[str] = frozenset({"enabled", "max_severity", "min_severity"})
 RULE_OVERRIDE_ALLOWED_SEVERITIES: frozenset[str] = frozenset({"high", "medium", "low"})
+
+RULE_DISABLE_SOURCE_CONFIG: str = "config"
+RULE_DISABLE_SOURCE_CLI_DISABLE: str = "cli-disable"
+RULE_DISABLE_SOURCE_CLI_ONLY: str = "cli-only"
 
 DEFAULT_SKILL_GLOBS: tuple[str, ...] = ("**/SKILL.md",)
 

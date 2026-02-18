@@ -90,6 +90,7 @@ data_sensitivity:
     - confidential
 rule_overrides:
   MCP_REQUIRED:
+    enabled: false
     max_severity: low
   AUTH_CONNECTION:
     max_severity: low
@@ -102,16 +103,18 @@ max_file_mb: 2
 
 ## `rule_overrides`
 
-`rule_overrides` lets you cap severity for specific rule IDs without disabling them.
+`rule_overrides` controls per-rule policy, including runtime disable and severity bounds.
 
 Supported fields per rule:
 
+- `enabled`: boolean (`true` by default). Set `false` to skip rule execution.
 - `max_severity`: one of `high`, `medium`, `low`
 - `min_severity`: one of `high`, `medium`, `low`
 
 Behavior details:
 
-- Override is applied after profile severity resolution.
+- If `enabled: false`, the rule is not executed (no findings, no score contribution).
+- Severity override is applied after profile severity resolution for executed rules.
 - If a finding exceeds `max_severity`, severity is capped.
 - If a finding is below `min_severity`, severity is raised.
 - Capped findings include `severity_override` metadata in output.
@@ -124,6 +127,8 @@ Example:
 ```yaml
 rule_overrides:
   MCP_REQUIRED:
+    enabled: false
+  AUTH_CONNECTION:
     max_severity: low
   TOOL_INVOCATION:
     max_severity: low
@@ -146,6 +151,13 @@ When both config and CLI supply values:
 - `--profile` overrides `profile` from file.
 - `--max-file-mb` overrides `max_file_mb` from file.
 - `--mcp-allowlist` replaces `mcp_allowlist_domains` for that run after normalization.
+
+Rule enable precedence (highest to lowest):
+
+1. `--only-rules`
+1. `--disable-rule`
+1. `rule_overrides.<RULE>.enabled`
+1. default enabled
 
 ## Rule source composition
 

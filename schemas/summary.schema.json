@@ -99,6 +99,31 @@
         }
       ],
       "description": "Active rule override metadata from configuration."
+    },
+    "rules_executed": {
+      "type": ["array", "null"],
+      "items": {
+        "type": "string"
+      },
+      "description": "Rule ids executed for the scan run."
+    },
+    "rules_disabled": {
+      "type": ["array", "null"],
+      "items": {
+        "type": "string"
+      },
+      "description": "Rule ids skipped for the scan run."
+    },
+    "disable_sources": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/DisableSources"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Disable source metadata keyed by skipped rule id."
     }
   },
   "additionalProperties": false,
@@ -195,6 +220,16 @@
         },
         "additionalProperties": false
       }
+    },
+    "DisableSources": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/DisableSource"
+      }
+    },
+    "DisableSource": {
+      "type": "string",
+      "enum": ["config", "cli-disable", "cli-only"]
     }
   }
 }

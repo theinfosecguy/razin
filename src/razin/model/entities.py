@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-from razin.types import Classification, Confidence, Severity
+from razin.types import Classification, Confidence, RuleDisableSource, Severity
 
 type FrontmatterData = dict[str, Any] | None
 
@@ -81,11 +81,18 @@ class Summary:
     shown_finding_count: int | None = None
     output_filter: dict[str, object] | None = None
     rule_overrides: dict[str, dict[str, Severity]] | None = None
+    rules_executed: tuple[str, ...] | None = None
+    rules_disabled: tuple[str, ...] | None = None
+    disable_sources: dict[str, RuleDisableSource] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert summary to a JSON-serializable dictionary."""
         data = asdict(self)
         data["top_risks"] = list(data["top_risks"])
+        if data["rules_executed"] is not None:
+            data["rules_executed"] = list(data["rules_executed"])
+        if data["rules_disabled"] is not None:
+            data["rules_disabled"] = list(data["rules_disabled"])
         return data
 
 
@@ -142,3 +149,6 @@ class ScanResult:
     aggregate_min_rule_score: int = 40
     counts_by_rule: dict[str, int] = field(default_factory=dict)
     active_rule_overrides: dict[str, dict[str, Severity]] = field(default_factory=dict)
+    rules_executed: tuple[str, ...] = field(default_factory=tuple)
+    rules_disabled: tuple[str, ...] = field(default_factory=tuple)
+    disable_sources: dict[str, RuleDisableSource] = field(default_factory=dict)

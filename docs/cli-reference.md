@@ -35,6 +35,8 @@ razin scan -r . -o output/ --profile balanced
 | `-n`, `--no-cache` | Disable cache reads and writes. |
 | `--rules-mode {replace,overlay}` | Rule composition mode (`replace` or `overlay`). |
 | `--duplicate-policy {error,override}` | Duplicate `rule_id` behavior for overlay mode. |
+| `--disable-rule RULE_ID` | Disable a public `rule_id` for this invocation; repeat for multiple values. |
+| `--only-rules RULE_ID` | Execute only listed public `rule_id` values; repeat for multiple values. |
 | `--max-file-mb MAX_FILE_MB` | Skip `SKILL.md` files larger than this size. |
 | `--output-format OUTPUT_FORMAT` | Comma-separated formats: `json`, `csv`, `sarif`. |
 | `--no-stdout` | Silence stdout output. |
@@ -53,6 +55,7 @@ razin scan -r . -o output/ --profile balanced
 | --- | --- |
 | `--rules-dir` with `--rule-file` | Invalid. They are mutually exclusive (`argparse` group + preflight validation). |
 | `--duplicate-policy` without `--rules-mode overlay` | Invalid. Returns exit code `2` with a configuration error. |
+| `--disable-rule` with `--only-rules` | Invalid. They are mutually exclusive. |
 | `--fail-on-score` outside `0..100` | Invalid. Returns exit code `2`. |
 | `--output-format` containing empty tokens (for example `json,,csv`) | Invalid. Returns exit code `2`. |
 | Unknown output format token | Invalid. Allowed values are only `json`, `csv`, `sarif`. |
@@ -70,6 +73,7 @@ razin scan -r . -o output/ --profile balanced
 - `--mcp-allowlist` values are normalized to domains and replace `mcp_allowlist_domains` for that run.
 - `--profile` provided on CLI overrides `profile` in `razin.yaml` for that run.
 - `--summary-only` is stdout-only. File artifacts are still written normally.
+- Unknown rule IDs in `--disable-rule` / `--only-rules` return a configuration error.
 
 ### Filter examples
 
@@ -98,6 +102,16 @@ razin scan -r . -R ./enterprise-rules --rules-mode overlay --duplicate-policy er
 
 # Overlay custom rules and let custom duplicate IDs override bundled rules
 razin scan -r . -f ./rules/auth_override.yaml --rules-mode overlay --duplicate-policy override
+```
+
+### Rule selection examples
+
+```bash
+# Disable noisy rules for one run
+razin scan -r . --disable-rule MCP_REQUIRED --disable-rule AUTH_CONNECTION
+
+# Run only two rules
+razin scan -r . --only-rules SECRET_REF --only-rules OPAQUE_BLOB
 ```
 
 ## `razin validate-config`

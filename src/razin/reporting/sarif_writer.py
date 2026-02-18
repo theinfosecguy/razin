@@ -17,7 +17,7 @@ from razin.constants.reporting import (
 )
 from razin.io import write_text_atomic
 from razin.model import Finding
-from razin.types import Severity
+from razin.types import RuleDisableSource, Severity
 
 
 def _build_sarif_result(finding: Finding) -> dict[str, Any]:
@@ -88,6 +88,9 @@ def build_sarif_envelope(
     rule_distribution: dict[str, int] | None = None,
     filter_metadata: dict[str, object] | None = None,
     rule_overrides: dict[str, dict[str, Severity]] | None = None,
+    rules_executed: tuple[str, ...] | None = None,
+    rules_disabled: tuple[str, ...] | None = None,
+    disable_sources: dict[str, RuleDisableSource] | None = None,
 ) -> dict[str, Any]:
     """Build a complete SARIF 2.1.0 document from findings."""
     sorted_findings = sorted(findings, key=lambda f: (-f.score, f.id))
@@ -98,6 +101,12 @@ def build_sarif_envelope(
         run_properties["filter"] = filter_metadata
     if rule_overrides:
         run_properties["ruleOverrides"] = rule_overrides
+    if rules_executed is not None:
+        run_properties["rules_executed"] = list(rules_executed)
+    if rules_disabled is not None:
+        run_properties["rules_disabled"] = list(rules_disabled)
+    if disable_sources:
+        run_properties["disable_sources"] = disable_sources
 
     run_payload: dict[str, Any] = {
         "tool": {
@@ -126,6 +135,9 @@ def write_sarif_findings(
     rule_distribution: dict[str, int] | None = None,
     filter_metadata: dict[str, object] | None = None,
     rule_overrides: dict[str, dict[str, Severity]] | None = None,
+    rules_executed: tuple[str, ...] | None = None,
+    rules_disabled: tuple[str, ...] | None = None,
+    disable_sources: dict[str, RuleDisableSource] | None = None,
 ) -> Path:
     """Write a global findings.sarif under the output root and return the path."""
     sarif_path = out_root / SARIF_FINDINGS_FILENAME
@@ -135,6 +147,9 @@ def write_sarif_findings(
         rule_distribution=rule_distribution,
         filter_metadata=filter_metadata,
         rule_overrides=rule_overrides,
+        rules_executed=rules_executed,
+        rules_disabled=rules_disabled,
+        disable_sources=disable_sources,
     )
     write_text_atomic(
         path=sarif_path,

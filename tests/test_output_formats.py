@@ -239,8 +239,14 @@ class TestSarifWriter:
             rule_distribution={"SECRET_REF": 4, "MCP_REQUIRED": 10},
             filter_metadata={"shown": 1, "total": 14, "filtered": 13, "min_severity": "high", "security_only": True},
             rule_overrides={"MCP_REQUIRED": {"max_severity": "low"}},
+            rules_executed=("SECRET_REF",),
+            rules_disabled=("MCP_REQUIRED",),
+            disable_sources={"MCP_REQUIRED": "config"},
         )
         props = envelope["runs"][0]["properties"]
         assert props["ruleDistribution"]["SECRET_REF"] == 4
         assert props["filter"]["shown"] == 1
         assert props["ruleOverrides"]["MCP_REQUIRED"]["max_severity"] == "low"
+        assert props["rules_executed"] == ["SECRET_REF"]
+        assert props["rules_disabled"] == ["MCP_REQUIRED"]
+        assert props["disable_sources"]["MCP_REQUIRED"] == "config"

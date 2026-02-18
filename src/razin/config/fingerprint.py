@@ -44,6 +44,7 @@ def config_fingerprint(config: RazinConfig, max_file_mb_override: int | None = N
         "rule_overrides": sorted(
             (
                 rule_id,
+                override.enabled,
                 override.max_severity,
                 override.min_severity,
             )

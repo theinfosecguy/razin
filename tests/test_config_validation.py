@@ -264,7 +264,12 @@ def test_rule_overrides_valid_config_returns_no_errors(tmp_path: Path) -> None:
     """Valid rule_overrides block passes config validation."""
     _write_config(
         tmp_path,
-        "rule_overrides:\n" "  MCP_REQUIRED:\n" "    max_severity: low\n" "  SECRET_REF:\n" "    min_severity: high\n",
+        "rule_overrides:\n"
+        "  MCP_REQUIRED:\n"
+        "    enabled: false\n"
+        "    max_severity: low\n"
+        "  SECRET_REF:\n"
+        "    min_severity: high\n",
     )
     assert validate_config_file(tmp_path) == []
 
@@ -290,10 +295,20 @@ def test_rule_overrides_unknown_subkey_returns_cfg004(tmp_path: Path) -> None:
     """Unknown keys under a rule override are rejected."""
     _write_config(
         tmp_path,
-        "rule_overrides:\n" "  MCP_REQUIRED:\n" "    enabled: false\n",
+        "rule_overrides:\n" "  MCP_REQUIRED:\n" "    toggle: false\n",
     )
     errors = validate_config_file(tmp_path)
-    assert any(e.code == CFG004 and "rule_overrides.MCP_REQUIRED.enabled" in e.field for e in errors)
+    assert any(e.code == CFG004 and "rule_overrides.MCP_REQUIRED.toggle" in e.field for e in errors)
+
+
+def test_rule_overrides_invalid_enabled_type_returns_cfg005(tmp_path: Path) -> None:
+    """Non-boolean `enabled` values are rejected."""
+    _write_config(
+        tmp_path,
+        "rule_overrides:\n" "  MCP_REQUIRED:\n" "    enabled: maybe\n",
+    )
+    errors = validate_config_file(tmp_path)
+    assert any(e.code == CFG005 and "rule_overrides.MCP_REQUIRED.enabled" in e.field for e in errors)
 
 
 def test_rule_overrides_invalid_min_severity_returns_cfg006(tmp_path: Path) -> None:

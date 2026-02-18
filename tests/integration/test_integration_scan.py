@@ -4,6 +4,7 @@ import csv
 import io
 import json
 import os
+import shutil
 from pathlib import Path
 
 import pytest
@@ -99,6 +100,65 @@ def test_scan_applies_mcp_allowlist_cli_override(tmp_path: Path, basic_repo_root
     rule_ids = {finding["rule_id"] for finding in findings_payload}
 
     assert "MCP_ENDPOINT" not in rule_ids
+
+
+def test_scan_respects_config_rule_disable(tmp_path: Path, basic_repo_root: Path) -> None:
+    """Config `rule_overrides.<RULE>.enabled: false` prevents rule execution."""
+    root = tmp_path / "repo"
+    shutil.copytree(basic_repo_root, root)
+    (root / "razin.yaml").write_text(
+        "rule_overrides:\n" "  MCP_REQUIRED:\n" "    enabled: false\n",
+        encoding="utf-8",
+    )
+
+    result = scan_workspace(root=root)
+    observed_rules = {finding.rule_id for finding in result.findings}
+
+    assert "MCP_REQUIRED" not in observed_rules
+    assert "MCP_REQUIRED" in result.rules_disabled
+    assert result.disable_sources["MCP_REQUIRED"] == "config"
+    assert "MCP_REQUIRED" not in result.rules_executed
+
+
+def test_scan_respects_cli_disable_rule(tmp_path: Path, basic_repo_root: Path) -> None:
+    """`disable_rules` excludes the selected rule for that invocation only."""
+    root = tmp_path / "repo"
+    shutil.copytree(basic_repo_root, root)
+
+    result = scan_workspace(root=root, disable_rules=("MCP_REQUIRED",))
+    observed_rules = {finding.rule_id for finding in result.findings}
+
+    assert "MCP_REQUIRED" not in observed_rules
+    assert result.disable_sources["MCP_REQUIRED"] == "cli-disable"
+    assert "MCP_REQUIRED" in result.rules_disabled
+
+
+def test_scan_only_rules_overrides_config_disable(tmp_path: Path, basic_repo_root: Path) -> None:
+    """`only_rules` takes precedence over config disable controls."""
+    root = tmp_path / "repo"
+    shutil.copytree(basic_repo_root, root)
+    (root / "razin.yaml").write_text(
+        "rule_overrides:\n" "  MCP_REQUIRED:\n" "    enabled: false\n",
+        encoding="utf-8",
+    )
+
+    result = scan_workspace(root=root, only_rules=("MCP_REQUIRED",))
+    observed_rules = {finding.rule_id for finding in result.findings}
+
+    assert observed_rules == {"MCP_REQUIRED"}
+    assert result.rules_executed == ("MCP_REQUIRED",)
+    assert all(source == "cli-only" for source in result.disable_sources.values())
+    assert result.disable_sources.get("MCP_REQUIRED") is None
+
+
+def test_scan_unknown_disable_rule_raises_config_error(tmp_path: Path) -> None:
+    """Unknown `disable_rules` ids fail with a clear configuration error."""
+    skill_dir = tmp_path / "skills" / "single"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text("---\nname: single\n---\n# single\n", encoding="utf-8")
+
+    with pytest.raises(ConfigError, match="Unknown rule IDs for --disable-rule"):
+        scan_workspace(root=tmp_path, disable_rules=("DOES_NOT_EXIST",))
 
 
 def test_scan_suppresses_unknown_domain_when_mcp_endpoint_covers_same_line(tmp_path: Path) -> None:

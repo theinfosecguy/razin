@@ -82,6 +82,21 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Duplicate rule_id policy for overlay mode: error (fail fast, default) or override (custom wins)",
     )
+    rule_selection = scan.add_mutually_exclusive_group()
+    rule_selection.add_argument(
+        "--disable-rule",
+        action="append",
+        default=[],
+        metavar="RULE_ID",
+        help="Disable a rule by public rule_id (repeat for multiple values)",
+    )
+    rule_selection.add_argument(
+        "--only-rules",
+        action="append",
+        default=[],
+        metavar="RULE_ID",
+        help="Execute only listed public rule_id values (repeat for multiple values)",
+    )
     scan.add_argument("--max-file-mb", type=int, help="Skip SKILL.md files larger than this size")
     scan.add_argument(
         "--output-format",
@@ -242,6 +257,8 @@ def main(argv: list[str] | None = None) -> int:
             output_formats=output_formats,
             min_severity=args.min_severity,
             security_only=args.security_only,
+            disable_rules=tuple(args.disable_rule),
+            only_rules=tuple(args.only_rules),
         )
     except ConfigError as exc:
         print(f"Configuration error: {exc}", file=sys.stderr)

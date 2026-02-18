@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections import Counter
+
 from razin.constants.branding import ASCII_LOGO_LINES, SCAN_SUMMARY_TITLE
 from razin.constants.reporting import (
     ANSI_GREEN,
@@ -14,7 +16,7 @@ from razin.constants.scoring import SEVERITY_RANK
 from razin.model import Finding, ScanResult
 from razin.reporting.filters import OutputFilters, count_filtered_reasons, filter_findings
 from razin.scanner.score import aggregate_overall_score, aggregate_severity, rule_counts
-from razin.types import Severity
+from razin.types import RuleDisableSource, Severity
 
 
 def _colorize(text: str, color: str) -> str:
@@ -130,6 +132,13 @@ class StdoutReporter:
                 if parts:
                     override_parts.append(f"{rule_id} ({', '.join(parts)})")
             lines.append(f"  Overrides   {', '.join(override_parts)}")
+
+        if r.rules_executed:
+            lines.append(f"  Rules run   {len(r.rules_executed)} ({self._format_rule_list(r.rules_executed)})")
+        if r.rules_disabled:
+            lines.append(f"  Rules off   {len(r.rules_disabled)} ({self._format_rule_list(r.rules_disabled)})")
+        if r.disable_sources:
+            lines.append(f"  Off source  {self._format_disable_sources(r.disable_sources)}")
 
         verdict = self._render_verdict()
         if verdict is not None:
@@ -254,6 +263,30 @@ class StdoutReporter:
         if remaining > 0:
             parts.append(f"(+{remaining} more)")
         return " · ".join(parts)
+
+    @staticmethod
+    def _format_rule_list(rule_ids: tuple[str, ...], limit: int = 6) -> str:
+        """Render a compact, deterministic preview of rule ids."""
+        if len(rule_ids) <= limit:
+            return ", ".join(rule_ids)
+        shown = ", ".join(rule_ids[:limit])
+        return f"{shown}, +{len(rule_ids) - limit} more"
+
+    @staticmethod
+    def _format_disable_sources(disable_sources: dict[str, RuleDisableSource]) -> str:
+        """Render disable source counts in fixed source order."""
+        counts = Counter(disable_sources.values())
+        ordered_sources: tuple[RuleDisableSource, ...] = (
+            "config",
+            "cli-disable",
+            "cli-only",
+        )
+        parts: list[str] = []
+        for source in ordered_sources:
+            count = counts.get(source, 0)
+            if count > 0:
+                parts.append(f"{source} {count}")
+        return " · ".join(parts) if parts else "none"
 
     def _render_verdict(self) -> str | None:
         """Render CI threshold verdict when fail flags are configured."""

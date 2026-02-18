@@ -464,6 +464,18 @@ def _validate_rule_overrides_block(
                     )
                 )
 
+        enabled = override.get("enabled")
+        if "enabled" in override and not isinstance(enabled, bool):
+            errors.append(
+                ValidationError(
+                    code=CFG005,
+                    path=path_str,
+                    field=f"rule_overrides.{rule_id}.enabled",
+                    message="invalid type for `enabled`",
+                    hint="expected a boolean",
+                )
+            )
+
         max_severity = _validate_rule_override_severity(
             override=override,
             rule_id=rule_id,

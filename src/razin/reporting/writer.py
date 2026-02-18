@@ -21,7 +21,7 @@ from razin.scanner.score import (
     severity_from_score,
     sorted_top_risks,
 )
-from razin.types import Severity
+from razin.types import RuleDisableSource, Severity
 
 
 def write_skill_reports(
@@ -35,6 +35,9 @@ def write_skill_reports(
     medium_severity_min: int | None = None,
     output_filter: dict[str, object] | None = None,
     rule_overrides: dict[str, dict[str, Severity]] | None = None,
+    rules_executed: tuple[str, ...] | None = None,
+    rules_disabled: tuple[str, ...] | None = None,
+    disable_sources: dict[str, RuleDisableSource] | None = None,
 ) -> Summary:
     """Write findings and summary JSON for a skill and return the summary."""
     skill_dir = out_root / skill_name
@@ -58,6 +61,9 @@ def write_skill_reports(
         medium_severity_min=medium_severity_min,
         output_filter=output_filter,
         rule_overrides=rule_overrides,
+        rules_executed=rules_executed,
+        rules_disabled=rules_disabled,
+        disable_sources=disable_sources,
     )
     write_json_atomic(
         path=skill_dir / SUMMARY_FILENAME,
@@ -79,6 +85,9 @@ def build_summary(
     medium_severity_min: int | None = None,
     output_filter: dict[str, object] | None = None,
     rule_overrides: dict[str, dict[str, Severity]] | None = None,
+    rules_executed: tuple[str, ...] | None = None,
+    rules_disabled: tuple[str, ...] | None = None,
+    disable_sources: dict[str, RuleDisableSource] | None = None,
 ) -> Summary:
     """Build a deterministic per-skill summary from findings."""
     source_findings = all_findings if all_findings is not None else findings
@@ -127,4 +136,7 @@ def build_summary(
         shown_finding_count=(len(findings) if all_findings is not None else None),
         output_filter=output_filter,
         rule_overrides=rule_overrides,
+        rules_executed=rules_executed,
+        rules_disabled=rules_disabled,
+        disable_sources=disable_sources,
     )

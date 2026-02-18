@@ -247,6 +247,10 @@ def _parse_rule_overrides(raw: Any) -> dict[str, RuleOverrideConfig]:
                 f"Supported keys: {', '.join(sorted(RULE_OVERRIDE_ALLOWED_KEYS))}"
             )
 
+        enabled = override_raw.get("enabled", True)
+        if not isinstance(enabled, bool):
+            raise ConfigError(f"rule_overrides.{rule_id}.enabled must be a boolean")
+
         max_severity = _parse_override_severity(
             rule_id=rule_id,
             key="max_severity",
@@ -267,7 +271,7 @@ def _parse_rule_overrides(raw: Any) -> dict[str, RuleOverrideConfig]:
                 f"is higher than max_severity {max_severity!r}"
             )
 
-        overrides[rule_id] = RuleOverrideConfig(max_severity=max_severity, min_severity=min_severity)
+        overrides[rule_id] = RuleOverrideConfig(enabled=enabled, max_severity=max_severity, min_severity=min_severity)
 
     return overrides
 
