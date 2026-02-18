@@ -15,6 +15,7 @@ from razin.constants.docs import (
     TOOL_TIER_DESTRUCTIVE_KEYWORDS,
     TOOL_TIER_WRITE_KEYWORDS,
 )
+from razin.types.common import Severity
 
 
 @dataclass(frozen=True)
@@ -43,3 +44,11 @@ class DetectorConfig:
 
     enabled: tuple[str, ...] = ()
     disabled: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class RuleOverrideConfig:
+    """Per-rule override settings from ``razin.yaml``."""
+
+    max_severity: Severity | None = None
+    min_severity: Severity | None = None

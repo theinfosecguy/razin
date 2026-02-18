@@ -260,6 +260,62 @@ def test_data_sensitivity_service_categories_invalid_type(tmp_path: Path) -> Non
     assert any(e.code == CFG005 and "service_categories" in e.field for e in errors)
 
 
+def test_rule_overrides_valid_config_returns_no_errors(tmp_path: Path) -> None:
+    """Valid rule_overrides block passes config validation."""
+    _write_config(
+        tmp_path,
+        "rule_overrides:\n" "  MCP_REQUIRED:\n" "    max_severity: low\n" "  SECRET_REF:\n" "    min_severity: high\n",
+    )
+    assert validate_config_file(tmp_path) == []
+
+
+def test_rule_overrides_invalid_type_returns_cfg009(tmp_path: Path) -> None:
+    """Non-mapping rule_overrides is rejected."""
+    _write_config(tmp_path, "rule_overrides: invalid\n")
+    errors = validate_config_file(tmp_path)
+    assert any(e.code == CFG009 and e.field == "rule_overrides" for e in errors)
+
+
+def test_rule_overrides_invalid_max_severity_returns_cfg006(tmp_path: Path) -> None:
+    """Invalid max_severity value is rejected."""
+    _write_config(
+        tmp_path,
+        "rule_overrides:\n" "  MCP_REQUIRED:\n" "    max_severity: critical\n",
+    )
+    errors = validate_config_file(tmp_path)
+    assert any(e.code == CFG006 and "max_severity" in e.field for e in errors)
+
+
+def test_rule_overrides_unknown_subkey_returns_cfg004(tmp_path: Path) -> None:
+    """Unknown keys under a rule override are rejected."""
+    _write_config(
+        tmp_path,
+        "rule_overrides:\n" "  MCP_REQUIRED:\n" "    enabled: false\n",
+    )
+    errors = validate_config_file(tmp_path)
+    assert any(e.code == CFG004 and "rule_overrides.MCP_REQUIRED.enabled" in e.field for e in errors)
+
+
+def test_rule_overrides_invalid_min_severity_returns_cfg006(tmp_path: Path) -> None:
+    """Invalid min_severity value is rejected."""
+    _write_config(
+        tmp_path,
+        "rule_overrides:\n" "  SECRET_REF:\n" "    min_severity: critical\n",
+    )
+    errors = validate_config_file(tmp_path)
+    assert any(e.code == CFG006 and "min_severity" in e.field for e in errors)
+
+
+def test_rule_overrides_contradictory_bounds_returns_cfg008(tmp_path: Path) -> None:
+    """min_severity > max_severity is rejected."""
+    _write_config(
+        tmp_path,
+        "rule_overrides:\n" "  MCP_REQUIRED:\n" "    min_severity: high\n" "    max_severity: low\n",
+    )
+    errors = validate_config_file(tmp_path)
+    assert any(e.code == CFG008 and e.field == "rule_overrides.MCP_REQUIRED" for e in errors)
+
+
 @pytest.mark.parametrize(
     "yaml_content",
     [

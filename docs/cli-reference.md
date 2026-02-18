@@ -8,8 +8,8 @@ Razin exposes two primary commands:
 Get command help locally:
 
 ```bash
-uv run razin scan -h
-uv run razin validate-config -h
+razin scan -h
+razin validate-config -h
 ```
 
 ## `razin scan`
@@ -17,7 +17,7 @@ uv run razin validate-config -h
 Example:
 
 ```bash
-uv run razin scan -r . -o output/ --profile balanced
+razin scan -r . -o output/ --profile balanced
 ```
 
 ### Flags
@@ -41,12 +41,13 @@ uv run razin scan -r . -o output/ --profile balanced
 | `--no-color` | Disable colored output. |
 | `-v`, `--verbose` | Show cache stats and diagnostics. |
 | `--group-by {skill,rule}` | Group findings by skill or by rule (stdout only). |
+| `--min-severity {high,medium,low}` | Output filter: show findings at/above this severity in stdout and artifact formats. |
+| `--security-only` | Output filter: show only findings where classification is `security`. |
+| `--summary-only` | Stdout-only mode: show summary block, no finding rows. |
 | `--fail-on {high,medium,low}` | Exit 1 if any finding meets or exceeds this severity. |
 | `--fail-on-score N` | Exit 1 if aggregate score meets or exceeds `N` (0-100). |
 
 ### Flag interactions and constraints
-
-Razin enforces several combinations explicitly:
 
 | Combination | Behavior |
 | --- | --- |
@@ -55,28 +56,48 @@ Razin enforces several combinations explicitly:
 | `--fail-on-score` outside `0..100` | Invalid. Returns exit code `2`. |
 | `--output-format` containing empty tokens (for example `json,,csv`) | Invalid. Returns exit code `2`. |
 | Unknown output format token | Invalid. Allowed values are only `json`, `csv`, `sarif`. |
+| `--summary-only` with `--group-by` | `--summary-only` wins; no table is rendered. |
+| `--min-severity` with `--security-only` | Both filters are applied to stdout and artifact outputs. |
+| `--min-severity` / `--security-only` with `--fail-on` / `--fail-on-score` | Exit logic uses all findings from the scan, not filtered output. |
 
 ### Operational behavior details
 
 - Preflight validation always runs before scanning:
   - config file validation
   - custom rule source validation
-- `--group-by` changes stdout rendering only. It does not change JSON/CSV/SARIF artifacts.
+- `--group-by` changes stdout rendering only. It does not regroup JSON/CSV/SARIF artifacts.
 - If `--output-dir` is omitted, no scan artifact files are written.
 - `--mcp-allowlist` values are normalized to domains and replace `mcp_allowlist_domains` for that run.
 - `--profile` provided on CLI overrides `profile` in `razin.yaml` for that run.
+- `--summary-only` is stdout-only. File artifacts are still written normally.
+
+### Filter examples
+
+```bash
+# Show only medium/high findings in stdout and output artifacts
+razin scan -r . -o output/ --min-severity medium
+
+# Show only security-classified findings
+razin scan -r . -o output/ --security-only
+
+# Combined semantic + severity filtering
+razin scan -r . -o output/ --security-only --min-severity medium
+
+# Summary-only CI log while still writing artifacts
+razin scan -r . -o output/ --summary-only --fail-on medium
+```
 
 ### Rule source examples
 
 ```bash
 # Use only rules from a custom directory (replace bundled)
-uv run razin scan -r . -R ./enterprise-rules --rules-mode replace
+razin scan -r . -R ./enterprise-rules --rules-mode replace
 
 # Overlay custom rules on bundled rules and fail on duplicate rule IDs
-uv run razin scan -r . -R ./enterprise-rules --rules-mode overlay --duplicate-policy error
+razin scan -r . -R ./enterprise-rules --rules-mode overlay --duplicate-policy error
 
 # Overlay custom rules and let custom duplicate IDs override bundled rules
-uv run razin scan -r . -f ./rules/auth_override.yaml --rules-mode overlay --duplicate-policy override
+razin scan -r . -f ./rules/auth_override.yaml --rules-mode overlay --duplicate-policy override
 ```
 
 ## `razin validate-config`
@@ -84,7 +105,7 @@ uv run razin scan -r . -f ./rules/auth_override.yaml --rules-mode overlay --dupl
 Example:
 
 ```bash
-uv run razin validate-config -r . -c razin.yaml
+razin validate-config -r . -c razin.yaml
 ```
 
 ### Flags
@@ -114,8 +135,8 @@ For automation and CI:
 
 ```bash
 # Quiet CI run with both severity and score gates
-uv run razin scan -r . --fail-on medium --fail-on-score 50 --no-stdout
+razin scan -r . --fail-on medium --fail-on-score 50 --no-stdout
 
 # Validate custom rule files only
-uv run razin validate-config -r . -f ./rules/custom_1.yaml -f ./rules/custom_2.yaml
+razin validate-config -r . -f ./rules/custom_1.yaml -f ./rules/custom_2.yaml
 ```

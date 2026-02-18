@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import yaml
 
@@ -12,6 +12,8 @@ from razin.constants.config import (
     CONFIG_FILENAME,
     DEFAULT_SKILL_GLOBS,
     DEFAULT_TOOL_PREFIXES_CONFIG,
+    RULE_OVERRIDE_ALLOWED_KEYS,
+    RULE_OVERRIDE_ALLOWED_SEVERITIES,
 )
 from razin.constants.data_sensitivity import (
     HIGH_SENSITIVITY_KEYWORDS,
@@ -28,8 +30,10 @@ from razin.constants.profiles import (
     DEFAULT_PROFILE,
     VALID_PROFILES,
 )
+from razin.constants.scoring import SEVERITY_RANK
 from razin.exceptions import ConfigError
-from razin.types.config import DataSensitivityConfig, DetectorConfig, ToolTierConfig
+from razin.types import Severity
+from razin.types.config import DataSensitivityConfig, DetectorConfig, RuleOverrideConfig, ToolTierConfig
 
 
 def load_config(root: Path, config_path: Path | None = None) -> RazinConfig:
@@ -110,6 +114,8 @@ def load_config(root: Path, config_path: Path | None = None) -> RazinConfig:
     if not isinstance(strict_subdomains, bool):
         raise ConfigError("strict_subdomains must be a boolean")
 
+    rule_overrides = _parse_rule_overrides(raw.get("rule_overrides"))
+
     return RazinConfig(
         profile=profile_raw,  # type: ignore[arg-type]
         allowlist_domains=_normalize_domains(
@@ -139,6 +145,7 @@ def load_config(root: Path, config_path: Path | None = None) -> RazinConfig:
         typosquat_baseline=tuple(_ensure_string_list(typosquat_raw.get("baseline", []), "typosquat.baseline")),
         tool_tier_keywords=tool_tier,
         data_sensitivity=_build_data_sensitivity_config(data_sensitivity_raw),
+        rule_overrides=rule_overrides,
         skill_globs=tuple(_ensure_string_list(raw.get("skill_globs", DEFAULT_SKILL_GLOBS), "skill_globs")),
         max_file_mb=max_file_mb,
     )
@@ -217,3 +224,65 @@ def _build_data_sensitivity_config(raw: dict[str, Any]) -> DataSensitivityConfig
         medium_keywords=medium_keywords,
         service_categories=service_categories,
     )
+
+
+def _parse_rule_overrides(raw: Any) -> dict[str, RuleOverrideConfig]:
+    """Parse and validate the optional ``rule_overrides`` config block."""
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise ConfigError("rule_overrides must be a mapping")
+
+    overrides: dict[str, RuleOverrideConfig] = {}
+    for rule_id, override_raw in raw.items():
+        if not isinstance(rule_id, str) or not rule_id.strip():
+            raise ConfigError("rule_overrides keys must be non-empty rule id strings")
+        if not isinstance(override_raw, dict):
+            raise ConfigError(f"rule_overrides.{rule_id} must be a mapping")
+
+        unknown_keys = set(override_raw) - RULE_OVERRIDE_ALLOWED_KEYS
+        if unknown_keys:
+            raise ConfigError(
+                f"rule_overrides.{rule_id} has unsupported keys: {', '.join(sorted(unknown_keys))}. "
+                f"Supported keys: {', '.join(sorted(RULE_OVERRIDE_ALLOWED_KEYS))}"
+            )
+
+        max_severity = _parse_override_severity(
+            rule_id=rule_id,
+            key="max_severity",
+            value=override_raw.get("max_severity"),
+        )
+        min_severity = _parse_override_severity(
+            rule_id=rule_id,
+            key="min_severity",
+            value=override_raw.get("min_severity"),
+        )
+        if (
+            max_severity is not None
+            and min_severity is not None
+            and SEVERITY_RANK[min_severity] > SEVERITY_RANK[max_severity]
+        ):
+            raise ConfigError(
+                f"rule_overrides.{rule_id} is contradictory: min_severity {min_severity!r} "
+                f"is higher than max_severity {max_severity!r}"
+            )
+
+        overrides[rule_id] = RuleOverrideConfig(max_severity=max_severity, min_severity=min_severity)
+
+    return overrides
+
+
+def _parse_override_severity(
+    *,
+    rule_id: str,
+    key: str,
+    value: Any,
+) -> Severity | None:
+    """Parse a severity override value from rule_overrides."""
+    if value is None:
+        return None
+    if not isinstance(value, str) or value not in RULE_OVERRIDE_ALLOWED_SEVERITIES:
+        raise ConfigError(
+            f"rule_overrides.{rule_id}.{key} must be one of " f"{', '.join(sorted(RULE_OVERRIDE_ALLOWED_SEVERITIES))}"
+        )
+    return cast(Severity, value)

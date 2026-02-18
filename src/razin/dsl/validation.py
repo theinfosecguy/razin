@@ -17,6 +17,7 @@ from razin.constants.dsl_schema import (
     ALLOWED_TOP_KEYS,
     REQUIRED_METADATA_KEYS,
     REQUIRED_TOP_KEYS,
+    VALID_CLASSIFICATIONS,
     VALID_CONFIDENCES,
     VALID_PROFILE_NAMES,
     VALID_SOURCES,
@@ -291,6 +292,20 @@ def _validate_rule_metadata(
                 field="metadata.confidence",
                 message="invalid confidence value",
                 hint=(f"expected one of: {', '.join(sorted(VALID_CONFIDENCES))}; " f"got: {metadata['confidence']!r}"),
+            )
+        )
+
+    if "classification" in metadata and metadata["classification"] not in VALID_CLASSIFICATIONS:
+        errors.append(
+            ValidationError(
+                code=RULE007,
+                path=path_str,
+                field="metadata.classification",
+                message="invalid classification value",
+                hint=(
+                    f"expected one of: {', '.join(sorted(VALID_CLASSIFICATIONS))}; "
+                    f"got: {metadata['classification']!r}"
+                ),
             )
         )
 

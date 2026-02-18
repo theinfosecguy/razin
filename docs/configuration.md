@@ -4,7 +4,7 @@ Razin reads config from `<root>/razin.yaml` by default.
 Override config path per run with `--config`.
 
 ```bash
-uv run razin scan -r . -c ./configs/razin.yaml -o output/
+razin scan -r . -c ./configs/razin.yaml -o output/
 ```
 
 ## Schema overview
@@ -23,6 +23,7 @@ Top-level keys currently accepted:
 - `typosquat`
 - `tool_tier_keywords`
 - `data_sensitivity`
+- `rule_overrides`
 - `skill_globs`
 - `max_file_mb`
 
@@ -87,9 +88,47 @@ data_sensitivity:
     - social security
   medium_keywords:
     - confidential
+rule_overrides:
+  MCP_REQUIRED:
+    max_severity: low
+  AUTH_CONNECTION:
+    max_severity: low
+  SECRET_REF:
+    min_severity: high
 skill_globs:
   - "**/SKILL.md"
 max_file_mb: 2
+```
+
+## `rule_overrides`
+
+`rule_overrides` lets you cap severity for specific rule IDs without disabling them.
+
+Supported fields per rule:
+
+- `max_severity`: one of `high`, `medium`, `low`
+- `min_severity`: one of `high`, `medium`, `low`
+
+Behavior details:
+
+- Override is applied after profile severity resolution.
+- If a finding exceeds `max_severity`, severity is capped.
+- If a finding is below `min_severity`, severity is raised.
+- Capped findings include `severity_override` metadata in output.
+- Unknown rule IDs are ignored with warnings at scan time.
+- Overrides affect CI gating (`--fail-on`, `--fail-on-score`) because they change final severity/score used by evaluation.
+- If both are set for one rule, `min_severity` must be less than or equal to `max_severity`.
+
+Example:
+
+```yaml
+rule_overrides:
+  MCP_REQUIRED:
+    max_severity: low
+  TOOL_INVOCATION:
+    max_severity: low
+  SECRET_REF:
+    min_severity: high
 ```
 
 ## Profile behavior
@@ -116,16 +155,16 @@ When both config and CLI supply values:
 - `--duplicate-policy` is valid only when `--rules-mode overlay`.
 
 ```bash
-uv run razin scan -r . -R ./enterprise-rules --rules-mode overlay --duplicate-policy override
+razin scan -r . -R ./enterprise-rules --rules-mode overlay --duplicate-policy override
 ```
 
-## Validation first workflow
+## Validation-first workflow
 
 Before scanning with custom config/rules:
 
 ```bash
-uv run razin validate-config -r . -c razin.yaml
-uv run razin validate-config -r . -R ./enterprise-rules
+razin validate-config -r . -c razin.yaml
+razin validate-config -r . -R ./enterprise-rules
 ```
 
 This catches schema/type/conflict issues early and returns deterministic error codes.

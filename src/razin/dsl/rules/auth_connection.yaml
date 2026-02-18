@@ -5,6 +5,7 @@ metadata:
   description: "Docs include authentication or connection setup requirements."
   recommendation: "Validate auth flows, secret handling, and connection policies before enabling skill."
   confidence: medium
+  classification: informational
 scoring:
   base_score: 45
 match:

@@ -21,6 +21,7 @@ VALID_STRATEGIES: frozenset[str] = frozenset(
 )
 
 VALID_CONFIDENCES: frozenset[str] = frozenset({"low", "medium", "high"})
+VALID_CLASSIFICATIONS: frozenset[str] = frozenset({"security", "informational"})
 
 VALID_SOURCES: frozenset[str] = frozenset({"fields", "keys", "raw_text", "frontmatter", "file_system"})
 
@@ -35,6 +36,7 @@ REQUIRED_METADATA_KEYS: frozenset[str] = frozenset({"title", "recommendation", "
 ALLOWED_METADATA_KEYS: frozenset[str] = REQUIRED_METADATA_KEYS | {
     "description",
     "description_template",
+    "classification",
 }
 
 VALID_PROFILE_NAMES: frozenset[str] = frozenset({"strict", "balanced", "audit"})

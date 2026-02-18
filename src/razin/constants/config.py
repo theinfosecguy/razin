@@ -7,6 +7,9 @@ from razin.constants.docs import DEFAULT_TOOL_PREFIXES
 CONFIG_FILENAME: str = "razin.yaml"
 DEFAULT_MAX_FILE_MB: int = 2
 
+RULE_OVERRIDE_ALLOWED_KEYS: frozenset[str] = frozenset({"max_severity", "min_severity"})
+RULE_OVERRIDE_ALLOWED_SEVERITIES: frozenset[str] = frozenset({"high", "medium", "low"})
+
 DEFAULT_SKILL_GLOBS: tuple[str, ...] = ("**/SKILL.md",)
 
 DEFAULT_DETECTORS: tuple[str, ...] = (

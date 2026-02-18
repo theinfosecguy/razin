@@ -142,3 +142,18 @@ def test_schema_accepts_valid_profiles() -> None:
         "audit": {"score_override": 0},
     }
     validate_rule(rule, "<test>")
+
+
+def test_schema_accepts_rule_classification() -> None:
+    """metadata.classification accepts informational/security values."""
+    rule = _minimal_rule()
+    rule["metadata"]["classification"] = "informational"
+    validate_rule(rule, "<test>")
+
+
+def test_schema_rejects_invalid_rule_classification() -> None:
+    """Invalid metadata.classification values are rejected."""
+    rule = _minimal_rule()
+    rule["metadata"]["classification"] = "contextual"
+    with pytest.raises(DslSchemaError, match="classification"):
+        validate_rule(rule, "<test>")

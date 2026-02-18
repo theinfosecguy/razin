@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 import pytest
 
 from razin.constants.reporting import ANSI_GREEN, ANSI_RED, ANSI_RESET, ANSI_YELLOW
@@ -17,6 +19,7 @@ def _make_finding(
     score: int = 80,
     severity: Severity = "high",
     finding_id: str = "abc123",
+    classification: Literal["security", "informational"] = "security",
 ) -> Finding:
     return Finding(
         id=finding_id,
@@ -29,6 +32,7 @@ def _make_finding(
         skill=skill,
         rule_id=rule_id,
         recommendation="Fix it",
+        classification=classification,
     )
 
 
@@ -161,6 +165,49 @@ def test_findings_table_hidden_when_empty() -> None:
     output = StdoutReporter(result, color=False).render()
     # The section title line; "Findings: N" in the header is separate
     assert "\n  Findings\n" not in output
+
+
+def test_summary_only_hides_findings_table() -> None:
+    findings = [_make_finding(skill="evil-skill", rule_id="SECRET_REF", score=90)]
+    result = _make_result(findings=findings, total_findings=1)
+    output = StdoutReporter(result, color=False, summary_only=True).render()
+    assert "\n  Findings\n" not in output
+    assert "Skill" not in output
+
+
+def test_min_severity_filters_display_only() -> None:
+    findings = [
+        _make_finding(rule_id="SECRET_REF", score=80, severity="high", finding_id="h"),
+        _make_finding(rule_id="MCP_REQUIRED", score=20, severity="low", finding_id="l"),
+    ]
+    result = _make_result(
+        findings=findings,
+        total_findings=2,
+        counts={"high": 1, "medium": 0, "low": 1},
+    )
+    output = StdoutReporter(result, color=False, min_severity="medium").render()
+    assert "2 total" in output
+    assert "1 shown" in output
+    assert "SECRET_REF" in output
+    assert "│ MCP_REQUIRED" not in output
+
+
+def test_security_only_filters_informational_rows() -> None:
+    findings = [
+        _make_finding(rule_id="SECRET_REF", score=80, severity="high", finding_id="s"),
+        _make_finding(
+            rule_id="MCP_REQUIRED",
+            score=20,
+            severity="low",
+            finding_id="i",
+            classification="informational",
+        ),
+    ]
+    result = _make_result(findings=findings, total_findings=2)
+    output = StdoutReporter(result, color=False, security_only=True).render()
+    assert "1 shown" in output
+    assert "SECRET_REF" in output
+    assert "│ MCP_REQUIRED" not in output
 
 
 @pytest.mark.parametrize(

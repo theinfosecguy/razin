@@ -205,3 +205,25 @@ def test_main_no_fail_flags_returns_0(mock_scan: MagicMock) -> None:
     )
     code = main(["scan", "--root", ".", "--no-stdout"])
     assert code == 0
+
+
+@patch("razin.cli.main.scan_workspace")
+def test_display_filters_do_not_change_fail_on_exit_code(mock_scan: MagicMock) -> None:
+    """--min-severity is display-only and does not change --fail-on evaluation."""
+    mock_scan.return_value = _empty_result(
+        total_findings=1,
+        findings=(_make_finding(severity="low", score=20),),
+    )
+    code = main(
+        [
+            "scan",
+            "--root",
+            ".",
+            "--min-severity",
+            "high",
+            "--fail-on",
+            "low",
+            "--no-stdout",
+        ]
+    )
+    assert code == 1

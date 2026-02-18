@@ -7,9 +7,10 @@ import logging
 from typing import cast
 
 from razin.constants.ids import FINDING_ID_HEX_LENGTH
-from razin.model import Evidence, Finding, FindingCandidate
+from razin.constants.scoring import SEVERITY_RANK
+from razin.model import Evidence, Finding, FindingCandidate, SeverityOverride
 from razin.scanner.score import aggregate_severity
-from razin.types import Confidence, Severity
+from razin.types import Classification, Confidence, RuleOverrideConfig, Severity
 
 logger = logging.getLogger(__name__)
 
@@ -18,12 +19,23 @@ def candidate_to_finding(
     skill_name: str,
     candidate: FindingCandidate,
     *,
+    rule_override: RuleOverrideConfig | None = None,
     high_severity_min: int = 70,
     medium_severity_min: int = 40,
 ) -> Finding:
     """Convert a finding candidate into a stable, serialized finding."""
     score = max(0, min(100, int(candidate.score)))
     severity = aggregate_severity(score, high_min=high_severity_min, medium_min=medium_severity_min)
+    severity_override: SeverityOverride | None = None
+
+    if rule_override is not None and (rule_override.max_severity is not None or rule_override.min_severity is not None):
+        score, severity, severity_override = _apply_rule_override(
+            score=score,
+            severity=severity,
+            rule_override=rule_override,
+            high_severity_min=high_severity_min,
+            medium_severity_min=medium_severity_min,
+        )
 
     identity = "|".join(
         [
@@ -49,7 +61,97 @@ def candidate_to_finding(
         skill=skill_name,
         rule_id=candidate.rule_id,
         recommendation=candidate.recommendation,
+        classification=candidate.classification,
+        severity_override=severity_override,
     )
+
+
+def _apply_rule_override(
+    *,
+    score: int,
+    severity: Severity,
+    rule_override: RuleOverrideConfig,
+    high_severity_min: int,
+    medium_severity_min: int,
+) -> tuple[int, Severity, SeverityOverride | None]:
+    """Apply per-rule min/max severity policy and emit audit metadata when changed."""
+    adjusted_score = score
+    adjusted_severity = severity
+    min_severity = rule_override.min_severity
+    max_severity = rule_override.max_severity
+
+    if min_severity is not None and SEVERITY_RANK[adjusted_severity] < SEVERITY_RANK[min_severity]:
+        adjusted_score = _raise_score_to_min_severity(
+            score=adjusted_score,
+            min_severity=min_severity,
+            high_severity_min=high_severity_min,
+            medium_severity_min=medium_severity_min,
+        )
+        adjusted_severity = aggregate_severity(
+            adjusted_score,
+            high_min=high_severity_min,
+            medium_min=medium_severity_min,
+        )
+        if SEVERITY_RANK[adjusted_severity] < SEVERITY_RANK[min_severity]:
+            adjusted_severity = min_severity
+
+    if max_severity is not None and SEVERITY_RANK[adjusted_severity] > SEVERITY_RANK[max_severity]:
+        adjusted_score = _cap_score_to_max_severity(
+            score=adjusted_score,
+            max_severity=max_severity,
+            high_severity_min=high_severity_min,
+            medium_severity_min=medium_severity_min,
+        )
+        adjusted_severity = aggregate_severity(
+            adjusted_score,
+            high_min=high_severity_min,
+            medium_min=medium_severity_min,
+        )
+        if SEVERITY_RANK[adjusted_severity] > SEVERITY_RANK[max_severity]:
+            adjusted_severity = max_severity
+
+    if adjusted_score == score and adjusted_severity == severity:
+        return score, severity, None
+
+    return (
+        adjusted_score,
+        adjusted_severity,
+        SeverityOverride(
+            original=severity,
+            applied=adjusted_severity,
+            reason="rule_override",
+        ),
+    )
+
+
+def _cap_score_to_max_severity(
+    *,
+    score: int,
+    max_severity: Severity,
+    high_severity_min: int,
+    medium_severity_min: int,
+) -> int:
+    """Cap a score so profile thresholds cannot exceed the requested severity."""
+    if max_severity == "high":
+        return score
+    if max_severity == "medium":
+        return min(score, max(0, high_severity_min - 1))
+    return min(score, max(0, medium_severity_min - 1))
+
+
+def _raise_score_to_min_severity(
+    *,
+    score: int,
+    min_severity: Severity,
+    high_severity_min: int,
+    medium_severity_min: int,
+) -> int:
+    """Raise a score so profile thresholds cannot fall below requested severity."""
+    if min_severity == "low":
+        return score
+    if min_severity == "medium":
+        return max(score, medium_severity_min)
+    return max(score, high_severity_min)
 
 
 def suppress_redundant_candidates(candidates: list[FindingCandidate]) -> list[FindingCandidate]:
@@ -115,6 +217,8 @@ def deserialize_findings(payload: object) -> list[Finding]:
                 skill=str(item.get("skill", "")),
                 rule_id=str(item.get("rule_id", "")),
                 recommendation=str(item.get("recommendation", "")),
+                classification=as_classification(item.get("classification")),
+                severity_override=_deserialize_severity_override(item.get("severity_override")),
             )
         )
 
@@ -133,3 +237,21 @@ def as_confidence(value: object) -> Confidence:
     if isinstance(value, str) and value in {"low", "medium", "high"}:
         return cast(Confidence, value)
     return "low"
+
+
+def as_classification(value: object) -> Classification:
+    """Coerce an arbitrary value into a valid classification enum."""
+    if isinstance(value, str) and value in {"security", "informational"}:
+        return cast(Classification, value)
+    return "security"
+
+
+def _deserialize_severity_override(value: object) -> SeverityOverride | None:
+    """Deserialize persisted severity override metadata, if present."""
+    if not isinstance(value, dict):
+        return None
+    return SeverityOverride(
+        original=as_severity(value.get("original")),
+        applied=as_severity(value.get("applied")),
+        reason=str(value.get("reason", "")),
+    )

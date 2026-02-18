@@ -38,6 +38,7 @@ def render_csv_string(findings: list[Finding]) -> str:
                 f.skill,
                 f.rule_id,
                 f.severity,
+                f.classification,
                 f.score,
                 f.confidence,
                 f.evidence.path,

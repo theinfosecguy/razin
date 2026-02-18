@@ -41,6 +41,14 @@ def config_fingerprint(config: RazinConfig, max_file_mb_override: int | None = N
         "data_sensitivity_high_keywords": list(config.data_sensitivity.high_keywords),
         "data_sensitivity_medium_keywords": list(config.data_sensitivity.medium_keywords),
         "data_sensitivity_service_categories": sorted((config.data_sensitivity.service_categories or {}).items()),
+        "rule_overrides": sorted(
+            (
+                rule_id,
+                override.max_severity,
+                override.min_severity,
+            )
+            for rule_id, override in config.rule_overrides.items()
+        ),
         "skill_globs": list(config.skill_globs),
         "max_file_mb": (max_file_mb_override if max_file_mb_override is not None else config.max_file_mb),
     }

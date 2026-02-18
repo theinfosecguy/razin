@@ -110,6 +110,22 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="N",
         help="Exit 1 if aggregate score meets or exceeds N (0-100, for CI gating)",
     )
+    scan.add_argument(
+        "--min-severity",
+        choices=["high", "medium", "low"],
+        default=None,
+        help="Show only findings at or above this severity in stdout and file outputs",
+    )
+    scan.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="Print summary only (no findings table) on stdout",
+    )
+    scan.add_argument(
+        "--security-only",
+        action="store_true",
+        help="Show only security-classified findings in stdout and file outputs",
+    )
 
     validate = subparsers.add_parser("validate-config", help="Validate configuration without scanning")
     validate.add_argument("-r", "--root", type=Path, required=True, help="Workspace root path")
@@ -224,6 +240,8 @@ def main(argv: list[str] | None = None) -> int:
             rules_mode=args.rules_mode,
             duplicate_policy=effective_duplicate_policy,
             output_formats=output_formats,
+            min_severity=args.min_severity,
+            security_only=args.security_only,
         )
     except ConfigError as exc:
         print(f"Configuration error: {exc}", file=sys.stderr)
@@ -232,6 +250,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Scanner error: {exc}", file=sys.stderr)
         return 1
 
+    exit_code = evaluate_fail_thresholds(result, fail_on=args.fail_on, fail_on_score=args.fail_on_score)
+
     if not args.no_stdout:
         use_color = not args.no_color and sys.stdout.isatty()
         reporter = StdoutReporter(
@@ -239,12 +259,18 @@ def main(argv: list[str] | None = None) -> int:
             color=use_color,
             verbose=args.verbose,
             group_by=args.group_by,
+            min_severity=args.min_severity,
+            security_only=args.security_only,
+            summary_only=args.summary_only,
+            fail_on=args.fail_on,
+            fail_on_score=args.fail_on_score,
+            exit_code=exit_code,
         )
         print(reporter.render())
         for hint in build_dominant_domain_hints(result.findings):
             print(hint, file=sys.stderr)
 
-    return evaluate_fail_thresholds(result, fail_on=args.fail_on, fail_on_score=args.fail_on_score)
+    return exit_code
 
 
 if __name__ == "__main__":

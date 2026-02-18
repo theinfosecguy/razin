@@ -10,8 +10,10 @@ from razin.constants.reporting import (
     ANSI_YELLOW,
     SEVERITY_COLORS,
 )
+from razin.constants.scoring import SEVERITY_RANK
 from razin.model import Finding, ScanResult
-from razin.scanner.score import aggregate_overall_score, aggregate_severity
+from razin.reporting.filters import OutputFilters, count_filtered_reasons, filter_findings
+from razin.scanner.score import aggregate_overall_score, aggregate_severity, rule_counts
 from razin.types import Severity
 
 
@@ -32,6 +34,10 @@ def _color_score(score: int) -> str:
     return _colorize(str(score), ANSI_GREEN)
 
 
+def _classification_short(value: str) -> str:
+    return "SEC" if value == "security" else "INFO"
+
+
 class StdoutReporter:
     """Formats scan results as rich, human-readable stdout output."""
 
@@ -42,56 +48,46 @@ class StdoutReporter:
         color: bool = True,
         verbose: bool = False,
         group_by: str | None = None,
+        min_severity: Severity | None = None,
+        security_only: bool = False,
+        summary_only: bool = False,
+        fail_on: Severity | None = None,
+        fail_on_score: int | None = None,
+        exit_code: int = 0,
     ) -> None:
-        """Initialise the reporter.
-
-        Parameters
-
-        result:
-            Completed scan result to render.
-        color:
-            Enable ANSI colour output.
-        verbose:
-            Show cache hit/miss statistics.
-        group_by:
-            Group findings by ``"skill"`` or ``"rule"``.  *None* renders
-            the default flat table.
-        """
+        """Initialise the reporter."""
         self._result = result
         self._color = color
         self._verbose = verbose
         self._group_by = group_by
+        self._summary_only = summary_only
+        self._fail_on = fail_on
+        self._fail_on_score = fail_on_score
+        self._exit_code = exit_code
+        self._filters = OutputFilters(
+            min_severity=min_severity,
+            security_only=security_only,
+        )
+        self._shown_findings = filter_findings(result.findings, self._filters)
 
     def render(self) -> str:
         """Render the full stdout report as a single string."""
-        sections = [
-            self._render_header(),
-            self._render_grouped_table() if self._group_by else self._render_findings_table(),
-        ]
+        sections = [self._render_header()]
+        if not self._summary_only:
+            sections.append(self._render_grouped_table() if self._group_by else self._render_findings_table())
         return "\n".join(section for section in sections if section)
 
     def _render_header(self) -> str:
         r = self._result
         sep = "  " + "─" * 38
 
-        score_str = str(r.aggregate_score)
-        severity_value = r.aggregate_severity
-        sev_str: str = severity_value
-        if self._color:
-            score_str = _color_score(r.aggregate_score)
-            sev_str = _color_severity(severity_value)
-        score_pad = len(score_str) - len(str(r.aggregate_score))
-        sev_pad = len(sev_str) - len(severity_value)
+        score_str = _color_score(r.aggregate_score) if self._color else str(r.aggregate_score)
+        sev_str = _color_severity(r.aggregate_severity) if self._color else r.aggregate_severity
 
-        counts = r.counts_by_severity
-        parts: list[str] = []
-        for sev in ("high", "medium", "low"):
-            count = counts.get(sev, 0)
-            if count:
-                label = _color_severity(sev) if self._color else sev
-                pad = _ansi_pad(label, sev)
-                parts.append(f"{count} {label}" + "" * pad)
-        breakdown = " \u00b7 ".join(parts) if parts else "none"
+        skills_with_findings = len({finding.skill for finding in r.findings})
+        clean_files = max(0, r.scanned_files - skills_with_findings)
+        total_findings = r.total_findings
+        shown_findings = len(self._shown_findings)
 
         lines = [
             "",
@@ -100,49 +96,86 @@ class StdoutReporter:
             f"  {SCAN_SUMMARY_TITLE}",
             sep,
             "",
-            f"  Risk Score  {score_str:>{14 + score_pad}}" f"              {sev_str}{' ' * sev_pad}",
-            f"  Files       {r.scanned_files:>14}",
-            f"  Findings    {r.total_findings:>14}   ({breakdown})",
-            f"  Duration    {r.duration_seconds:>13.3f}s",
+            f"  Risk Score  {score_str} ({sev_str})",
+            (
+                f"  Files       {r.scanned_files} scanned / "
+                f"{skills_with_findings} with findings / {clean_files} clean"
+            ),
         ]
+
+        if self._filters.active():
+            filtered_summary = self._format_filtered_summary(total_findings, shown_findings)
+            lines.append(f"  Findings    {shown_findings} shown / {total_findings} total ({filtered_summary})")
+        else:
+            lines.append(f"  Findings    {total_findings}")
+
+        lines.append(f"  Severities  {self._format_severity_breakdown(r.counts_by_severity)}")
+
+        all_rule_counts = r.counts_by_rule if r.counts_by_rule else rule_counts(list(r.findings))
+        lines.append(f"  Top rules   {self._format_top_rules(all_rule_counts)}")
+        if self._filters.active():
+            shown_rule_counts = rule_counts(self._shown_findings)
+            lines.append(f"  Top shown   {self._format_top_rules(shown_rule_counts)}")
+
+        if r.active_rule_overrides:
+            override_parts: list[str] = []
+            for rule_id, override in sorted(r.active_rule_overrides.items()):
+                parts: list[str] = []
+                max_severity = override.get("max_severity")
+                min_severity = override.get("min_severity")
+                if max_severity is not None:
+                    parts.append(f"max={max_severity}")
+                if min_severity is not None:
+                    parts.append(f"min={min_severity}")
+                if parts:
+                    override_parts.append(f"{rule_id} ({', '.join(parts)})")
+            lines.append(f"  Overrides   {', '.join(override_parts)}")
+
+        verdict = self._render_verdict()
+        if verdict is not None:
+            lines.append(f"  Verdict     {verdict}")
+
+        lines.append(f"  Duration    {r.duration_seconds:.3f}s")
         if self._verbose:
-            lines.append(f"  Cache       {r.cache_hits:>10} hits / {r.cache_misses} misses")
+            lines.append(f"  Cache       {r.cache_hits} hits / {r.cache_misses} misses")
         lines.append("")
         return "\n".join(lines)
 
     def _render_findings_table(self) -> str:
-        risks = self._result.findings
+        risks = self._shown_findings
         if not risks:
             return ""
 
-        # Column widths (content only)
         w_skill = 25
         w_rule = 20
         w_score = 7
         w_sev = 8
+        w_class = 5
 
         def _hline(left: str, mid: str, right: str) -> str:
             return (
                 f"  {left}{'─' * (w_skill + 2)}{mid}{'─' * (w_rule + 2)}"
-                f"{mid}{'─' * (w_score + 2)}{mid}{'─' * (w_sev + 2)}{right}"
+                f"{mid}{'─' * (w_score + 2)}{mid}{'─' * (w_sev + 2)}"
+                f"{mid}{'─' * (w_class + 2)}{right}"
             )
 
         top_border = _hline("┌", "┬", "┐")
         hdr_sep = _hline("├", "┼", "┤")
         bot_border = _hline("└", "┴", "┘")
 
-        hdr = f"  │ {'Skill':<{w_skill}} │ {'Rule':<{w_rule}}" f" │ {'Score':>{w_score}} │ {'Severity':<{w_sev}} │"
+        hdr = (
+            f"  │ {'Skill':<{w_skill}} │ {'Rule':<{w_rule}}"
+            f" │ {'Score':>{w_score}} │ {'Severity':<{w_sev}} │ {'Class':<{w_class}} │"
+        )
 
         lines = ["  Findings", top_border, hdr, hdr_sep]
         for finding in risks:
             score_str = _color_score(finding.score) if self._color else str(finding.score)
             sev_str = _color_severity(finding.severity) if self._color else finding.severity
-            score_pad = len(score_str) - len(str(finding.score))
-            sev_pad = len(sev_str) - len(finding.severity)
             row = (
                 f"  │ {finding.skill:<{w_skill}} │ {finding.rule_id:<{w_rule}}"
-                f" │ {score_str:>{w_score + score_pad}}"
-                f" │ {sev_str:<{w_sev + sev_pad}} │"
+                f" │ {score_str:>{w_score}} │ {sev_str:<{w_sev}}"
+                f" │ {_classification_short(finding.classification):<{w_class}} │"
             )
             lines.append(row)
         lines.append(bot_border)
@@ -150,48 +183,100 @@ class StdoutReporter:
 
     def _render_grouped_table(self) -> str:
         """Render findings grouped by skill or rule with per-group aggregates."""
-        findings = self._result.findings
+        findings = self._shown_findings
         if not findings:
             return ""
 
         groups: dict[str, list[Finding]] = {}
-        for f in findings:
-            key = f.skill if self._group_by == "skill" else f.rule_id
-            groups.setdefault(key, []).append(f)
+        for finding in findings:
+            key = finding.skill if self._group_by == "skill" else finding.rule_id
+            groups.setdefault(key, []).append(finding)
 
         lines: list[str] = [f"  Findings (grouped by {self._group_by})", ""]
 
-        for group_key in sorted(groups, key=lambda k: -max(f.score for f in groups[k])):
+        for group_key in sorted(groups, key=lambda key: -max(f.score for f in groups[key])):
             group = groups[group_key]
             score = aggregate_overall_score(
                 list(group),
                 min_rule_score=self._result.aggregate_min_rule_score,
             )
-            sev = aggregate_severity(
+            severity = aggregate_severity(
                 score,
                 high_min=self._result.high_severity_min,
                 medium_min=self._result.medium_severity_min,
             )
-            count = len(group)
 
-            s_str = _color_score(score) if self._color else str(score)
-            v_str = _color_severity(sev) if self._color else sev
-
-            lines.append(f"  [{group_key}]  score={s_str}  severity={v_str}  findings={count}")
+            score_str = _color_score(score) if self._color else str(score)
+            sev_str = _color_severity(severity) if self._color else severity
+            lines.append(f"  [{group_key}]  score={score_str}  severity={sev_str}  findings={len(group)}")
 
             detail_key = "rule_id" if self._group_by == "skill" else "skill"
-
-            for f in sorted(group, key=lambda x: (-x.score, x.id)):
-                detail = getattr(f, detail_key)
-                fs = _color_score(f.score) if self._color else str(f.score)
-                fv = _color_severity(f.severity) if self._color else f.severity
-                lines.append(f"    {detail:<25}  {fs:>7}  {fv}")
-
+            for finding in sorted(group, key=lambda item: (-item.score, item.id)):
+                detail = getattr(finding, detail_key)
+                finding_score = _color_score(finding.score) if self._color else str(finding.score)
+                finding_sev = _color_severity(finding.severity) if self._color else finding.severity
+                lines.append(f"    {detail:<25}  {finding_score:>7}  {finding_sev}")
             lines.append("")
 
         return "\n".join(lines)
 
+    def _format_severity_breakdown(self, counts: dict[Severity, int]) -> str:
+        """Render ``high/medium/low`` finding counts in fixed order."""
+        parts: list[str] = []
+        for severity in ("high", "medium", "low"):
+            count = counts.get(severity, 0)
+            label = _color_severity(severity) if self._color else severity
+            parts.append(f"{count} {label}")
+        return " · ".join(parts)
 
-def _ansi_pad(colored: str, plain: str) -> int:
-    """Return the extra characters added by ANSI escapes."""
-    return len(colored) - len(plain)
+    def _format_filtered_summary(self, total_findings: int, shown_findings: int) -> str:
+        """Render deterministic filtered-count details for header output."""
+        filtered_count = max(0, total_findings - shown_findings)
+        reason_counts = count_filtered_reasons(self._result.findings, self._filters)
+        parts: list[str] = []
+        if reason_counts["below_min_severity"] > 0 and self._filters.min_severity is not None:
+            parts.append(f"{reason_counts['below_min_severity']} below {self._filters.min_severity}")
+        if reason_counts["informational"] > 0:
+            parts.append(f"{reason_counts['informational']} informational")
+        if not parts:
+            parts.append(str(filtered_count))
+        return f"{' + '.join(parts)} filtered"
+
+    @staticmethod
+    def _format_top_rules(counts: dict[str, int], limit: int = 5) -> str:
+        """Render top-N rules sorted by descending count, then rule id."""
+        if not counts:
+            return "none"
+        ranked = sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+        head = ranked[:limit]
+        parts = [f"{rule_id} {count}" for rule_id, count in head]
+        remaining = len(ranked) - len(head)
+        if remaining > 0:
+            parts.append(f"(+{remaining} more)")
+        return " · ".join(parts)
+
+    def _render_verdict(self) -> str | None:
+        """Render CI threshold verdict when fail flags are configured."""
+        if self._fail_on is None and self._fail_on_score is None:
+            return None
+
+        clauses: list[str] = []
+        if self._fail_on is not None:
+            threshold = SEVERITY_RANK[self._fail_on]
+            matched = [
+                finding for finding in self._result.findings if SEVERITY_RANK.get(finding.severity, 0) >= threshold
+            ]
+            if matched:
+                clauses.append(f"{len(matched)} finding(s) >= {self._fail_on}")
+            else:
+                clauses.append(f"no findings >= {self._fail_on}")
+
+        if self._fail_on_score is not None:
+            score = self._result.aggregate_score
+            if score >= self._fail_on_score:
+                clauses.append(f"aggregate score {score} >= {self._fail_on_score}")
+            else:
+                clauses.append(f"aggregate score {score} < {self._fail_on_score}")
+
+        state = "FAIL" if self._exit_code == 1 else "PASS"
+        return f"{state} ({'; '.join(clauses)})"

@@ -20,7 +20,8 @@
         "evidence",
         "skill",
         "rule_id",
-        "recommendation"
+        "recommendation",
+        "classification"
       ],
       "properties": {
         "id": {
@@ -61,6 +62,20 @@
         "recommendation": {
           "type": "string",
           "description": "Suggested remediation action."
+        },
+        "classification": {
+          "$ref": "#/$defs/Classification"
+        },
+        "severity_override": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/SeverityOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Override metadata when severity is capped by policy."
         }
       },
       "additionalProperties": false
@@ -93,6 +108,27 @@
       "type": "string",
       "enum": ["low", "medium", "high"],
       "description": "Confidence level."
+    },
+    "Classification": {
+      "type": "string",
+      "enum": ["security", "informational"],
+      "description": "Rule classification."
+    },
+    "SeverityOverride": {
+      "type": "object",
+      "required": ["original", "applied", "reason"],
+      "properties": {
+        "original": {
+          "$ref": "#/$defs/Severity"
+        },
+        "applied": {
+          "$ref": "#/$defs/Severity"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
     }
   }
 }

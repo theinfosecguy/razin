@@ -16,7 +16,7 @@ iconv -f ISO-8859-1 -t UTF-8 path/to/SKILL.md > /tmp/SKILL.md && mv /tmp/SKILL.m
 Then re-run:
 
 ```bash
-uv run razin scan -r . -o output/
+razin scan -r . -o output/
 ```
 
 ## Read-only output path errors
@@ -30,7 +30,7 @@ Fix:
 ```bash
 mkdir -p output
 chmod u+w output
-uv run razin scan -r . -o output/
+razin scan -r . -o output/
 ```
 
 ## Custom rule YAML errors
@@ -42,14 +42,14 @@ Symptom:
 Fix:
 
 ```bash
-uv run razin validate-config -r . -R ./enterprise-rules
-uv run razin scan -r . -R ./enterprise-rules --rules-mode replace
+razin validate-config -r . -R ./enterprise-rules
+razin scan -r . -R ./enterprise-rules --rules-mode replace
 ```
 
 Validate one file directly:
 
 ```bash
-uv run razin validate-config -r . -f ./enterprise-rules/custom_rule.yaml
+razin validate-config -r . -f ./enterprise-rules/custom_rule.yaml
 ```
 
 ## Duplicate rule IDs in overlay mode
@@ -62,10 +62,10 @@ Fix options:
 
 ```bash
 # Fail fast and keep IDs unique
-uv run razin scan -r . -R ./enterprise-rules --rules-mode overlay --duplicate-policy error
+razin scan -r . -R ./enterprise-rules --rules-mode overlay --duplicate-policy error
 
 # Allow custom rule to replace bundled rule
-uv run razin scan -r . -R ./enterprise-rules --rules-mode overlay --duplicate-policy override
+razin scan -r . -R ./enterprise-rules --rules-mode overlay --duplicate-policy override
 ```
 
 ## Docs build failures

@@ -361,3 +361,59 @@ def test_build_parser_group_by_rejects_invalid(tmp_path: Path) -> None:
     parser = build_parser()
     with pytest.raises(SystemExit):
         parser.parse_args(["scan", "--root", str(tmp_path), "--group-by", "severity"])
+
+
+def test_build_parser_min_severity_flag(tmp_path: Path) -> None:
+    """--min-severity parses supported levels."""
+    parser = build_parser()
+    args = parser.parse_args(["scan", "--root", str(tmp_path), "--min-severity", "medium"])
+    assert args.min_severity == "medium"
+
+
+def test_build_parser_summary_only_flag(tmp_path: Path) -> None:
+    """--summary-only toggles summary mode."""
+    parser = build_parser()
+    args = parser.parse_args(["scan", "--root", str(tmp_path), "--summary-only"])
+    assert args.summary_only is True
+
+
+def test_build_parser_security_only_flag(tmp_path: Path) -> None:
+    """--security-only toggles classification filter."""
+    parser = build_parser()
+    args = parser.parse_args(["scan", "--root", str(tmp_path), "--security-only"])
+    assert args.security_only is True
+
+
+@patch("razin.cli.main.preflight_validate", return_value=[])
+@patch("razin.cli.main.scan_workspace")
+def test_main_passes_output_filter_flags(mock_scan: MagicMock, _mock_validate: MagicMock) -> None:
+    """scan_workspace receives --min-severity and --security-only values."""
+    mock_scan.return_value = ScanResult(
+        scanned_files=0,
+        total_findings=0,
+        aggregate_score=0,
+        aggregate_severity="low",
+        counts_by_severity={"high": 0, "medium": 0, "low": 0},
+        findings=(),
+        duration_seconds=0.0,
+        warnings=(),
+        cache_hits=0,
+        cache_misses=0,
+    )
+
+    code = main(
+        [
+            "scan",
+            "--root",
+            ".",
+            "--min-severity",
+            "medium",
+            "--security-only",
+            "--no-stdout",
+        ]
+    )
+
+    assert code == 0
+    call_kwargs = mock_scan.call_args[1]
+    assert call_kwargs["min_severity"] == "medium"
+    assert call_kwargs["security_only"] is True
