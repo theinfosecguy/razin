@@ -5,6 +5,7 @@ metadata:
   description: "Skill references tool invocation tokens."
   recommendation: "Verify tool token permissions and enforce explicit invocation policies. Review destructive and write-tier tokens closely."
   confidence: medium
+  classification: informational
 scoring:
   base_score: 20
 match:

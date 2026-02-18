@@ -19,6 +19,7 @@ CSV_COLUMNS: tuple[str, ...] = (
     "skill",
     "rule_id",
     "severity",
+    "classification",
     "score",
     "confidence",
     "path",

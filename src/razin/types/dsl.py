@@ -7,6 +7,7 @@ from typing import Any
 
 from razin.config import RazinConfig
 from razin.model import ParsedSkillDocument
+from razin.types.common import Classification
 
 
 @dataclass(frozen=True)
@@ -29,6 +30,7 @@ class CompiledRule:
     strategy_name: str
     match_config: dict[str, Any]
     metadata: dict[str, Any]
+    classification: Classification
     base_score: int
     dedupe: bool
     profiles: dict[str, dict[str, Any]]

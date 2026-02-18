@@ -291,6 +291,7 @@ class DslEngine:
                     description=candidate.description,
                     evidence=candidate.evidence,
                     recommendation=candidate.recommendation,
+                    classification=rule.classification,
                     internal_rule_id=rule.rule_id,
                 )
             )

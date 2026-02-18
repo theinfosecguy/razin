@@ -8,6 +8,7 @@ from .entities import (
     FindingCandidate,
     ParsedSkillDocument,
     ScanResult,
+    SeverityOverride,
     Summary,
 )
 
@@ -19,5 +20,6 @@ __all__ = [
     "FindingCandidate",
     "ParsedSkillDocument",
     "ScanResult",
+    "SeverityOverride",
     "Summary",
 ]

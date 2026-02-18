@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from razin.constants.config import (
     DEFAULT_MAX_FILE_MB,
@@ -18,7 +18,7 @@ from razin.constants.profiles import (
     PROFILE_SUPPRESS_LOCAL_HOSTS,
     ProfileName,
 )
-from razin.types.config import DataSensitivityConfig, DetectorConfig, ToolTierConfig
+from razin.types.config import DataSensitivityConfig, DetectorConfig, RuleOverrideConfig, ToolTierConfig
 
 
 def _merge_domains(*domain_sets: tuple[str, ...]) -> tuple[str, ...]:
@@ -44,6 +44,7 @@ class RazinConfig:
     detectors: DetectorConfig = DetectorConfig()
     tool_tier_keywords: ToolTierConfig = ToolTierConfig()
     data_sensitivity: DataSensitivityConfig = DataSensitivityConfig()
+    rule_overrides: dict[str, RuleOverrideConfig] = field(default_factory=dict)
     typosquat_baseline: tuple[str, ...] = ()
     skill_globs: tuple[str, ...] = DEFAULT_SKILL_GLOBS
     max_file_mb: int = DEFAULT_MAX_FILE_MB

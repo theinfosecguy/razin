@@ -8,12 +8,14 @@ from typing import Any
 
 import yaml
 
-from razin.constants.config import CONFIG_FILENAME
+from razin.constants.config import CONFIG_FILENAME, RULE_OVERRIDE_ALLOWED_SEVERITIES
 from razin.constants.profiles import VALID_PROFILES
+from razin.constants.scoring import SEVERITY_RANK
 from razin.constants.validation import (
     ALLOWED_CONFIG_KEYS,
     ALLOWED_DATA_SENSITIVITY_KEYS,
     ALLOWED_DETECTOR_KEYS,
+    ALLOWED_RULE_OVERRIDE_KEYS,
     ALLOWED_TOOL_TIER_KEYS,
     ALLOWED_TYPOSQUAT_KEYS,
     CFG001,
@@ -177,6 +179,7 @@ def validate_config_file(
     _validate_typosquat_block(raw, path_str, errors)
     _validate_tool_tier_block(raw, path_str, errors)
     _validate_data_sensitivity_block(raw, path_str, errors)
+    _validate_rule_overrides_block(raw, path_str, errors)
 
     return errors
 
@@ -404,9 +407,126 @@ def _validate_data_sensitivity_block(
             )
 
 
+def _validate_rule_overrides_block(
+    raw: dict[str, Any],
+    path_str: str,
+    errors: list[ValidationError],
+) -> None:
+    """Validate the optional ``rule_overrides`` mapping in razin.yaml."""
+    if "rule_overrides" not in raw:
+        return
+
+    overrides = raw["rule_overrides"]
+    if overrides is None:
+        return
+    if not isinstance(overrides, dict):
+        errors.append(
+            ValidationError(
+                code=CFG009,
+                path=path_str,
+                field="rule_overrides",
+                message="`rule_overrides` must be a mapping",
+            )
+        )
+        return
+
+    for rule_id, override in overrides.items():
+        if not isinstance(rule_id, str) or not rule_id.strip():
+            errors.append(
+                ValidationError(
+                    code=CFG005,
+                    path=path_str,
+                    field="rule_overrides",
+                    message="rule_overrides keys must be non-empty strings",
+                )
+            )
+            continue
+        if not isinstance(override, dict):
+            errors.append(
+                ValidationError(
+                    code=CFG009,
+                    path=path_str,
+                    field=f"rule_overrides.{rule_id}",
+                    message=f"`rule_overrides.{rule_id}` must be a mapping",
+                )
+            )
+            continue
+
+        for key in sorted(override):
+            if key not in ALLOWED_RULE_OVERRIDE_KEYS:
+                errors.append(
+                    ValidationError(
+                        code=CFG004,
+                        path=path_str,
+                        field=f"rule_overrides.{rule_id}.{key}",
+                        message=f"unknown key `{key}` in `rule_overrides.{rule_id}`",
+                        hint=_suggest_key(key, ALLOWED_RULE_OVERRIDE_KEYS),
+                    )
+                )
+
+        max_severity = _validate_rule_override_severity(
+            override=override,
+            rule_id=rule_id,
+            key="max_severity",
+            path_str=path_str,
+            errors=errors,
+        )
+        min_severity = _validate_rule_override_severity(
+            override=override,
+            rule_id=rule_id,
+            key="min_severity",
+            path_str=path_str,
+            errors=errors,
+        )
+
+        if (
+            max_severity is not None
+            and min_severity is not None
+            and SEVERITY_RANK[min_severity] > SEVERITY_RANK[max_severity]
+        ):
+            errors.append(
+                ValidationError(
+                    code=CFG008,
+                    path=path_str,
+                    field=f"rule_overrides.{rule_id}",
+                    message=(
+                        "contradictory rule override: "
+                        f"min_severity {min_severity!r} is higher than max_severity {max_severity!r}"
+                    ),
+                    hint="set min_severity <= max_severity",
+                )
+            )
+
+
 def _suggest_key(unknown: str, allowed: frozenset[str]) -> str:
     """Return a 'did you mean ...' hint for a close key match, or empty string."""
     matches = difflib.get_close_matches(unknown, sorted(allowed), n=1, cutoff=0.6)
     if matches:
         return f"did you mean `{matches[0]}`?"
     return ""
+
+
+def _validate_rule_override_severity(
+    *,
+    override: dict[str, Any],
+    rule_id: str,
+    key: str,
+    path_str: str,
+    errors: list[ValidationError],
+) -> str | None:
+    """Validate max/min severity values in rule overrides."""
+    if key not in override:
+        return None
+    severity = override[key]
+    if not isinstance(severity, str) or severity not in RULE_OVERRIDE_ALLOWED_SEVERITIES:
+        errors.append(
+            ValidationError(
+                code=CFG006,
+                path=path_str,
+                field=f"rule_overrides.{rule_id}.{key}",
+                message=f"invalid value for `{key}`",
+                hint=(f"expected one of: {', '.join(sorted(RULE_OVERRIDE_ALLOWED_SEVERITIES))}; " f"got: {severity!r}"),
+            )
+        )
+        return None
+    return severity

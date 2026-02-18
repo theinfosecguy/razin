@@ -5,6 +5,7 @@ metadata:
   description: "Docs suggest discovering tools/schema at runtime before execution."
   recommendation: "Review runtime-discovery flows and pin trusted schemas where possible."
   confidence: low
+  classification: informational
 scoring:
   base_score: 15
 match:

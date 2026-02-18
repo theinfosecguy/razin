@@ -14,6 +14,7 @@ from razin.constants.dsl_schema import (
     ALLOWED_TOP_KEYS,
     REQUIRED_METADATA_KEYS,
     REQUIRED_TOP_KEYS,
+    VALID_CLASSIFICATIONS,
     VALID_CONFIDENCES,
     VALID_PROFILE_NAMES,
     VALID_SOURCES,
@@ -75,6 +76,12 @@ def _validate_metadata(metadata: Any, path: str) -> None:
     if metadata["confidence"] not in VALID_CONFIDENCES:
         raise DslSchemaError(
             f"{path}: confidence must be one of {sorted(VALID_CONFIDENCES)}, got {metadata['confidence']!r}"
+        )
+
+    if "classification" in metadata and metadata["classification"] not in VALID_CLASSIFICATIONS:
+        raise DslSchemaError(
+            f"{path}: classification must be one of {sorted(VALID_CLASSIFICATIONS)}, "
+            f"got {metadata['classification']!r}"
         )
 
     if "description" not in metadata and "description_template" not in metadata:

@@ -18,6 +18,7 @@ from razin.scanner.pipeline.conversion import (
     deserialize_findings,
     suppress_redundant_candidates,
 )
+from razin.types import RuleOverrideConfig
 
 
 def test_deserialize_findings_handles_invalid_payload() -> None:
@@ -107,6 +108,79 @@ def test_candidate_to_finding_uses_profile_thresholds() -> None:
 
     assert balanced.severity == "medium"
     assert strict.severity == "high"
+
+
+def test_candidate_to_finding_propagates_classification() -> None:
+    """Finding classification is copied from candidate metadata."""
+    candidate = FindingCandidate(
+        rule_id="MCP_REQUIRED",
+        score=28,
+        confidence="high",
+        title="MCP requirement declared",
+        description="Frontmatter requires MCP connectivity for this skill.",
+        evidence=Evidence(path="/tmp/SKILL.md", line=3, snippet="requires: mcp"),
+        recommendation="Restrict MCP server access to approved endpoints.",
+        classification="informational",
+    )
+
+    finding = candidate_to_finding("skill-a", candidate)
+
+    assert finding.classification == "informational"
+
+
+def test_candidate_to_finding_applies_rule_override_cap() -> None:
+    """Rule override caps both severity and score and stores audit metadata."""
+    candidate = FindingCandidate(
+        rule_id="SECRET_REF",
+        score=90,
+        confidence="high",
+        title="Secret-like key in config",
+        description="Sensitive token referenced in config.",
+        evidence=Evidence(path="/tmp/SKILL.md", line=7, snippet="token: ${API_TOKEN}"),
+        recommendation="Store secrets in secret manager.",
+    )
+
+    finding = candidate_to_finding(
+        "skill-a",
+        candidate,
+        rule_override=RuleOverrideConfig(max_severity="medium"),
+        high_severity_min=80,
+        medium_severity_min=50,
+    )
+
+    assert finding.severity == "medium"
+    assert finding.score == 79
+    assert finding.severity_override is not None
+    assert finding.severity_override.original == "high"
+    assert finding.severity_override.applied == "medium"
+    assert finding.severity_override.reason == "rule_override"
+
+
+def test_candidate_to_finding_applies_rule_override_bump() -> None:
+    """Rule override can raise a low severity finding to the configured minimum."""
+    candidate = FindingCandidate(
+        rule_id="SECRET_REF",
+        score=20,
+        confidence="high",
+        title="Secret-like key in config",
+        description="Sensitive token referenced in config.",
+        evidence=Evidence(path="/tmp/SKILL.md", line=7, snippet="token: ${API_TOKEN}"),
+        recommendation="Store secrets in secret manager.",
+    )
+
+    finding = candidate_to_finding(
+        "skill-a",
+        candidate,
+        rule_override=RuleOverrideConfig(min_severity="high"),
+        high_severity_min=80,
+        medium_severity_min=50,
+    )
+
+    assert finding.severity == "high"
+    assert finding.score == 80
+    assert finding.severity_override is not None
+    assert finding.severity_override.original == "low"
+    assert finding.severity_override.applied == "high"
 
 
 def test_suppress_redundant_candidates_keeps_mcp_and_removes_overlapping_unknown_domain() -> None:

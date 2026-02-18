@@ -15,7 +15,7 @@ from razin.config import (
 from razin.constants.config import DEFAULT_DETECTORS
 from razin.constants.domains import DEFAULT_ALLOWLISTED_DOMAINS
 from razin.exceptions import ConfigError
-from razin.types.config import DetectorConfig
+from razin.types.config import DetectorConfig, RuleOverrideConfig
 
 
 def test_load_config_defaults_when_missing(tmp_path: Path) -> None:
@@ -287,3 +287,74 @@ def test_strict_subdomains_changes_fingerprint() -> None:
     default = RazinConfig()
     strict = RazinConfig(strict_subdomains=True)
     assert config_fingerprint(default) != config_fingerprint(strict)
+
+
+def test_load_config_reads_rule_overrides(tmp_path: Path) -> None:
+    """rule_overrides block is parsed into the config model."""
+    config_path = tmp_path / "razin.yaml"
+    config_path.write_text(
+        "rule_overrides:\n"
+        "  MCP_REQUIRED:\n"
+        "    max_severity: low\n"
+        "  AUTH_CONNECTION:\n"
+        "    max_severity: medium\n"
+        "  SECRET_REF:\n"
+        "    min_severity: high\n",
+        encoding="utf-8",
+    )
+
+    loaded = load_config(tmp_path, config_path)
+
+    assert loaded.rule_overrides["MCP_REQUIRED"].max_severity == "low"
+    assert loaded.rule_overrides["AUTH_CONNECTION"].max_severity == "medium"
+    assert loaded.rule_overrides["SECRET_REF"].min_severity == "high"
+
+
+def test_load_config_rejects_invalid_rule_override_severity(tmp_path: Path) -> None:
+    """Invalid rule_overrides.max_severity raises ConfigError."""
+    config_path = tmp_path / "razin.yaml"
+    config_path.write_text(
+        "rule_overrides:\n" "  MCP_REQUIRED:\n" "    max_severity: critical\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigError, match="max_severity"):
+        load_config(tmp_path, config_path)
+
+
+def test_load_config_rejects_invalid_rule_override_min_severity(tmp_path: Path) -> None:
+    """Invalid rule_overrides.min_severity raises ConfigError."""
+    config_path = tmp_path / "razin.yaml"
+    config_path.write_text(
+        "rule_overrides:\n" "  MCP_REQUIRED:\n" "    min_severity: critical\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigError, match="min_severity"):
+        load_config(tmp_path, config_path)
+
+
+def test_load_config_rejects_contradictory_rule_override_bounds(tmp_path: Path) -> None:
+    """min_severity higher than max_severity is rejected."""
+    config_path = tmp_path / "razin.yaml"
+    config_path.write_text(
+        "rule_overrides:\n" "  MCP_REQUIRED:\n" "    min_severity: high\n" "    max_severity: low\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigError, match="contradictory"):
+        load_config(tmp_path, config_path)
+
+
+def test_rule_overrides_change_fingerprint() -> None:
+    """Changing rule overrides invalidates config fingerprint."""
+    default = RazinConfig()
+    overridden = RazinConfig(rule_overrides={"MCP_REQUIRED": RuleOverrideConfig(max_severity="low")})
+    assert config_fingerprint(default) != config_fingerprint(overridden)
+
+
+def test_rule_overrides_min_severity_changes_fingerprint() -> None:
+    """Changing min severity override invalidates config fingerprint."""
+    default = RazinConfig()
+    overridden = RazinConfig(rule_overrides={"SECRET_REF": RuleOverrideConfig(min_severity="high")})
+    assert config_fingerprint(default) != config_fingerprint(overridden)

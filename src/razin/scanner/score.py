@@ -107,6 +107,12 @@ def severity_counts(findings: list[Finding]) -> dict[Severity, int]:
     }
 
 
+def rule_counts(findings: list[Finding]) -> dict[str, int]:
+    """Count findings by rule identifier."""
+    counts = Counter(finding.rule_id for finding in findings)
+    return {rule_id: int(count) for rule_id, count in sorted(counts.items())}
+
+
 def sorted_top_risks(
     findings: list[Finding],
     limit: int = TOP_RISKS_DEFAULT_LIMIT,

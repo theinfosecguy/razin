@@ -92,6 +92,7 @@ class TestCsvWriter:
             "skill",
             "rule_id",
             "severity",
+            "classification",
             "score",
             "confidence",
             "path",
@@ -107,11 +108,18 @@ class TestCsvWriter:
         rows = list(reader)
         assert len(rows) == 4  # header + 3 findings
 
+    def test_csv_includes_classification_column(self, sample_findings: list[Finding]) -> None:
+        output = render_csv_string(sample_findings)
+        reader = csv.reader(io.StringIO(output))
+        next(reader)
+        row = next(reader)
+        assert row[4] == "security"
+
     def test_csv_deterministic_order(self, sample_findings: list[Finding]) -> None:
         output = render_csv_string(sample_findings)
         reader = csv.reader(io.StringIO(output))
         next(reader)  # skip header
-        scores = [int(row[4]) for row in reader]
+        scores = [int(row[5]) for row in reader]
         assert scores == sorted(scores, reverse=True)
 
     def test_csv_write_file(self, tmp_path: Path, sample_findings: list[Finding]) -> None:
@@ -127,7 +135,7 @@ class TestCsvWriter:
         reader = csv.reader(io.StringIO(output))
         next(reader)
         row = next(reader)
-        assert row[7] == ""  # line column
+        assert row[8] == ""  # line column
 
     def test_csv_escapes_commas_in_description(self) -> None:
         f = Finding(
@@ -146,7 +154,7 @@ class TestCsvWriter:
         reader = csv.reader(io.StringIO(output))
         next(reader)
         row = next(reader)
-        assert row[9] == 'Value contains, commas and "quotes"'
+        assert row[10] == 'Value contains, commas and "quotes"'
 
 
 class TestSarifWriter:
@@ -190,6 +198,11 @@ class TestSarifWriter:
         assert "partialFingerprints" in result
         assert "findingId" in result["partialFingerprints"]
 
+    def test_sarif_result_includes_classification(self, sample_findings: list[Finding]) -> None:
+        envelope = build_sarif_envelope(sample_findings)
+        result = envelope["runs"][0]["results"][0]
+        assert result["properties"]["classification"] == "security"
+
     def test_sarif_rules_derived_from_findings(self, sample_findings: list[Finding]) -> None:
         envelope = build_sarif_envelope(sample_findings)
         rules = envelope["runs"][0]["tool"]["driver"]["rules"]
@@ -219,3 +232,15 @@ class TestSarifWriter:
         envelope = build_sarif_envelope([])
         assert envelope["runs"][0]["results"] == []
         assert envelope["runs"][0]["tool"]["driver"]["rules"] == []
+
+    def test_sarif_run_properties_include_distribution_and_filter_metadata(self) -> None:
+        envelope = build_sarif_envelope(
+            [_make_finding(rule_id="SECRET_REF", score=80, severity="high")],
+            rule_distribution={"SECRET_REF": 4, "MCP_REQUIRED": 10},
+            filter_metadata={"shown": 1, "total": 14, "filtered": 13, "min_severity": "high", "security_only": True},
+            rule_overrides={"MCP_REQUIRED": {"max_severity": "low"}},
+        )
+        props = envelope["runs"][0]["properties"]
+        assert props["ruleDistribution"]["SECRET_REF"] == 4
+        assert props["filter"]["shown"] == 1
+        assert props["ruleOverrides"]["MCP_REQUIRED"]["max_severity"] == "low"

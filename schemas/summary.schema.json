@@ -11,6 +11,7 @@
     "overall_severity",
     "finding_count",
     "counts_by_severity",
+    "counts_by_rule",
     "top_risks"
   ],
   "properties": {
@@ -57,12 +58,47 @@
       "additionalProperties": false,
       "description": "Finding counts keyed by severity."
     },
+    "counts_by_rule": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "description": "Finding counts keyed by rule_id."
+    },
     "top_risks": {
       "type": "array",
       "items": {
         "$ref": "#/$defs/TopRisk"
       },
       "description": "Highest-scoring findings sorted by (-score, id)."
+    },
+    "shown_finding_count": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "Displayed findings count when output filters are enabled."
+    },
+    "output_filter": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/OutputFilter"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Applied output filters and shown/total counts."
+    },
+    "rule_overrides": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/RuleOverrides"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Active rule override metadata from configuration."
     }
   },
   "additionalProperties": false,
@@ -117,6 +153,48 @@
     "Severity": {
       "type": "string",
       "enum": ["low", "medium", "high"]
+    },
+    "OutputFilter": {
+      "type": "object",
+      "required": ["min_severity", "security_only", "shown", "total", "filtered"],
+      "properties": {
+        "min_severity": {
+          "type": ["string", "null"],
+          "enum": ["low", "medium", "high", null]
+        },
+        "security_only": {
+          "type": "boolean"
+        },
+        "shown": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "filtered": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "RuleOverrides": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "minProperties": 1,
+        "properties": {
+          "max_severity": {
+            "$ref": "#/$defs/Severity"
+          },
+          "min_severity": {
+            "$ref": "#/$defs/Severity"
+          }
+        },
+        "additionalProperties": false
+      }
     }
   }
 }

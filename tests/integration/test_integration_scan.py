@@ -1,5 +1,7 @@
 """Integration tests for full scan flow and output determinism."""
 
+import csv
+import io
 import json
 import os
 from pathlib import Path
@@ -555,3 +557,44 @@ def test_binary_skill_not_in_typosquat_baseline(tmp_path: Path) -> None:
 
     typo_findings = [f for f in result.findings if f.rule_id == "TYPOSQUAT"]
     assert len(typo_findings) == 0
+
+
+def test_output_filters_apply_to_written_artifacts(tmp_path: Path, basic_repo_root: Path) -> None:
+    """min_severity + security_only filters artifact outputs, not in-memory findings."""
+    out_root = tmp_path / "output"
+    result = scan_workspace(
+        root=basic_repo_root,
+        out=out_root,
+        no_cache=True,
+        output_formats=("json", "csv", "sarif"),
+        min_severity="medium",
+        security_only=True,
+    )
+
+    assert any(finding.severity == "low" for finding in result.findings)
+
+    skill_dirs = [path for path in out_root.iterdir() if path.is_dir()]
+    assert skill_dirs
+    for skill_dir in skill_dirs:
+        findings_path = skill_dir / "findings.json"
+        summary_path = skill_dir / "summary.json"
+        if not findings_path.exists() or not summary_path.exists():
+            continue
+
+        findings_payload = json.loads(findings_path.read_text(encoding="utf-8"))
+        summary_payload = json.loads(summary_path.read_text(encoding="utf-8"))
+        assert all(finding["severity"] in {"medium", "high"} for finding in findings_payload)
+        assert all(finding["classification"] == "security" for finding in findings_payload)
+        assert summary_payload["output_filter"]["min_severity"] == "medium"
+        assert summary_payload["output_filter"]["security_only"] is True
+
+    csv_payload = (out_root / "findings.csv").read_text(encoding="utf-8")
+    csv_rows = list(csv.reader(io.StringIO(csv_payload)))
+    for row in csv_rows[1:]:
+        assert row[3] in {"medium", "high"}
+        assert row[4] == "security"
+
+    sarif_payload = json.loads((out_root / "findings.sarif").read_text(encoding="utf-8"))
+    run_props = sarif_payload["runs"][0]["properties"]
+    assert run_props["filter"]["min_severity"] == "medium"
+    assert run_props["filter"]["security_only"] is True

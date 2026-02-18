@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-from razin.types import Confidence, Severity
+from razin.types import Classification, Confidence, Severity
 
 type FrontmatterData = dict[str, Any] | None
 
@@ -31,7 +31,17 @@ class FindingCandidate:
     description: str
     evidence: Evidence
     recommendation: str
+    classification: Classification = "security"
     internal_rule_id: str | None = None
+
+
+@dataclass(frozen=True)
+class SeverityOverride:
+    """Audit metadata for severity changes applied after scoring."""
+
+    original: Severity
+    applied: Severity
+    reason: str
 
 
 @dataclass(frozen=True)
@@ -48,6 +58,8 @@ class Finding:
     skill: str
     rule_id: str
     recommendation: str
+    classification: Classification = "security"
+    severity_override: SeverityOverride | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert finding to a JSON-serializable dictionary."""
@@ -64,7 +76,11 @@ class Summary:
     overall_severity: Severity
     finding_count: int
     counts_by_severity: dict[Severity, int]
+    counts_by_rule: dict[str, int]
     top_risks: tuple[dict[str, object], ...]
+    shown_finding_count: int | None = None
+    output_filter: dict[str, object] | None = None
+    rule_overrides: dict[str, dict[str, Severity]] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert summary to a JSON-serializable dictionary."""
@@ -124,3 +140,5 @@ class ScanResult:
     high_severity_min: int = 70
     medium_severity_min: int = 40
     aggregate_min_rule_score: int = 40
+    counts_by_rule: dict[str, int] = field(default_factory=dict)
+    active_rule_overrides: dict[str, dict[str, Severity]] = field(default_factory=dict)

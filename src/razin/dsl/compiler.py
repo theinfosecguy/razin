@@ -33,6 +33,7 @@ def compile_rule(data: dict[str, Any], source_path: str) -> CompiledRule:
         strategy_name=strategy_name,
         match_config=dict(data["match"]),
         metadata=dict(data["metadata"]),
+        classification=data["metadata"].get("classification", "security"),
         base_score=data["scoring"]["base_score"],
         dedupe=data.get("dedupe", True),
         profiles=dict(data.get("profiles", {})),

@@ -5,6 +5,7 @@ metadata:
   description: "Frontmatter requires MCP connectivity for this skill."
   recommendation: "Restrict MCP server access to approved endpoints and least-privilege tooling."
   confidence: high
+  classification: informational
 scoring:
   base_score: 28
 match:

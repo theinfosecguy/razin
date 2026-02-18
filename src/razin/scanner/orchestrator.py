@@ -21,6 +21,7 @@ from razin.exceptions.dsl import DslError
 from razin.io import file_sha256
 from razin.model import ScanResult
 from razin.parsers import parse_skill_markdown_file
+from razin.reporting.filters import OutputFilters, build_filter_metadata, filter_findings
 from razin.scanner.cache import build_scan_fingerprint, load_cache, new_cache, save_cache
 from razin.scanner.discovery import assign_unique_skill_names, collect_all_skill_names, discover_skill_files
 from razin.scanner.mcp_remote import collect_mcp_remote_candidates
@@ -39,8 +40,8 @@ from razin.scanner.pipeline.conversion import (
     deserialize_findings,
     suppress_redundant_candidates,
 )
-from razin.scanner.score import aggregate_overall_score, aggregate_severity, severity_counts
-from razin.types import CacheFileEntry
+from razin.scanner.score import aggregate_overall_score, aggregate_severity, rule_counts, severity_counts
+from razin.types import CacheFileEntry, RuleOverrideConfig, Severity
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +69,8 @@ def scan_workspace(
     rules_mode: str = "replace",
     duplicate_policy: str = "error",
     output_formats: tuple[str, ...] = ("json",),
+    min_severity: Severity | None = None,
+    security_only: bool = False,
 ) -> ScanResult:
     """Scan a workspace and optionally write per-skill findings and summaries."""
     invalid_formats = set(output_formats) - VALID_OUTPUT_FORMATS
@@ -139,6 +142,16 @@ def scan_workspace(
     except DslError as exc:
         raise ConfigError(str(exc)) from exc
     rulepack_fingerprint = dsl_engine.fingerprint()
+    loaded_rule_ids = set(dsl_engine.public_rule_ids)
+    active_rule_overrides = {
+        rule_id: override for rule_id, override in config.rule_overrides.items() if rule_id in loaded_rule_ids
+    }
+    unknown_rule_overrides = sorted(set(config.rule_overrides) - loaded_rule_ids)
+    for rule_id in unknown_rule_overrides:
+        warning = f"Unknown rule_overrides entry '{rule_id}' has no loaded rule and will be ignored."
+        warnings.append(warning)
+        logger.warning(warning)
+    serialized_rule_overrides = _serialize_rule_overrides(active_rule_overrides)
 
     findings_by_skill: dict[str, list] = {}
 
@@ -217,6 +230,7 @@ def scan_workspace(
             candidate_to_finding(
                 skill_name,
                 candidate,
+                rule_override=active_rule_overrides.get(candidate.rule_id),
                 high_severity_min=config.high_severity_min,
                 medium_severity_min=config.medium_severity_min,
             )
@@ -240,34 +254,55 @@ def scan_workspace(
         cache_files.pop(stale_key, None)
 
     all_findings = []
+    output_filters = OutputFilters(min_severity=min_severity, security_only=security_only)
     min_rule_score = config.aggregate_min_rule_score
     high_sev_min = config.high_severity_min
     medium_sev_min = config.medium_severity_min
     for skill_name in sorted(findings_by_skill):
         skill_findings = findings_by_skill[skill_name]
+        shown_skill_findings = filter_findings(skill_findings, output_filters)
         if out is not None:
             from razin.reporting.writer import write_skill_reports
 
             write_skill_reports(
                 out,
                 skill_name,
-                skill_findings,
+                shown_skill_findings,
+                all_findings=skill_findings,
                 min_rule_score=min_rule_score,
                 high_severity_min=high_sev_min,
                 medium_severity_min=medium_sev_min,
+                output_filter=build_filter_metadata(
+                    total=len(skill_findings),
+                    shown=len(shown_skill_findings),
+                    filters=output_filters,
+                ),
+                rule_overrides=serialized_rule_overrides,
             )
         all_findings.extend(skill_findings)
 
     if out is not None:
+        shown_all_findings = filter_findings(all_findings, output_filters)
+        filter_metadata = build_filter_metadata(
+            total=len(all_findings),
+            shown=len(shown_all_findings),
+            filters=output_filters,
+        )
         if "csv" in output_formats:
             from razin.reporting.csv_writer import write_csv_findings
 
-            write_csv_findings(out, all_findings)
+            write_csv_findings(out, shown_all_findings)
 
         if "sarif" in output_formats:
             from razin.reporting.sarif_writer import write_sarif_findings
 
-            write_sarif_findings(out, all_findings)
+            write_sarif_findings(
+                out,
+                shown_all_findings,
+                rule_distribution=rule_counts(all_findings),
+                filter_metadata=filter_metadata,
+                rule_overrides=serialized_rule_overrides,
+            )
 
     if not no_cache and out is not None and cache_path is not None:
         cache_namespace["files"] = cache_files
@@ -276,6 +311,7 @@ def scan_workspace(
 
     duration_seconds = time.perf_counter() - started_at
     counts = severity_counts(all_findings)
+    counts_by_rule = rule_counts(all_findings)
     agg_score = aggregate_overall_score(
         all_findings,
         min_rule_score=config.aggregate_min_rule_score,
@@ -302,4 +338,24 @@ def scan_workspace(
         high_severity_min=config.high_severity_min,
         medium_severity_min=config.medium_severity_min,
         aggregate_min_rule_score=config.aggregate_min_rule_score,
+        counts_by_rule=counts_by_rule,
+        active_rule_overrides={rule_id: override for rule_id, override in sorted(serialized_rule_overrides.items())},
     )
+
+
+def _serialize_rule_overrides(
+    active_rule_overrides: dict[str, RuleOverrideConfig],
+) -> dict[str, dict[str, Severity]]:
+    """Render active rule overrides for report metadata."""
+    serialized: dict[str, dict[str, Severity]] = {}
+    for rule_id, override in sorted(active_rule_overrides.items()):
+        values: dict[str, Severity] = {}
+        max_severity = getattr(override, "max_severity", None)
+        min_severity = getattr(override, "min_severity", None)
+        if max_severity is not None:
+            values["max_severity"] = max_severity
+        if min_severity is not None:
+            values["min_severity"] = min_severity
+        if values:
+            serialized[rule_id] = values
+    return serialized
