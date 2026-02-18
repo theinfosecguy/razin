@@ -6,7 +6,7 @@ It scans skill definitions, applies detector rules, and writes deterministic rep
 ## Quick start
 
 ```bash
-uv run razin scan -r . -o output/
+razin scan -r . -o output/
 ```
 
 ## What to read next

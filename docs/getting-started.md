@@ -3,7 +3,7 @@
 ## Requirements
 
 - Python `3.12+`
-- [`uv`](https://docs.astral.sh/uv/) for local development workflows
+- Razin installed in your environment (`pip install razin`)
 
 ## Install
 
@@ -13,30 +13,71 @@ From PyPI:
 pip install razin
 ```
 
-Local development install:
+Verify install:
 
 ```bash
-uv sync --dev
+razin --help
 ```
 
 ## First scan
 
 ```bash
-uv run razin scan -r . -o output/
+razin scan -r . -o output/
 ```
 
-This writes per-skill JSON artifacts under `output/<skill-name>/`.
+This writes per-skill artifacts under `output/<skill-name>/`.
+
+## Common scan modes
+
+```bash
+# Strict policy profile
+razin scan -r . -o output/ --profile strict
+
+# Show only summary in stdout (CI-friendly logs)
+razin scan -r . -o output/ --summary-only
+
+# Show only medium/high findings
+razin scan -r . -o output/ --min-severity medium
+
+# Show only security-classified findings
+razin scan -r . -o output/ --security-only
+
+# Combine filters
+razin scan -r . -o output/ --security-only --min-severity medium
+```
+
+## CI gating examples
+
+```bash
+# Fail if any high-severity finding exists
+razin scan -r . --fail-on high --no-stdout
+
+# Fail if aggregate score is 70+
+razin scan -r . --fail-on-score 70 --no-stdout
+
+# Use summary-only output with fail gate
+razin scan -r . --summary-only --fail-on medium
+```
 
 ## Validate config before scanning
 
 ```bash
-uv run razin validate-config -r .
+razin validate-config -r .
 ```
 
-## Useful follow-up commands
+## Output formats
 
 ```bash
-uv run razin scan -r . --profile strict --no-cache
-uv run razin scan -r . --fail-on high --no-stdout
-uv run razin scan -r . --output-format json,csv,sarif
+# JSON (default)
+razin scan -r . -o output/ --output-format json
+
+# CSV + SARIF + JSON in one run
+razin scan -r . -o output/ --output-format json,csv,sarif
 ```
+
+## Next docs to read
+
+- CLI flags and interactions: `docs/cli-reference.md`
+- Config details and `rule_overrides`: `docs/configuration.md`
+- Output format schemas: `docs/output-formats.md`
+- CI behavior: `docs/ci-and-exit-codes.md`
