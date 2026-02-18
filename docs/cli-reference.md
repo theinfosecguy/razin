@@ -104,6 +104,8 @@ razin scan -r . -R ./enterprise-rules --rules-mode overlay --duplicate-policy er
 razin scan -r . -f ./rules/auth_override.yaml --rules-mode overlay --duplicate-policy override
 ```
 
+For rule authoring details, see [How to write custom rules](custom-rules.md).
+
 ### Rule selection examples
 
 ```bash
@@ -136,6 +138,7 @@ Validation command constraints:
 
 - `--rules-dir` and `--rule-file` are mutually exclusive.
 - Validation returns deterministic error codes/messages for config/rule issues.
+- Use validation first when authoring rulepacks. See [How to write custom rules](custom-rules.md).
 
 ## Exit codes
 

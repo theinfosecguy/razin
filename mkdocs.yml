@@ -9,6 +9,7 @@ strict: true
 nav:
   - Home: index.md
   - Getting Started: getting-started.md
+  - Custom Rules: custom-rules.md
   - CLI Reference: cli-reference.md
   - Configuration: configuration.md
   - Detectors: detectors.md
