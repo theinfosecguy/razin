@@ -1,0 +1,63 @@
+name: Documentation quality gates
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-quality-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_VERSION: "0.7"
+
+jobs:
+  docs-quality:
+    name: Build, format, and link-check docs
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Install docs dependencies
+        run: uv sync --frozen --group docs
+
+      - name: Build docs in strict mode
+        run: uv run mkdocs build --strict
+
+      - name: Verify built site entrypoint
+        run: test -f site/index.html
+
+      - name: Enforce markdown formatting
+        run: uv run mdformat --check README.md docs
+
+      - name: Check internal links in built docs and README
+        run: uv run linkchecker --no-warnings site/index.html README.md
+
+      - name: Check markdown links in docs sources
+        uses: lycheeverse/lychee-action@v2
+        with:
+          fail: true
+          args: >-
+            --offline
+            --no-progress
+            --max-concurrency 8
+            README.md docs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

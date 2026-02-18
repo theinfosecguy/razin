@@ -1,0 +1,91 @@
+name: Documentation publish pipeline
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-pages-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_VERSION: "0.7"
+
+jobs:
+  build-site:
+    name: Verify docs and build Pages artifact
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Install docs dependencies
+        run: uv sync --frozen --group docs
+
+      - name: Enforce markdown formatting
+        run: uv run mdformat --check README.md docs
+
+      - name: Build docs in strict mode
+        run: uv run mkdocs build --strict
+
+      - name: Verify built site entrypoint
+        run: test -f site/index.html
+
+      - name: Check internal links in built docs and README
+        run: uv run linkchecker --no-warnings site/index.html README.md
+
+      - name: Check markdown links in docs sources
+        uses: lycheeverse/lychee-action@v2
+        with:
+          fail: true
+          args: >-
+            --offline
+            --no-progress
+            --max-concurrency 8
+            README.md docs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    name: Deploy verified docs to GitHub Pages
+    needs: build-site
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
