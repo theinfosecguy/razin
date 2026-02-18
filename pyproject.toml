@@ -12,6 +12,12 @@ dependencies = [
   "PyYAML>=6.0.2",
 ]
 
+[project.urls]
+Documentation = "https://theinfosecguy.github.io/razin/"
+Repository = "https://github.com/theinfosecguy/razin"
+Issues = "https://github.com/theinfosecguy/razin/issues"
+Changelog = "https://github.com/theinfosecguy/razin/releases"
+
 [project.scripts]
 razin = "razin.cli.main:main"
 
@@ -25,6 +31,12 @@ dev = [
   "ruff>=0.9.6",
   "types-PyYAML>=6.0.12.20250516",
   "types-jsonschema>=4.23.0.20241208",
+]
+docs = [
+  "linkchecker>=10.6.0",
+  "mdformat>=0.7.22",
+  "mkdocs>=1.6.1",
+  "mkdocs-material>=9.6.20",
 ]
 
 [tool.hatch.build.targets.wheel]

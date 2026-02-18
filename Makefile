@@ -1,4 +1,4 @@
-.PHONY: help install lint format test ci clean
+.PHONY: help install install-docs lint format test ci docs-serve docs-build docs-check clean
 
 # Show available targets
 help: ## Show available targets
@@ -8,6 +8,10 @@ help: ## Show available targets
 # Install project with dev dependencies
 install: ## Install project with dev dependencies
 	uv sync --dev
+
+# Install docs toolchain dependencies
+install-docs: ## Install docs dependencies
+	uv sync --group docs
 
 # Run ruff linter on src and tests
 lint: ## Run ruff linter on src and tests
@@ -28,6 +32,20 @@ ci: ## Run all checks (isort, black, ruff, mypy)
 	uv run black --check src tests
 	uv run ruff check src tests
 	uv run mypy src tests
+
+# Serve docs locally with autoreload
+docs-serve: ## Serve docs locally
+	uv run mkdocs serve
+
+# Build docs with strict warnings as errors
+docs-build: ## Build docs site with strict validation
+	uv run mkdocs build --strict
+
+# Run docs style and local link checks
+docs-check: ## Run docs style and link checks
+	uv run mkdocs build --strict
+	uv run mdformat --check README.md docs
+	uv run linkchecker --no-warnings site/index.html README.md
 
 # Remove scan outputs and cache
 clean: ## Remove scan outputs and cache
