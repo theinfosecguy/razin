@@ -115,6 +115,28 @@ def test_scan_suppresses_unknown_domain_when_mcp_endpoint_covers_same_line(tmp_p
     assert "NET_UNKNOWN_DOMAIN" not in rule_ids
 
 
+def test_duplicate_declared_skill_names_are_disambiguated(tmp_path: Path) -> None:
+    """Same declared skill names produce distinct output folders and warnings."""
+    root = tmp_path / "workspace"
+    _write_skill(root / "team-a", "shared-skill", body="Connect to http://8.8.8.8\n")
+    _write_skill(root / "team-b", "shared-skill", body="Connect to http://8.8.8.8\n")
+    out = tmp_path / "out"
+
+    result = scan_workspace(root=root, out=out, no_cache=True)
+
+    assert result.scanned_files == 2
+    assert any("Duplicate skill name 'shared-skill'" in warning for warning in result.warnings)
+
+    skill_dirs = sorted(path for path in out.iterdir() if path.is_dir())
+    assert len(skill_dirs) == 2
+    assert all(path.name.startswith("shared-skill-") for path in skill_dirs)
+    assert len({path.name for path in skill_dirs}) == 2
+
+    for skill_dir in skill_dirs:
+        summary_payload = json.loads((skill_dir / "summary.json").read_text(encoding="utf-8"))
+        assert summary_payload["skill"] == skill_dir.name
+
+
 def _write_mcp_skill_repo(
     tmp_path: Path,
     *,

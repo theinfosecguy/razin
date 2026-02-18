@@ -7,6 +7,7 @@ import pytest
 
 from razin.parsers import parse_skill_markdown_file
 from razin.scanner.discovery import (
+    assign_unique_skill_names,
     collect_all_skill_names,
     derive_skill_name,
     discover_skill_files,
@@ -90,6 +91,36 @@ def test_collect_names_deduplicates(tmp_path: Path) -> None:
     names = collect_all_skill_names(files, tmp_path)
 
     assert names.count("slack-automation") == 1
+
+
+def test_assign_unique_skill_names_keeps_non_colliding_names(tmp_path: Path) -> None:
+    """Unique names are preserved without suffixes or collision metadata."""
+    first = _write_skill(tmp_path / "alpha", frontmatter="name: alpha-skill\n")
+    second = _write_skill(tmp_path / "beta", frontmatter="name: beta-skill\n")
+    files = sorted(tmp_path.rglob("SKILL.md"))
+
+    assigned, collisions = assign_unique_skill_names(files, tmp_path)
+
+    assert assigned[first] == "alpha-skill"
+    assert assigned[second] == "beta-skill"
+    assert collisions == {}
+
+
+def test_assign_unique_skill_names_disambiguates_collisions(tmp_path: Path) -> None:
+    """Duplicate normalized names get deterministic path-hash suffixes."""
+    first = _write_skill(tmp_path / "team-a", frontmatter="name: shared-skill\n")
+    second = _write_skill(tmp_path / "team-b", frontmatter="name: shared-skill\n")
+    files = sorted(tmp_path.rglob("SKILL.md"))
+
+    first_assigned, first_collisions = assign_unique_skill_names(files, tmp_path)
+    second_assigned, second_collisions = assign_unique_skill_names(files, tmp_path)
+
+    assert first_assigned == second_assigned
+    assert first_collisions == second_collisions
+    assert first_assigned[first] != first_assigned[second]
+    assert first_assigned[first].startswith("shared-skill-")
+    assert first_assigned[second].startswith("shared-skill-")
+    assert "shared-skill" in first_collisions
 
 
 def test_collect_names_handles_malformed_yaml(tmp_path: Path) -> None:
