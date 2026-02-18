@@ -7,7 +7,6 @@ DATA_SENSITIVITY_SCORE: int = 55
 HIGH_SENSITIVITY_SERVICES: tuple[str, ...] = (
     "gmail",
     "outlook",
-    "email",
     "stripe",
     "paypal",
     "braintree",
@@ -58,7 +57,6 @@ LOW_SENSITIVITY_CATEGORY: str = "public-data"
 SERVICE_CATEGORY_MAP: dict[str, str] = {
     "gmail": "communication/PII",
     "outlook": "communication/PII",
-    "email": "communication/PII",
     "stripe": "financial",
     "paypal": "financial",
     "braintree": "financial",
@@ -120,11 +118,16 @@ MEDIUM_SENSITIVITY_KEYWORDS: tuple[str, ...] = (
     "private repo",
     "direct message",
     "private message",
-    "internal",
     "confidential",
     "proprietary",
-    "employee",
-    "personnel",
+)
+
+WEAK_MEDIUM_SENSITIVITY_KEYWORDS: frozenset[str] = frozenset(
+    {
+        "internal",
+        "employee",
+        "personnel",
+    }
 )
 
 SENSITIVITY_TIER_SCORES: dict[str, int] = {

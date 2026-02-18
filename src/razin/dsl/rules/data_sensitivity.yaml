@@ -10,4 +10,7 @@ scoring:
 match:
   source: raw_text
   strategy: data_sensitivity_check
+  min_medium_keyword_hits: 1
+  max_keyword_preview: 5
+  require_keywords_for_medium_service: true
 dedupe: false
