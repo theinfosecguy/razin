@@ -68,6 +68,26 @@ razin scan -r . -R ./enterprise-rules --rules-mode overlay --duplicate-policy er
 razin scan -r . -R ./enterprise-rules --rules-mode overlay --duplicate-policy override
 ```
 
+## Homebrew installs old version
+
+Symptom:
+
+- `razin --version` from brew is behind latest release.
+
+Fix:
+
+```bash
+brew update
+brew upgrade razin
+brew info razin
+```
+
+If you installed from tap, make sure the tap is correct:
+
+```bash
+brew tap | grep -E 'theinfosecguy/(homebrew-tap|tap)'
+```
+
 ## Docs build failures
 
 Symptom:

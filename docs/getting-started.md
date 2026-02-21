@@ -13,6 +13,19 @@ From PyPI:
 pip install razin
 ```
 
+From Homebrew core:
+
+```bash
+brew install razin
+```
+
+If the formula is not yet in core, use the tap:
+
+```bash
+brew tap theinfosecguy/homebrew-tap
+brew install razin
+```
+
 Verify install:
 
 ```bash
