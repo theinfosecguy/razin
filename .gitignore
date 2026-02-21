@@ -42,3 +42,5 @@ tmp/
 sprints/
 code-review/
 output/
+site/*
+content/*
