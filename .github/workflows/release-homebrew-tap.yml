@@ -1,0 +1,109 @@
+name: Update Homebrew tap formula
+
+on:
+  workflow_run:
+    workflows: ["Release to PyPI"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  TAP_REPO: theinfosecguy/homebrew-tap
+
+jobs:
+  update-tap-formula:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout razin repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verify tap token
+        env:
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_PAT }}
+        run: |
+          if [ -z "${TAP_TOKEN}" ]; then
+            echo "Missing required secret: HOMEBREW_TAP_PAT"
+            exit 1
+          fi
+
+      - name: Clone tap repository
+        env:
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_PAT }}
+        run: |
+          git clone "https://x-access-token:${TAP_TOKEN}@github.com/${TAP_REPO}.git" tap-repo
+
+      - name: Update formula
+        run: python .github/homebrew/update_tap_formula.py --output tap-repo/Formula/razin.rb
+
+      - name: Create or update PR in tap repo
+        env:
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_PAT }}
+        run: |
+          set -euo pipefail
+          cd tap-repo
+
+          if git diff --quiet -- Formula/razin.rb; then
+            echo "No formula changes detected."
+            exit 0
+          fi
+
+          VERSION=$(ruby -e 'puts File.read("Formula/razin.rb")[/url ".*razin-(.*)\.tar\.gz"/, 1]')
+          export VERSION
+
+          OPEN_PR=$(curl -fsSL \
+            -H "Authorization: Bearer ${TAP_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${TAP_REPO}/pulls?state=open&base=master&per_page=100" \
+            | python -c 'import json,os,sys; v=os.environ["VERSION"]; data=json.load(sys.stdin); print(next((pr["number"] for pr in data if pr["title"] == f"Bump Razin formula to {v}"), ""))')
+
+          if [ -n "${OPEN_PR}" ]; then
+            echo "Open PR #${OPEN_PR} already exists for version ${VERSION}."
+            exit 0
+          fi
+
+          BRANCH="chore/homebrew-formula-${VERSION}"
+          if git ls-remote --heads origin "${BRANCH}" | grep -q "${BRANCH}"; then
+            BRANCH="${BRANCH}-run-${GITHUB_RUN_ID}"
+          fi
+          export BRANCH
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git checkout -b "${BRANCH}"
+          git add Formula/razin.rb
+          git commit -m "chore: bump razin formula to ${VERSION}"
+          git push -u origin "${BRANCH}"
+
+          PAYLOAD=$(python - <<'PY'
+import json
+import os
+
+print(
+    json.dumps(
+        {
+            "title": f"Bump Razin formula to {os.environ['VERSION']}",
+            "body": "Automated formula update from PyPI release.",
+            "head": os.environ["BRANCH"],
+            "base": "master",
+        }
+    )
+)
+PY
+)
+
+          curl -fsSL \
+            -X POST \
+            -H "Authorization: Bearer ${TAP_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${TAP_REPO}/pulls" \
+            -d "${PAYLOAD}" >/dev/null
