@@ -85,21 +85,21 @@ jobs:
           git push -u origin "${BRANCH}"
 
           PAYLOAD=$(python - <<'PY'
-import json
-import os
+          import json
+          import os
 
-print(
-    json.dumps(
-        {
-            "title": f"Bump Razin formula to {os.environ['VERSION']}",
-            "body": "Automated formula update from PyPI release.",
-            "head": os.environ["BRANCH"],
-            "base": "master",
-        }
-    )
-)
-PY
-)
+          print(
+              json.dumps(
+                  {
+                      "title": f"Bump Razin formula to {os.environ['VERSION']}",
+                      "body": "Automated formula update from PyPI release.",
+                      "head": os.environ["BRANCH"],
+                      "base": "master",
+                  }
+              )
+          )
+          PY
+          )
 
           curl -fsSL \
             -X POST \
