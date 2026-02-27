@@ -27,6 +27,8 @@ Top-level keys currently accepted:
 - `skill_globs`
 - `max_file_mb`
 
+Default: `max_file_mb` is `2` when omitted.
+
 ## Example `razin.yaml`
 
 ```yaml

@@ -10,6 +10,7 @@ import yaml
 from razin.config.model import RazinConfig
 from razin.constants.config import (
     CONFIG_FILENAME,
+    DEFAULT_MAX_FILE_MB,
     DEFAULT_SKILL_GLOBS,
     DEFAULT_TOOL_PREFIXES_CONFIG,
     RULE_OVERRIDE_ALLOWED_KEYS,
@@ -98,7 +99,7 @@ def load_config(root: Path, config_path: Path | None = None) -> RazinConfig:
         ),
     )
 
-    max_file_mb = raw.get("max_file_mb", 10)
+    max_file_mb = raw.get("max_file_mb", DEFAULT_MAX_FILE_MB)
     if isinstance(max_file_mb, bool) or not isinstance(max_file_mb, int) or max_file_mb <= 0:
         raise ConfigError("max_file_mb must be a positive integer")
 
