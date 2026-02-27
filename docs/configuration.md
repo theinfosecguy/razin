@@ -121,6 +121,7 @@ Behavior details:
 - Unknown rule IDs are ignored with warnings at scan time.
 - Overrides affect CI gating (`--fail-on`, `--fail-on-score`) because they change final severity/score used by evaluation.
 - If both are set for one rule, `min_severity` must be less than or equal to `max_severity`.
+- Remote MCP checks also support overrides through `MCP_REMOTE_NON_HTTPS`, `MCP_REMOTE_RAW_IP`, and `MCP_REMOTE_DENYLIST`.
 
 Example:
 

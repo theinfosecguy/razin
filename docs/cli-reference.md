@@ -74,6 +74,7 @@ razin scan -r . -o output/ --profile balanced
 - `--profile` provided on CLI overrides `profile` in `razin.yaml` for that run.
 - `--summary-only` is stdout-only. File artifacts are still written normally.
 - Unknown rule IDs in `--disable-rule` / `--only-rules` return a configuration error.
+- Rule selection flags also apply to MCP remote findings: `MCP_REMOTE_NON_HTTPS`, `MCP_REMOTE_RAW_IP`, `MCP_REMOTE_DENYLIST`.
 
 ### Filter examples
 
@@ -114,6 +115,9 @@ razin scan -r . --disable-rule MCP_REQUIRED --disable-rule AUTH_CONNECTION
 
 # Run only two rules
 razin scan -r . --only-rules SECRET_REF --only-rules OPAQUE_BLOB
+
+# Disable a remote MCP endpoint rule
+razin scan -r . --disable-rule MCP_REMOTE_NON_HTTPS
 ```
 
 ## `razin validate-config`

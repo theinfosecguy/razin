@@ -228,6 +228,58 @@ def _write_mcp_skill_repo(
     return root
 
 
+def test_scan_disable_rule_supports_mcp_remote_rules(tmp_path: Path) -> None:
+    """`disable_rules` should disable MCP remote rules in the same selector path as DSL rules."""
+    root = _write_mcp_skill_repo(
+        tmp_path,
+        requires_mcp="plain",
+        mcp_json_text='{"mcpServers": {"plain": {"url": "http://evil.example.net/mcp"}}}\n',
+    )
+
+    result = scan_workspace(root=root, disable_rules=("MCP_REMOTE_NON_HTTPS",))
+    rule_ids = {finding.rule_id for finding in result.findings}
+
+    assert "MCP_REMOTE_NON_HTTPS" not in rule_ids
+    assert "MCP_REMOTE_NON_HTTPS" in result.rules_disabled
+    assert result.disable_sources["MCP_REMOTE_NON_HTTPS"] == "cli-disable"
+
+
+def test_scan_only_rules_excludes_mcp_remote_rules_when_not_selected(tmp_path: Path) -> None:
+    """`only_rules` should suppress MCP remote findings unless those rule IDs are selected."""
+    root = _write_mcp_skill_repo(
+        tmp_path,
+        requires_mcp="remote",
+        mcp_json_text='{"mcpServers": {"remote": {"url": "https://8.8.8.8/mcp"}}}\n',
+    )
+
+    result = scan_workspace(root=root, only_rules=("MCP_REQUIRED",))
+    rule_ids = {finding.rule_id for finding in result.findings}
+
+    assert rule_ids == {"MCP_REQUIRED"}
+
+
+def test_scan_rule_override_applies_to_mcp_remote_rule(tmp_path: Path) -> None:
+    """`rule_overrides` should apply severity caps to MCP remote findings."""
+    root = _write_mcp_skill_repo(
+        tmp_path,
+        requires_mcp="remote",
+        mcp_json_text='{"mcpServers": {"remote": {"url": "https://8.8.8.8/mcp"}}}\n',
+    )
+    (root / "razin.yaml").write_text(
+        "rule_overrides:\n" "  MCP_REMOTE_RAW_IP:\n" "    max_severity: low\n",
+        encoding="utf-8",
+    )
+
+    result = scan_workspace(root=root)
+
+    remote_finding = next(finding for finding in result.findings if finding.rule_id == "MCP_REMOTE_RAW_IP")
+    assert remote_finding.severity == "low"
+    assert remote_finding.severity_override is not None
+    assert not any(
+        "MCP_REMOTE_RAW_IP" in warning and "Unknown rule_overrides entry" in warning for warning in result.warnings
+    )
+
+
 def test_mcp_remote_https_domain_produces_no_remote_finding(tmp_path: Path) -> None:
     """Referenced HTTPS domain endpoint should not trigger MCP remote findings."""
     root = _write_mcp_skill_repo(
