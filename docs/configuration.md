@@ -101,6 +101,19 @@ skill_globs:
 max_file_mb: 2
 ```
 
+## `detectors`
+
+`detectors` provides coarse rule selection before per-rule tuning:
+
+- `enabled`: optional list of rule IDs to allow. If omitted/empty, all loaded rules are eligible.
+- `disabled`: optional list of rule IDs to remove from execution.
+
+Behavior details:
+
+- Both DSL and MCP remote rule IDs are supported in detector toggles.
+- Unknown detector IDs are ignored with warnings at scan time.
+- When both lists are present, `disabled` removes IDs from the enabled set.
+
 ## `rule_overrides`
 
 `rule_overrides` controls per-rule policy, including runtime disable and severity bounds.
@@ -157,8 +170,9 @@ Rule enable precedence (highest to lowest):
 
 1. `--only-rules`
 1. `--disable-rule`
+1. `detectors.enabled` / `detectors.disabled`
 1. `rule_overrides.<RULE>.enabled`
-1. default enabled
+1. default enabled (all loaded rules)
 
 ## Rule source composition
 
