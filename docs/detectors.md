@@ -28,6 +28,7 @@ For each discovered `SKILL.md` file, Razin:
   - `strict`: high >= 70, medium >= 40
   - `balanced`: high >= 80, medium >= 50
   - `audit`: high >= 70, medium >= 40 (aggregate is informational)
+- Aggregate scoring keeps the highest finding per `rule_id`; different rules still contribute even when they share the same score.
 
 ## Rule classification
 
