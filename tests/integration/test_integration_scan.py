@@ -276,8 +276,7 @@ def test_scan_rule_override_applies_to_mcp_remote_rule(tmp_path: Path) -> None:
     assert remote_finding.severity == "low"
     assert remote_finding.severity_override is not None
     assert not any(
-        "MCP_REMOTE_RAW_IP" in warning and "Unknown rule_overrides entry" in warning
-        for warning in result.warnings
+        "MCP_REMOTE_RAW_IP" in warning and "Unknown rule_overrides entry" in warning for warning in result.warnings
     )
 
 
