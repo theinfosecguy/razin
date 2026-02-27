@@ -86,9 +86,7 @@ def aggregate_overall_score(
     if not significant_scores:
         return 0
 
-    representative_scores: set[int] = set(significant_scores)
-
-    probabilities = [max(0.0, min(1.0, score / 100.0)) for score in representative_scores]
+    probabilities = [max(0.0, min(1.0, score / 100.0)) for score in significant_scores]
     # Probabilistic OR across independent risk signals: 1 - Π(1 - p_i).
     residual = 1.0
     for probability in probabilities:

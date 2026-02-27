@@ -72,6 +72,15 @@ def test_different_rules_combine() -> None:
     assert two_rules > one_rule
 
 
+def test_equal_scores_from_different_rules_both_contribute() -> None:
+    """Distinct rules with the same score should both contribute to aggregate risk."""
+    one_rule = aggregate_overall_score([_finding(80, "RULE_A")])
+    two_rules = aggregate_overall_score([_finding(80, "RULE_A"), _finding(80, "RULE_B")])
+
+    assert one_rule == 80
+    assert two_rules == 96
+
+
 def test_score_does_not_saturate_with_few_medium_findings() -> None:
     """A skill with 5 medium-score findings from different rules shouldn't hit 100."""
     findings = [
