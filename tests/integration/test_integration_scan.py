@@ -197,11 +197,7 @@ def test_scan_warns_for_unknown_detector_toggle_entries(tmp_path: Path) -> None:
     skill_dir.mkdir(parents=True)
     (skill_dir / "SKILL.md").write_text("---\nname: single\n---\n# single\n", encoding="utf-8")
     (tmp_path / "razin.yaml").write_text(
-        "detectors:\n"
-        "  enabled:\n"
-        "    - UNKNOWN_ENABLED_RULE\n"
-        "  disabled:\n"
-        "    - UNKNOWN_DISABLED_RULE\n",
+        "detectors:\n" "  enabled:\n" "    - UNKNOWN_ENABLED_RULE\n" "  disabled:\n" "    - UNKNOWN_DISABLED_RULE\n",
         encoding="utf-8",
     )
 
