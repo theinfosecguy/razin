@@ -13,6 +13,7 @@ from pathlib import Path
 from razin.config import config_fingerprint, load_config
 from razin.constants.cache import CACHE_FILENAME
 from razin.constants.engines import ENGINE_DSL
+from razin.constants.mcp import MCP_REMOTE_RULE_IDS
 from razin.constants.profiles import VALID_PROFILES
 from razin.constants.reporting import VALID_OUTPUT_FORMATS
 from razin.dsl import DslEngine
@@ -145,9 +146,10 @@ def scan_workspace(
     except DslError as exc:
         raise ConfigError(str(exc)) from exc
 
-    loaded_rule_ids = tuple(dict.fromkeys(full_dsl_engine.public_rule_ids))
+    loaded_dsl_rule_ids = tuple(dict.fromkeys(full_dsl_engine.public_rule_ids))
+    selectable_rule_ids = tuple(dict.fromkeys((*loaded_dsl_rule_ids, *MCP_REMOTE_RULE_IDS)))
     selection = resolve_effective_rule_selection(
-        loaded_rule_ids=loaded_rule_ids,
+        loaded_rule_ids=selectable_rule_ids,
         config_rule_overrides=config.rule_overrides,
         cli_disable_rules=disable_rules,
         cli_only_rules=only_rules,
@@ -157,12 +159,13 @@ def scan_workspace(
         warnings.append(warning)
         logger.warning(warning)
 
-    if selection.executed_rule_ids == loaded_rule_ids:
+    executed_dsl_rule_ids = tuple(rule_id for rule_id in loaded_dsl_rule_ids if rule_id in selection.executed_rule_ids)
+    if executed_dsl_rule_ids == loaded_dsl_rule_ids:
         dsl_engine = full_dsl_engine
     else:
         try:
             dsl_engine = DslEngine(
-                rule_ids=frozenset(selection.executed_rule_ids),
+                rule_ids=frozenset(executed_dsl_rule_ids),
                 rules_dir=resolved_rules_dir,
                 rule_files=resolved_rule_files,
                 rules_mode=rules_mode,
@@ -171,6 +174,9 @@ def scan_workspace(
         except DslError as exc:
             raise ConfigError(str(exc)) from exc
 
+    executed_remote_rule_ids = frozenset(
+        rule_id for rule_id in selection.executed_rule_ids if rule_id in MCP_REMOTE_RULE_IDS
+    )
     rulepack_fingerprint = dsl_engine.fingerprint()
     active_rule_overrides = selection.active_rule_overrides
     serialized_rule_overrides = _serialize_rule_overrides(active_rule_overrides)
@@ -245,6 +251,7 @@ def scan_workspace(
             root=root,
             config=config,
         )
+        mcp_candidates = [candidate for candidate in mcp_candidates if candidate.rule_id in executed_remote_rule_ids]
         candidates.extend(mcp_candidates)
         for warning in mcp_warnings:
             warnings.append(warning)
