@@ -12,7 +12,7 @@ from razin.config import (
     effective_detector_ids,
     load_config,
 )
-from razin.constants.config import DEFAULT_DETECTORS
+from razin.constants.config import DEFAULT_DETECTORS, DEFAULT_MAX_FILE_MB
 from razin.constants.domains import DEFAULT_ALLOWLISTED_DOMAINS
 from razin.exceptions import ConfigError
 from razin.types.config import DetectorConfig, RuleOverrideConfig
@@ -31,6 +31,16 @@ def test_load_config_rejects_bool_max_file_mb(tmp_path: Path) -> None:
 
     with pytest.raises(ConfigError, match="max_file_mb"):
         load_config(tmp_path, config_path)
+
+
+def test_load_config_defaults_max_file_mb_when_key_missing(tmp_path: Path) -> None:
+    """Config files without max_file_mb should use the shared default constant."""
+    config_path = tmp_path / "razin.yaml"
+    config_path.write_text("profile: balanced\n", encoding="utf-8")
+
+    loaded = load_config(tmp_path, config_path)
+
+    assert loaded.max_file_mb == DEFAULT_MAX_FILE_MB
 
 
 def test_load_config_error_includes_key_name(tmp_path: Path) -> None:
