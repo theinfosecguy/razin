@@ -39,14 +39,7 @@ Use this README for quick start only.
 
 ## Install
 
-With Homebrew (if formula is in Homebrew core):
-
-```bash
-brew install razin
-razin --help
-```
-
-With Homebrew tap (if core formula is not merged yet):
+With Homebrew (current, via tap):
 
 ```bash
 brew tap theinfosecguy/homebrew-tap
