@@ -5,8 +5,11 @@ from __future__ import annotations
 import pytest
 
 from razin.exceptions import ConfigError
-from razin.scanner.pipeline.rule_selection import resolve_effective_rule_selection
-from razin.types import RuleOverrideConfig
+from razin.scanner.pipeline.rule_selection import (
+    resolve_detector_toggles,
+    resolve_effective_rule_selection,
+)
+from razin.types import DetectorConfig, RuleOverrideConfig
 
 
 def test_config_disabled_rule_is_excluded_from_execution() -> None:
@@ -88,3 +91,66 @@ def test_active_rule_overrides_include_only_executed_rules() -> None:
 
     assert selection.active_rule_overrides == {"A": RuleOverrideConfig(max_severity="low")}
     assert selection.unknown_config_rule_ids == ("UNKNOWN",)
+
+
+def test_detector_toggles_enabled_limits_rules() -> None:
+    """`detectors.enabled` constrains execution to known listed rules."""
+    toggles = resolve_detector_toggles(
+        available_rule_ids=("A", "B", "C"),
+        detectors=DetectorConfig(enabled=("B",), disabled=()),
+        rule_overrides={},
+    )
+
+    selection = resolve_effective_rule_selection(
+        loaded_rule_ids=("A", "B", "C"),
+        config_rule_overrides=toggles.rule_overrides,
+        cli_disable_rules=(),
+        cli_only_rules=(),
+    )
+
+    assert selection.executed_rule_ids == ("B",)
+    assert selection.disabled_rule_ids == ("A", "C")
+    assert selection.disable_sources == {"A": "config", "C": "config"}
+
+
+def test_detector_toggles_disabled_removes_rules() -> None:
+    """`detectors.disabled` removes matching known rules from execution."""
+    toggles = resolve_detector_toggles(
+        available_rule_ids=("A", "B", "C"),
+        detectors=DetectorConfig(enabled=(), disabled=("C",)),
+        rule_overrides={},
+    )
+
+    selection = resolve_effective_rule_selection(
+        loaded_rule_ids=("A", "B", "C"),
+        config_rule_overrides=toggles.rule_overrides,
+        cli_disable_rules=(),
+        cli_only_rules=(),
+    )
+
+    assert selection.executed_rule_ids == ("A", "B")
+    assert selection.disabled_rule_ids == ("C",)
+    assert selection.disable_sources == {"C": "config"}
+
+
+def test_detector_toggles_unknown_entries_reported() -> None:
+    """Unknown detector toggle entries are surfaced for warning emission."""
+    toggles = resolve_detector_toggles(
+        available_rule_ids=("A", "B"),
+        detectors=DetectorConfig(enabled=("A", "UNKNOWN"), disabled=("MISSING",)),
+        rule_overrides={},
+    )
+
+    assert toggles.unknown_enabled_rule_ids == ("UNKNOWN",)
+    assert toggles.unknown_disabled_rule_ids == ("MISSING",)
+
+
+def test_detector_toggles_forced_disable_overrides_enabled_rule_override() -> None:
+    """Detector toggles force-disable rules even if rule_overrides enables them."""
+    toggles = resolve_detector_toggles(
+        available_rule_ids=("A", "B"),
+        detectors=DetectorConfig(enabled=("A",), disabled=()),
+        rule_overrides={"B": RuleOverrideConfig(enabled=True, max_severity="low")},
+    )
+
+    assert toggles.rule_overrides["B"] == RuleOverrideConfig(enabled=False, max_severity="low")

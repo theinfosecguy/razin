@@ -151,6 +151,62 @@ def test_scan_only_rules_overrides_config_disable(tmp_path: Path, basic_repo_roo
     assert result.disable_sources.get("MCP_REQUIRED") is None
 
 
+def test_scan_respects_detectors_enabled_for_remote_rules(tmp_path: Path) -> None:
+    """`detectors.enabled` should restrict both DSL and MCP remote rule execution."""
+    root = _write_mcp_skill_repo(
+        tmp_path,
+        requires_mcp="plain",
+        mcp_json_text='{"mcpServers": {"plain": {"url": "http://evil.example.net/mcp"}}}\n',
+    )
+    (root / "razin.yaml").write_text(
+        "detectors:\n" "  enabled:\n" "    - MCP_REQUIRED\n",
+        encoding="utf-8",
+    )
+
+    result = scan_workspace(root=root)
+    rule_ids = {finding.rule_id for finding in result.findings}
+
+    assert rule_ids == {"MCP_REQUIRED"}
+    assert "MCP_REMOTE_NON_HTTPS" in result.rules_disabled
+    assert result.disable_sources["MCP_REMOTE_NON_HTTPS"] == "config"
+
+
+def test_scan_respects_detectors_disabled_for_remote_rules(tmp_path: Path) -> None:
+    """`detectors.disabled` should suppress matching MCP remote findings."""
+    root = _write_mcp_skill_repo(
+        tmp_path,
+        requires_mcp="plain",
+        mcp_json_text='{"mcpServers": {"plain": {"url": "http://evil.example.net/mcp"}}}\n',
+    )
+    (root / "razin.yaml").write_text(
+        "detectors:\n" "  disabled:\n" "    - MCP_REMOTE_NON_HTTPS\n",
+        encoding="utf-8",
+    )
+
+    result = scan_workspace(root=root)
+    rule_ids = {finding.rule_id for finding in result.findings}
+
+    assert "MCP_REMOTE_NON_HTTPS" not in rule_ids
+    assert "MCP_REMOTE_NON_HTTPS" in result.rules_disabled
+    assert result.disable_sources["MCP_REMOTE_NON_HTTPS"] == "config"
+
+
+def test_scan_warns_for_unknown_detector_toggle_entries(tmp_path: Path) -> None:
+    """Unknown detector toggle IDs should emit warnings and continue scanning."""
+    skill_dir = tmp_path / "skills" / "single"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text("---\nname: single\n---\n# single\n", encoding="utf-8")
+    (tmp_path / "razin.yaml").write_text(
+        "detectors:\n" "  enabled:\n" "    - UNKNOWN_ENABLED_RULE\n" "  disabled:\n" "    - UNKNOWN_DISABLED_RULE\n",
+        encoding="utf-8",
+    )
+
+    result = scan_workspace(root=tmp_path)
+
+    assert any("UNKNOWN_ENABLED_RULE" in warning for warning in result.warnings)
+    assert any("UNKNOWN_DISABLED_RULE" in warning for warning in result.warnings)
+
+
 def test_scan_unknown_disable_rule_raises_config_error(tmp_path: Path) -> None:
     """Unknown `disable_rules` ids fail with a clear configuration error."""
     skill_dir = tmp_path / "skills" / "single"

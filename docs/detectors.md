@@ -111,6 +111,7 @@ detectors:
   enabled:
     - NET_RAW_IP
     - NET_UNKNOWN_DOMAIN
+    - MCP_REMOTE_NON_HTTPS
     - MCP_ENDPOINT
   disabled: []
 ```

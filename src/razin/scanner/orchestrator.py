@@ -41,7 +41,10 @@ from razin.scanner.pipeline.conversion import (
     deserialize_findings,
     suppress_redundant_candidates,
 )
-from razin.scanner.pipeline.rule_selection import resolve_effective_rule_selection
+from razin.scanner.pipeline.rule_selection import (
+    resolve_detector_toggles,
+    resolve_effective_rule_selection,
+)
 from razin.scanner.score import aggregate_overall_score, aggregate_severity, rule_counts, severity_counts
 from razin.types import CacheFileEntry, RuleDisableSource, RuleOverrideConfig, Severity
 
@@ -148,9 +151,23 @@ def scan_workspace(
 
     loaded_dsl_rule_ids = tuple(dict.fromkeys(full_dsl_engine.public_rule_ids))
     selectable_rule_ids = tuple(dict.fromkeys((*loaded_dsl_rule_ids, *MCP_REMOTE_RULE_IDS)))
+    detector_toggle_selection = resolve_detector_toggles(
+        available_rule_ids=selectable_rule_ids,
+        detectors=config.detectors,
+        rule_overrides=config.rule_overrides,
+    )
+    for rule_id in detector_toggle_selection.unknown_enabled_rule_ids:
+        warning = f"Unknown detectors.enabled entry '{rule_id}' has no loaded rule and will be ignored."
+        warnings.append(warning)
+        logger.warning(warning)
+    for rule_id in detector_toggle_selection.unknown_disabled_rule_ids:
+        warning = f"Unknown detectors.disabled entry '{rule_id}' has no loaded rule and will be ignored."
+        warnings.append(warning)
+        logger.warning(warning)
+
     selection = resolve_effective_rule_selection(
         loaded_rule_ids=selectable_rule_ids,
-        config_rule_overrides=config.rule_overrides,
+        config_rule_overrides=detector_toggle_selection.rule_overrides,
         cli_disable_rules=disable_rules,
         cli_only_rules=only_rules,
     )
