@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+import re
 from typing import Literal
 
 import pytest
 
-from razin.constants.reporting import ANSI_GREEN, ANSI_RED, ANSI_RESET, ANSI_YELLOW
+from razin.constants.reporting import ANSI_GREEN, ANSI_RED, ANSI_YELLOW
 from razin.model import Evidence, Finding, ScanResult
 from razin.reporting.stdout import StdoutReporter
 from razin.types import Severity
+
+_ANSI_PATTERN = re.compile(r"\x1b\[[0-9;]*m")
 
 
 def _make_finding(
@@ -76,6 +79,10 @@ def _make_result(
     )
 
 
+def _strip_ansi(value: str) -> str:
+    return _ANSI_PATTERN.sub("", value)
+
+
 def test_header_contains_summary_title() -> None:
     result = _make_result()
     output = StdoutReporter(result, color=False).render()
@@ -110,15 +117,21 @@ def test_header_shows_duration() -> None:
     assert "2.567s" in output
 
 
-def test_header_shows_rule_selection_metadata() -> None:
-    """Header includes rule execution and disable-source details when present."""
+def test_header_hides_top_rules_summary_line() -> None:
+    result = _make_result(findings=[_make_finding(rule_id="SECRET_REF"), _make_finding(rule_id="NET_RAW_IP")])
+    output = StdoutReporter(result, color=False).render()
+    assert "Top rules" not in output
+
+
+def test_header_shows_rule_disable_metadata() -> None:
+    """Header includes disabled-rule and disable-source details when present."""
     result = _make_result(
         rules_executed=("SECRET_REF", "OPAQUE_BLOB"),
         rules_disabled=("MCP_REQUIRED", "AUTH_CONNECTION"),
         disable_sources={"MCP_REQUIRED": "config", "AUTH_CONNECTION": "cli-disable"},
     )
     output = StdoutReporter(result, color=False).render()
-    assert "Rules run" in output
+    assert "Rules run" not in output
     assert "Rules off" in output
     assert "Off source" in output
     assert "config 1" in output
@@ -248,19 +261,23 @@ def test_severity_colored_correctly(severity: Severity, score: int, finding_id: 
 
 
 @pytest.mark.parametrize(
-    ("score", "severity", "finding_id", "expected_color"),
+    ("score", "severity", "finding_id", "expected_sgr"),
     [
-        (85, "high", "abc123", ANSI_RED),
-        (50, "medium", "m1", ANSI_YELLOW),
-        (20, "low", "l1", ANSI_GREEN),
+        (85, "high", "abc123", "31"),
+        (50, "medium", "m1", "33"),
+        (20, "low", "l1", "32"),
     ],
     ids=["high-red", "medium-yellow", "low-green"],
 )
-def test_score_colored_correctly(score: int, severity: Severity, finding_id: str, expected_color: str) -> None:
+def test_score_colored_correctly(score: int, severity: Severity, finding_id: str, expected_sgr: str) -> None:
     f = [_make_finding(score=score, severity=severity, finding_id=finding_id)]
     result = _make_result(findings=f)
     output = StdoutReporter(result, color=True).render()
-    assert f"{expected_color}{score}{ANSI_RESET}" in output
+    # Rich may emit either "1;31" or "31;1" ordering for bold color codes.
+    assert (
+        re.search(rf"\x1b\[(?:1;{expected_sgr}|{expected_sgr};1)\s*m\s*{score}\x1b\[0m", output) is not None
+        or re.search(rf"\x1b\[{expected_sgr}\s*m\s*{score}\x1b\[0m", output) is not None
+    )
 
 
 def test_color_disabled_produces_no_ansi() -> None:
@@ -420,6 +437,41 @@ def test_grouped_by_skill_shows_per_group_score() -> None:
     assert "score=" in output
     assert "severity=" in output
     assert "findings=2" in output
+
+
+def test_findings_table_rows_align_with_borders_when_color_enabled() -> None:
+    """ANSI-colored cells should preserve visible column alignment."""
+    findings = [_make_finding(skill="align-skill", rule_id="SECRET_REF", score=90)]
+    result = _make_result(findings=findings)
+    output = StdoutReporter(result, color=True).render()
+    visible = _strip_ansi(output)
+    table_lines = [
+        line
+        for line in visible.splitlines()
+        if line.startswith("  ┌") or line.startswith("  ├") or line.startswith("  │") or line.startswith("  └")
+    ]
+    assert len(table_lines) >= 4
+    assert len({len(line) for line in table_lines}) == 1
+
+
+def test_findings_table_handles_long_skill_and_rule_ids() -> None:
+    """Long values should not overflow table borders."""
+    findings = [
+        _make_finding(
+            skill="really-long-skill-name-" + ("x" * 80),
+            rule_id="RULE_WITH_A_VERY_LONG_IDENTIFIER_" + ("Y" * 60),
+            score=88,
+        )
+    ]
+    result = _make_result(findings=findings)
+    output = StdoutReporter(result, color=False).render()
+    table_lines = [
+        line
+        for line in output.splitlines()
+        if line.startswith("  ┌") or line.startswith("  ├") or line.startswith("  │") or line.startswith("  └")
+    ]
+    assert len(table_lines) >= 4
+    assert len({len(line) for line in table_lines}) == 1
 
 
 def test_grouped_sorts_by_risk_descending() -> None:

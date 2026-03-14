@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
+import shutil
 from collections import Counter
+
+from rich import box
+from rich.console import Console
+from rich.table import Table
+from rich.text import Text
 
 from razin.constants.branding import ASCII_LOGO_LINES, SCAN_SUMMARY_TITLE
 from razin.constants.reporting import (
@@ -28,12 +34,16 @@ def _color_severity(severity: Severity) -> str:
     return _colorize(severity, color) if color else severity
 
 
-def _color_score(score: int) -> str:
+def _score_color(score: int) -> str:
     if score >= 70:
-        return _colorize(str(score), ANSI_RED)
+        return ANSI_RED
     if score >= 40:
-        return _colorize(str(score), ANSI_YELLOW)
-    return _colorize(str(score), ANSI_GREEN)
+        return ANSI_YELLOW
+    return ANSI_GREEN
+
+
+def _color_score(score: int) -> str:
+    return _colorize(str(score), _score_color(score))
 
 
 def _classification_short(value: str) -> str:
@@ -113,8 +123,6 @@ class StdoutReporter:
 
         lines.append(f"  Severities  {self._format_severity_breakdown(r.counts_by_severity)}")
 
-        all_rule_counts = r.counts_by_rule if r.counts_by_rule else rule_counts(list(r.findings))
-        lines.append(f"  Top rules   {self._format_top_rules(all_rule_counts)}")
         if self._filters.active():
             shown_rule_counts = rule_counts(self._shown_findings)
             lines.append(f"  Top shown   {self._format_top_rules(shown_rule_counts)}")
@@ -133,8 +141,6 @@ class StdoutReporter:
                     override_parts.append(f"{rule_id} ({', '.join(parts)})")
             lines.append(f"  Overrides   {', '.join(override_parts)}")
 
-        if r.rules_executed:
-            lines.append(f"  Rules run   {len(r.rules_executed)} ({self._format_rule_list(r.rules_executed)})")
         if r.rules_disabled:
             lines.append(f"  Rules off   {len(r.rules_disabled)} ({self._format_rule_list(r.rules_disabled)})")
         if r.disable_sources:
@@ -155,40 +161,30 @@ class StdoutReporter:
         if not risks:
             return ""
 
-        w_skill = 25
-        w_rule = 20
-        w_score = 7
-        w_sev = 8
-        w_class = 5
+        table = Table(box=box.SQUARE, padding=(0, 1), expand=False)
+        table.add_column("Skill", overflow="ellipsis")
+        table.add_column("Rule", overflow="ellipsis")
+        table.add_column("Score", justify="right", no_wrap=True)
+        table.add_column("Severity", no_wrap=True)
+        table.add_column("Class", no_wrap=True, min_width=5, max_width=5)
 
-        def _hline(left: str, mid: str, right: str) -> str:
-            return (
-                f"  {left}{'─' * (w_skill + 2)}{mid}{'─' * (w_rule + 2)}"
-                f"{mid}{'─' * (w_score + 2)}{mid}{'─' * (w_sev + 2)}"
-                f"{mid}{'─' * (w_class + 2)}{right}"
-            )
-
-        top_border = _hline("┌", "┬", "┐")
-        hdr_sep = _hline("├", "┼", "┤")
-        bot_border = _hline("└", "┴", "┘")
-
-        hdr = (
-            f"  │ {'Skill':<{w_skill}} │ {'Rule':<{w_rule}}"
-            f" │ {'Score':>{w_score}} │ {'Severity':<{w_sev}} │ {'Class':<{w_class}} │"
-        )
-
-        lines = ["  Findings", top_border, hdr, hdr_sep]
         for finding in risks:
-            score_str = _color_score(finding.score) if self._color else str(finding.score)
-            sev_str = _color_severity(finding.severity) if self._color else finding.severity
-            row = (
-                f"  │ {finding.skill:<{w_skill}} │ {finding.rule_id:<{w_rule}}"
-                f" │ {score_str:>{w_score}} │ {sev_str:<{w_sev}}"
-                f" │ {_classification_short(finding.classification):<{w_class}} │"
+            score_cell: str | Text
+            severity_cell: str | Text
+            if self._color:
+                score_cell = Text(str(finding.score), style=self._score_style_name(finding.score))
+                severity_cell = Text(finding.severity, style=self._severity_style_name(finding.severity))
+            else:
+                score_cell = str(finding.score)
+                severity_cell = finding.severity
+            table.add_row(
+                finding.skill,
+                finding.rule_id,
+                score_cell,
+                severity_cell,
+                _classification_short(finding.classification),
             )
-            lines.append(row)
-        lines.append(bot_border)
-        return "\n".join(lines)
+        return f"  Findings\n{self._render_rich_table(table)}"
 
     def _render_grouped_table(self) -> str:
         """Render findings grouped by skill or rule with per-group aggregates."""
@@ -220,14 +216,92 @@ class StdoutReporter:
             lines.append(f"  [{group_key}]  score={score_str}  severity={sev_str}  findings={len(group)}")
 
             detail_key = "rule_id" if self._group_by == "skill" else "skill"
+            detail_width = self._compute_grouped_detail_width(group, detail_key)
             for finding in sorted(group, key=lambda item: (-item.score, item.id)):
                 detail = getattr(finding, detail_key)
-                finding_score = _color_score(finding.score) if self._color else str(finding.score)
-                finding_sev = _color_severity(finding.severity) if self._color else finding.severity
-                lines.append(f"    {detail:<25}  {finding_score:>7}  {finding_sev}")
+                detail_text = self._truncate_cell(detail, detail_width)
+                finding_score = self._format_score_cell(finding.score, 7)
+                finding_sev = self._format_severity_cell(finding.severity)
+                lines.append(f"    {detail_text:<{detail_width}}  {finding_score}  {finding_sev}")
             lines.append("")
 
         return "\n".join(lines)
+
+    @staticmethod
+    def _truncate_cell(value: str, width: int) -> str:
+        """Clamp cell text to column width with an ASCII ellipsis."""
+        if width <= 0:
+            return ""
+        if len(value) <= width:
+            return value
+        if width <= 3:
+            return value[:width]
+        return f"{value[: width - 3]}..."
+
+    def _format_score_cell(self, score: int, width: int) -> str:
+        """Format score with right-padding before optional colorization."""
+        text = self._truncate_cell(str(score), width).rjust(width)
+        if not self._color:
+            return text
+        return _colorize(text, _score_color(score))
+
+    @staticmethod
+    def _score_style_name(score: int) -> str:
+        if score >= 70:
+            return "bold red"
+        if score >= 40:
+            return "bold yellow"
+        return "bold green"
+
+    def _format_severity_cell(self, severity: Severity, width: int | None = None) -> str:
+        """Format severity with left-padding before optional colorization."""
+        raw_text = severity if width is None else self._truncate_cell(severity, width).ljust(width)
+        if not self._color:
+            return raw_text
+        color = SEVERITY_COLORS.get(severity, "")
+        return _colorize(raw_text, color) if color else raw_text
+
+    @staticmethod
+    def _severity_style_name(severity: Severity) -> str:
+        if severity == "high":
+            return "bold red"
+        if severity == "medium":
+            return "bold yellow"
+        return "bold green"
+
+    def _render_rich_table(self, table: Table) -> str:
+        """Render a rich table to text, preserving optional ANSI styles."""
+        terminal_width = shutil.get_terminal_size(fallback=(120, 24)).columns
+        console = Console(
+            record=False,
+            width=max(60, terminal_width - 2),
+            force_terminal=self._color,
+            no_color=not self._color,
+            color_system="standard" if self._color else None,
+            highlight=False,
+        )
+        with console.capture() as capture:
+            console.print(table)
+        rendered = capture.get().rstrip("\n")
+        return self._indent_block(rendered, prefix="  ")
+
+    @staticmethod
+    def _indent_block(text: str, prefix: str = "  ") -> str:
+        return "\n".join(f"{prefix}{line}" for line in text.splitlines())
+
+    def _compute_grouped_detail_width(self, group: list[Finding], detail_key: str) -> int:
+        """Compute grouped detail column width with terminal-aware cap."""
+        min_width = 16
+        max_width = 48
+        preferred = max(
+            min_width,
+            *(len(getattr(finding, detail_key)) for finding in group),
+        )
+        detail_width = min(preferred, max_width)
+        terminal_width = shutil.get_terminal_size(fallback=(120, 24)).columns
+        # Leaves room for score/severity plus separators.
+        max_for_detail = max(min_width, terminal_width - 24)
+        return min(detail_width, max_for_detail)
 
     def _format_severity_breakdown(self, counts: dict[Severity, int]) -> str:
         """Render ``high/medium/low`` finding counts in fixed order."""
