@@ -41,3 +41,16 @@ ALLOWED_METADATA_KEYS: frozenset[str] = REQUIRED_METADATA_KEYS | {
 
 VALID_PROFILE_NAMES: frozenset[str] = frozenset({"strict", "balanced", "audit"})
 ALLOWED_PROFILE_KEYS: frozenset[str] = frozenset({"score_override"})
+
+DEFAULT_FRONTMATTER_SKIP_KEYS: tuple[str, ...] = (
+    "name",
+    "description",
+    "version",
+    "author",
+    "license",
+    "tags",
+    "keywords",
+    "homepage",
+    "repository",
+    "documentation",
+)
