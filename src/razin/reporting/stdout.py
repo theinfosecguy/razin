@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections import Counter
 import shutil
+from collections import Counter
 
 from rich import box
 from rich.console import Console
