@@ -16,5 +16,9 @@ match:
     - "exec"
     - "shell"
     - "run"
+    - "hook"
+    - "entrypoint"
   match_mode: exact
+  frontmatter_match_mode: contains
+  scan_frontmatter: true
 dedupe: true
