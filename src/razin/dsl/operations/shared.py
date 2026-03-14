@@ -21,6 +21,8 @@ from razin.constants.naming import NON_ALNUM_DASH_PATTERN
 from razin.detectors.common import extract_domain, field_evidence
 from razin.model import Evidence, ParsedSkillDocument
 
+_FRONTMATTER_KEY_PATTERN = re.compile(r"^\s*(?:-\s*)?([A-Za-z0-9_-]+)\s*:")
+
 
 def parse_ip_address(value: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address | None:
     """Parse a string into an IP address object, or ``None`` on failure."""
@@ -223,7 +225,62 @@ def service_matches_name(service: str, name: str) -> bool:
     return service in tokenize_name(name)
 
 
+def frontmatter_key_line(raw_text: str, leaf_key: str) -> int:
+    """Return the line number of *leaf_key* within the frontmatter block.
+
+    Searches only between the ``---`` delimiters to avoid matching body text.
+    Falls back to line 1 if the key is not found.
+    """
+    target_key = leaf_key.strip().lower()
+    if not target_key:
+        return 1
+
+    lines = raw_text.splitlines()
+    in_frontmatter = False
+    for idx, line in enumerate(lines, 1):
+        stripped = line.strip()
+        if idx == 1 and stripped == "---":
+            in_frontmatter = True
+            continue
+        if in_frontmatter and stripped in ("---", "..."):
+            break
+        if not in_frontmatter:
+            continue
+        match = _FRONTMATTER_KEY_PATTERN.match(line)
+        if match and match.group(1).lower() == target_key:
+            return idx
+    return 1
+
+
 def keyword_in_text(keyword: str, text: str) -> bool:
     """Return True when *keyword* appears at word boundaries in *text*."""
     pattern = r"\b" + re.escape(keyword) + r"\b"
     return bool(re.search(pattern, text))
+
+
+def flatten_frontmatter(
+    fm: dict[str, Any] | None,
+    *,
+    _prefix: str = "",
+) -> list[tuple[str, str]]:
+    """Recursively flatten a frontmatter dict into ``(dotted_key, str_value)`` pairs.
+
+    Only string leaf values are emitted.  Lists of strings are emitted with
+    an indexed key (e.g. ``scripts.0``).
+    """
+    if not isinstance(fm, dict):
+        return []
+    pairs: list[tuple[str, str]] = []
+    for key, value in fm.items():
+        dotted = f"{_prefix}.{key}" if _prefix else str(key)
+        if isinstance(value, str):
+            pairs.append((dotted, value))
+        elif isinstance(value, dict):
+            pairs.extend(flatten_frontmatter(value, _prefix=dotted))
+        elif isinstance(value, (list, tuple)):
+            for idx, item in enumerate(value):
+                if isinstance(item, str):
+                    pairs.append((f"{dotted}.{idx}", item))
+                elif isinstance(item, dict):
+                    pairs.extend(flatten_frontmatter(item, _prefix=f"{dotted}.{idx}"))
+    return pairs

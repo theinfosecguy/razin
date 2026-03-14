@@ -11,15 +11,42 @@ from razin.constants.detectors import (
     SECRET_ENV_KEYWORDS,
     SECRET_PLACEHOLDER_VALUE_PATTERN,
 )
+from razin.constants.dsl_schema import DEFAULT_FRONTMATTER_SKIP_KEYS
+from razin.constants.naming import NON_ALNUM_DASH_PATTERN
 from razin.detectors.common import dedupe_candidates, field_evidence
 from razin.dsl.operations.shared import (
     best_evidence_for_hint,
     first_field_with_keyword,
+    flatten_frontmatter,
     format_template,
+    frontmatter_key_line,
     hint_is_negated,
 )
 from razin.model import Evidence, FindingCandidate
 from razin.types.dsl import EvalContext
+
+_CAMEL_BOUNDARY_PATTERN = re.compile(r"([a-z0-9])([A-Z])")
+
+
+def _identifier_tokens(value: str) -> list[str]:
+    """Split an identifier by separators and camelCase boundaries."""
+    normalized = _CAMEL_BOUNDARY_PATTERN.sub(r"\1 \2", value)
+    return [token for token in NON_ALNUM_DASH_PATTERN.split(normalized.lower()) if token]
+
+
+def _contains_keyword_token(identifier: str, keywords: frozenset[str]) -> bool:
+    """Return True when a keyword appears as an identifier token.
+
+    Adjacent token pairs are also considered so ``entryPoint`` matches
+    ``entrypoint`` while ``runtime`` does not match ``run``.
+    """
+    tokens = _identifier_tokens(identifier)
+    if not tokens:
+        return False
+    normalized_tokens = set(tokens)
+    for index in range(len(tokens) - 1):
+        normalized_tokens.add(tokens[index] + tokens[index + 1])
+    return bool(normalized_tokens & keywords)
 
 
 def run_key_pattern_match(
@@ -34,6 +61,7 @@ def run_key_pattern_match(
     match_mode: str = match_config.get("match_mode", "contains")
     skip_placeholder_values: bool = match_config.get("skip_placeholder_values", False)
     skip_placeholder_values_anywhere: bool = match_config.get("skip_placeholder_values_anywhere", False)
+    scan_frontmatter: bool = match_config.get("scan_frontmatter", False)
     desc_tpl = metadata.get("description_template", metadata.get("description", ""))
     keyword_set = frozenset(keywords)
     fields_by_line = {field.line: field for field in ctx.parsed.fields}
@@ -72,6 +100,41 @@ def run_key_pattern_match(
                     recommendation=metadata["recommendation"],
                 )
             )
+
+    if scan_frontmatter:
+        fm_match_mode: str = match_config.get("frontmatter_match_mode", match_mode)
+        fm_skip_keys: frozenset[str] = frozenset(
+            match_config.get("frontmatter_skip_keys", DEFAULT_FRONTMATTER_SKIP_KEYS)
+        )
+        for dotted_key, value in flatten_frontmatter(ctx.parsed.frontmatter):
+            key_segments = dotted_key.split(".")
+            lower_key_segments = [segment.lower() for segment in key_segments]
+            if any(seg in fm_skip_keys for seg in lower_key_segments):
+                continue
+            matched = False
+            if fm_match_mode == "exact":
+                matched = any(seg in keyword_set for seg in lower_key_segments)
+            else:
+                matched = any(_contains_keyword_token(seg, keyword_set) for seg in key_segments)
+
+            if matched:
+                fm_line = frontmatter_key_line(ctx.parsed.raw_text, key_segments[-1])
+                description = format_template(desc_tpl, key=dotted_key)
+                findings.append(
+                    FindingCandidate(
+                        rule_id="",
+                        score=base_score,
+                        confidence=metadata["confidence"],
+                        title=metadata["title"],
+                        description=description,
+                        evidence=Evidence(
+                            path=str(ctx.parsed.file_path),
+                            line=fm_line,
+                            snippet=f"{dotted_key}: {value[:80]}",
+                        ),
+                        recommendation=metadata["recommendation"],
+                    )
+                )
 
     return dedupe_candidates(findings) if do_dedupe else findings
 

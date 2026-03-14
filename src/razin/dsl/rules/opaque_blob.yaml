@@ -12,7 +12,9 @@ match:
   strategy: entropy_check
   min_length: 80
   min_entropy: 4.5
-  base64_pattern: "^[A-Za-z0-9+/=_-]{80,}$"
+  base64_pattern: "^[A-Za-z0-9+/=_-]{40,}$"
+  frontmatter_min_length: 40
   skip_prose: true
   prose_min_words: 3
+  scan_frontmatter: true
 dedupe: true

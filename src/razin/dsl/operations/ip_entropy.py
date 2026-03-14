@@ -9,11 +9,13 @@ from razin.constants.detectors import PROSE_MIN_WORDS
 from razin.detectors.common import dedupe_candidates, field_evidence
 from razin.dsl.operations.shared import (
     extract_raw_ip_addresses,
+    flatten_frontmatter,
+    frontmatter_key_line,
     is_non_public_ip,
     looks_like_prose,
     shannon_entropy,
 )
-from razin.model import FindingCandidate
+from razin.model import Evidence, FindingCandidate
 from razin.types.dsl import EvalContext
 
 
@@ -70,6 +72,7 @@ def run_entropy_check(
     base64_pattern_str: str | None = match_config.get("base64_pattern")
     skip_prose: bool = match_config.get("skip_prose", False)
     prose_min_words: int = match_config.get("prose_min_words", PROSE_MIN_WORDS)
+    scan_frontmatter: bool = match_config.get("scan_frontmatter", False)
 
     base64_re = re.compile(base64_pattern_str) if base64_pattern_str else None
     findings: list[FindingCandidate] = []
@@ -96,5 +99,35 @@ def run_entropy_check(
                     recommendation=metadata["recommendation"],
                 )
             )
+
+    if scan_frontmatter:
+        fm_min_length: int = match_config.get("frontmatter_min_length", min_length)
+        for dotted_key, fm_value in flatten_frontmatter(ctx.parsed.frontmatter):
+            stripped = fm_value.strip()
+            if len(stripped) < fm_min_length:
+                continue
+            if skip_prose and looks_like_prose(stripped, prose_min_words):
+                continue
+
+            entropy = shannon_entropy(stripped)
+            looks_base64 = bool(base64_re.match(stripped)) if base64_re else False
+
+            if looks_base64 or entropy >= min_entropy:
+                fm_line = frontmatter_key_line(ctx.parsed.raw_text, dotted_key.split(".")[-1])
+                findings.append(
+                    FindingCandidate(
+                        rule_id="",
+                        score=base_score,
+                        confidence=metadata["confidence"],
+                        title=metadata["title"],
+                        description=f"Frontmatter key '{dotted_key}' contains an opaque or encoded blob.",
+                        evidence=Evidence(
+                            path=str(ctx.parsed.file_path),
+                            line=fm_line,
+                            snippet=stripped[:120],
+                        ),
+                        recommendation=metadata["recommendation"],
+                    )
+                )
 
     return dedupe_candidates(findings) if do_dedupe else findings

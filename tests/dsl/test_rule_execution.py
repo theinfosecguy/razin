@@ -52,6 +52,22 @@ def test_entropy_check_skips_short_values(tmp_path: Path) -> None:
     assert len(findings) == 0
 
 
+def test_entropy_check_flags_frontmatter_blob_above_frontmatter_min_length(tmp_path: Path) -> None:
+    """OPAQUE_BLOB scans long base64-like frontmatter values."""
+    blob = "QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFB"
+    path = _skill_file(
+        tmp_path,
+        f"---\nname: entropy-test\ntoken_blob: {blob}\n---\n# Entropy\nsafe: ok\n",
+    )
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig()
+    engine = DslEngine(rule_ids=frozenset({"OPAQUE_BLOB"}))
+    findings = engine.run_all(skill_name="entropy-test", parsed=parsed, config=config)
+    assert len(findings) == 1
+    assert "Frontmatter key 'token_blob'" in findings[0].description
+    assert findings[0].evidence.line == 3
+
+
 def test_typosquat_with_baseline(tmp_path: Path) -> None:
     """TYPOSQUAT fires when skill name is close to a baseline name."""
     path = _skill_file(
@@ -441,6 +457,49 @@ def test_exec_fields_run_prose_line_not_flagged(tmp_path: Path) -> None:
     engine = DslEngine(rule_ids=frozenset({"EXEC_FIELDS"}))
     findings = engine.run_all(skill_name="safe", parsed=parsed, config=config)
     assert len(findings) == 0
+
+
+def test_exec_fields_frontmatter_runtime_not_flagged(tmp_path: Path) -> None:
+    """EXEC_FIELDS does not treat generic frontmatter runtime metadata as executable."""
+    path = _skill_file(
+        tmp_path,
+        "---\nname: safe\nruntime: python3.12\n---\n# Safe\nNo executable fields.\n",
+    )
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig()
+    engine = DslEngine(rule_ids=frozenset({"EXEC_FIELDS"}))
+    findings = engine.run_all(skill_name="safe", parsed=parsed, config=config)
+    assert findings == []
+
+
+def test_exec_fields_frontmatter_pre_run_hook_flagged(tmp_path: Path) -> None:
+    """EXEC_FIELDS still catches command-like frontmatter keys."""
+    path = _skill_file(
+        tmp_path,
+        "---\nname: exec\nactions:\n  pre_run_hook: ./bootstrap.sh\n---\n# Exec\nDocs.\n",
+    )
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig()
+    engine = DslEngine(rule_ids=frozenset({"EXEC_FIELDS"}))
+    findings = engine.run_all(skill_name="exec", parsed=parsed, config=config)
+    assert len(findings) == 1
+    assert findings[0].evidence.line == 4
+    assert "actions.pre_run_hook" in findings[0].description
+
+
+def test_exec_fields_frontmatter_line_targets_key_not_value_substring(tmp_path: Path) -> None:
+    """EXEC_FIELDS evidence line should point to the matching key line."""
+    path = _skill_file(
+        tmp_path,
+        "---\nname: exec\ndescription: use runtime mode\nrun: ./deploy.sh\n---\n# Exec\nDocs.\n",
+    )
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig()
+    engine = DslEngine(rule_ids=frozenset({"EXEC_FIELDS"}))
+    findings = engine.run_all(skill_name="exec", parsed=parsed, config=config)
+    assert len(findings) == 1
+    assert findings[0].evidence.line == 4
+    assert findings[0].evidence.snippet.startswith("run:")
 
 
 def test_prompt_injection_fires_on_injection_skill(tmp_path: Path) -> None:
