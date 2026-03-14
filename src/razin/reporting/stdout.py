@@ -9,6 +9,7 @@ from rich import box
 from rich.console import Console
 from rich.table import Table
 from rich.text import Text
+
 from razin.constants.branding import ASCII_LOGO_LINES, SCAN_SUMMARY_TITLE
 from razin.constants.reporting import (
     ANSI_GREEN,
