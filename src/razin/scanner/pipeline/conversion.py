@@ -235,6 +235,31 @@ def suppress_obfuscated_opaque_duplicates(candidates: list[FindingCandidate]) ->
     return kept
 
 
+def suppress_confusable_hidden_duplicates(candidates: list[FindingCandidate]) -> list[FindingCandidate]:
+    """Suppress HIDDEN_INSTRUCTION when CONFUSABLE_IDENTIFIER_EXTENDED covers the same evidence line.
+
+    When both rules fire on the same file path and line, the confusable-identifier
+    detector provides more specific mixed-script evidence and takes precedence.
+    """
+    confusable_lines: set[tuple[str, int | None]] = set()
+    for candidate in candidates:
+        if candidate.rule_id == "CONFUSABLE_IDENTIFIER_EXTENDED":
+            confusable_lines.add((candidate.evidence.path, candidate.evidence.line))
+    if not confusable_lines:
+        return candidates
+
+    kept: list[FindingCandidate] = []
+    for candidate in candidates:
+        if (
+            candidate.rule_id == "HIDDEN_INSTRUCTION"
+            and (candidate.evidence.path, candidate.evidence.line) in confusable_lines
+        ):
+            continue
+        kept.append(candidate)
+
+    return kept
+
+
 def deserialize_findings(payload: object) -> list[Finding]:
     """Deserialize cached finding payload dictionaries into Finding models."""
     if not isinstance(payload, list):

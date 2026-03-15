@@ -40,6 +40,7 @@ from razin.scanner.pipeline.conversion import (
     candidate_to_finding,
     deserialize_findings,
     suppress_bidi_hidden_duplicates,
+    suppress_confusable_hidden_duplicates,
     suppress_obfuscated_opaque_duplicates,
     suppress_redundant_candidates,
 )
@@ -277,6 +278,7 @@ def scan_workspace(
             logger.warning(warning)
         candidates = suppress_redundant_candidates(candidates)
         candidates = suppress_bidi_hidden_duplicates(candidates)
+        candidates = suppress_confusable_hidden_duplicates(candidates)
         candidates = suppress_obfuscated_opaque_duplicates(candidates)
 
         findings = [
