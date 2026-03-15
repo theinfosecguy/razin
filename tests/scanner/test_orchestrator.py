@@ -20,6 +20,7 @@ from razin.scanner.pipeline.conversion import (
     suppress_confusable_hidden_duplicates,
     suppress_obfuscated_opaque_duplicates,
     suppress_redundant_candidates,
+    suppress_remote_ref_domain_duplicates,
 )
 from razin.types import RuleOverrideConfig
 
@@ -590,3 +591,116 @@ def test_suppress_confusable_hidden_no_confusable_preserves_all() -> None:
 
     assert len(suppressed) == 1
     assert suppressed[0].rule_id == "HIDDEN_INSTRUCTION"
+
+
+def test_suppress_remote_ref_domain_same_line_removes_domain() -> None:
+    """NET_UNKNOWN_DOMAIN is suppressed when REMOTE_REFERENCE_RISK covers the same line."""
+    shared_evidence = Evidence(path="/tmp/SKILL.md", line=5, snippet="http://risky.io/config")
+    candidates = [
+        FindingCandidate(
+            rule_id="REMOTE_REFERENCE_RISK",
+            score=70,
+            confidence="medium",
+            title="Risky remote reference detected",
+            description="Insecure http:// to risky.io.",
+            evidence=shared_evidence,
+            recommendation="Use https://.",
+        ),
+        FindingCandidate(
+            rule_id="NET_UNKNOWN_DOMAIN",
+            score=55,
+            confidence="medium",
+            title="Unknown domain",
+            description="Domain not allowlisted.",
+            evidence=shared_evidence,
+            recommendation="Add to allowlist.",
+        ),
+    ]
+
+    suppressed = suppress_remote_ref_domain_duplicates(candidates)
+
+    assert len(suppressed) == 1
+    assert suppressed[0].rule_id == "REMOTE_REFERENCE_RISK"
+
+
+def test_suppress_remote_ref_domain_different_lines_preserves_both() -> None:
+    """Both findings are preserved when they are on different lines."""
+    remote_evidence = Evidence(path="/tmp/SKILL.md", line=5, snippet="http://risky.io")
+    domain_evidence = Evidence(path="/tmp/SKILL.md", line=10, snippet="unknown.io")
+    candidates = [
+        FindingCandidate(
+            rule_id="REMOTE_REFERENCE_RISK",
+            score=70,
+            confidence="medium",
+            title="Risky remote reference detected",
+            description="Insecure http://.",
+            evidence=remote_evidence,
+            recommendation="Use https://.",
+        ),
+        FindingCandidate(
+            rule_id="NET_UNKNOWN_DOMAIN",
+            score=55,
+            confidence="medium",
+            title="Unknown domain",
+            description="Domain not allowlisted.",
+            evidence=domain_evidence,
+            recommendation="Add to allowlist.",
+        ),
+    ]
+
+    suppressed = suppress_remote_ref_domain_duplicates(candidates)
+
+    assert len(suppressed) == 2
+    rule_ids = {c.rule_id for c in suppressed}
+    assert rule_ids == {"REMOTE_REFERENCE_RISK", "NET_UNKNOWN_DOMAIN"}
+
+
+def test_suppress_remote_ref_domain_no_remote_ref_preserves_all() -> None:
+    """No suppression occurs when REMOTE_REFERENCE_RISK is absent."""
+    evidence = Evidence(path="/tmp/SKILL.md", line=5, snippet="unknown.io")
+    candidates = [
+        FindingCandidate(
+            rule_id="NET_UNKNOWN_DOMAIN",
+            score=55,
+            confidence="medium",
+            title="Unknown domain",
+            description="Domain not allowlisted.",
+            evidence=evidence,
+            recommendation="Add to allowlist.",
+        ),
+    ]
+
+    suppressed = suppress_remote_ref_domain_duplicates(candidates)
+
+    assert len(suppressed) == 1
+    assert suppressed[0].rule_id == "NET_UNKNOWN_DOMAIN"
+
+
+def test_suppress_remote_ref_doc_domain_same_line() -> None:
+    """NET_DOC_DOMAIN is also suppressed when REMOTE_REFERENCE_RISK covers the same line."""
+    shared_evidence = Evidence(path="/tmp/SKILL.md", line=5, snippet="http://docs.risky.io")
+    candidates = [
+        FindingCandidate(
+            rule_id="REMOTE_REFERENCE_RISK",
+            score=70,
+            confidence="medium",
+            title="Risky remote reference detected",
+            description="Insecure http://.",
+            evidence=shared_evidence,
+            recommendation="Use https://.",
+        ),
+        FindingCandidate(
+            rule_id="NET_DOC_DOMAIN",
+            score=15,
+            confidence="low",
+            title="Doc domain",
+            description="Documentation domain found.",
+            evidence=shared_evidence,
+            recommendation="Review domain.",
+        ),
+    ]
+
+    suppressed = suppress_remote_ref_domain_duplicates(candidates)
+
+    assert len(suppressed) == 1
+    assert suppressed[0].rule_id == "REMOTE_REFERENCE_RISK"

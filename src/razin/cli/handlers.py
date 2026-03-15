@@ -94,9 +94,7 @@ def handle_init(args: argparse.Namespace) -> int:
         print(f"Analyzing scan output from {from_scan_dir}", file=sys.stderr)
         analysis = collect_domain_candidates_from_output(from_scan_dir)
         print(
-            "Found "
-            f"{analysis.findings_files_discovered} findings files; "
-            f"parsed {analysis.findings_files_loaded}.",
+            f"Found {analysis.findings_files_discovered} findings files; parsed {analysis.findings_files_loaded}.",
             file=sys.stderr,
         )
         print(

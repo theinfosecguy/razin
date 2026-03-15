@@ -236,7 +236,7 @@ def _non_https_candidate(endpoint: McpRemoteEndpoint) -> FindingCandidate:
         confidence="high",
         title="MCP remote endpoint uses HTTP",
         description=(
-            f"Referenced MCP server '{endpoint.server_name}' uses non-HTTPS endpoint " f"'{endpoint.endpoint_url}'."
+            f"Referenced MCP server '{endpoint.server_name}' uses non-HTTPS endpoint '{endpoint.endpoint_url}'."
         ),
         evidence=endpoint.evidence,
         recommendation="Use HTTPS for remote MCP endpoints and enforce TLS for transit security.",
@@ -251,7 +251,7 @@ def _raw_ip_candidate(endpoint: McpRemoteEndpoint) -> FindingCandidate:
         confidence="high",
         title="MCP remote endpoint uses public raw IP",
         description=(
-            f"Referenced MCP server '{endpoint.server_name}' uses public raw IP endpoint " f"'{endpoint.endpoint_url}'."
+            f"Referenced MCP server '{endpoint.server_name}' uses public raw IP endpoint '{endpoint.endpoint_url}'."
         ),
         evidence=endpoint.evidence,
         recommendation=("Replace raw IP endpoint with a managed domain and enforce endpoint identity controls."),
@@ -266,7 +266,7 @@ def _denylist_candidate(endpoint: McpRemoteEndpoint) -> FindingCandidate:
         confidence="high",
         title="MCP remote endpoint matches denylist",
         description=(
-            f"Referenced MCP server '{endpoint.server_name}' uses denylisted endpoint " f"'{endpoint.endpoint_url}'."
+            f"Referenced MCP server '{endpoint.server_name}' uses denylisted endpoint '{endpoint.endpoint_url}'."
         ),
         evidence=endpoint.evidence,
         recommendation="Remove denylisted endpoint and use approved MCP servers only.",

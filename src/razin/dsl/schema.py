@@ -80,8 +80,7 @@ def _validate_metadata(metadata: Any, path: str) -> None:
 
     if "classification" in metadata and metadata["classification"] not in VALID_CLASSIFICATIONS:
         raise DslSchemaError(
-            f"{path}: classification must be one of {sorted(VALID_CLASSIFICATIONS)}, "
-            f"got {metadata['classification']!r}"
+            f"{path}: classification must be one of {sorted(VALID_CLASSIFICATIONS)}, got {metadata['classification']!r}"
         )
 
     if "description" not in metadata and "description_template" not in metadata:

@@ -260,6 +260,32 @@ def suppress_confusable_hidden_duplicates(candidates: list[FindingCandidate]) ->
     return kept
 
 
+def suppress_remote_ref_domain_duplicates(candidates: list[FindingCandidate]) -> list[FindingCandidate]:
+    """Suppress NET_UNKNOWN_DOMAIN/NET_DOC_DOMAIN when REMOTE_REFERENCE_RISK covers the same evidence line.
+
+    When both rules fire on the same file path and line, the remote-reference
+    detector provides more specific risk-category evidence and takes precedence
+    over the general domain finding.
+    """
+    remote_ref_lines: set[tuple[str, int | None]] = set()
+    for candidate in candidates:
+        if candidate.rule_id == "REMOTE_REFERENCE_RISK":
+            remote_ref_lines.add((candidate.evidence.path, candidate.evidence.line))
+    if not remote_ref_lines:
+        return candidates
+
+    kept: list[FindingCandidate] = []
+    for candidate in candidates:
+        if (
+            candidate.rule_id in {"NET_UNKNOWN_DOMAIN", "NET_DOC_DOMAIN"}
+            and (candidate.evidence.path, candidate.evidence.line) in remote_ref_lines
+        ):
+            continue
+        kept.append(candidate)
+
+    return kept
+
+
 def deserialize_findings(payload: object) -> list[Finding]:
     """Deserialize cached finding payload dictionaries into Finding models."""
     if not isinstance(payload, list):

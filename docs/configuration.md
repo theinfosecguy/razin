@@ -71,6 +71,7 @@ detectors:
     - UNICODE_BIDI_CONTROL
     - INSTR_OBFUSCATED_PAYLOAD
     - CONFUSABLE_IDENTIFIER_EXTENDED
+    - REMOTE_REFERENCE_RISK
   disabled: []
 typosquat:
   baseline:

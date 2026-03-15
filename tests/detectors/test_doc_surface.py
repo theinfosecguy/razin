@@ -51,7 +51,7 @@ def test_mcp_endpoint_detector_respects_allowlist(tmp_path: Path) -> None:
     """MCP_ENDPOINT respects allowlist to suppress known-safe endpoints."""
     sample_file = tmp_path / "SKILL.md"
     sample_file.write_text(
-        "---\nname: endpoint-check\n---\n" "Use https://rube.app/mcp and https://evil.example.net/mcp\n",
+        "---\nname: endpoint-check\n---\nUse https://rube.app/mcp and https://evil.example.net/mcp\n",
         encoding="utf-8",
     )
     parsed = parse_skill_markdown_file(sample_file)
@@ -72,7 +72,7 @@ def test_mcp_denylist_detector_finds_blocked_endpoint(tmp_path: Path) -> None:
     """MCP_DENYLIST fires on denylisted endpoint domains."""
     sample_file = tmp_path / "SKILL.md"
     sample_file.write_text(
-        "---\nname: denylist-check\n---\n" "Endpoint: https://blocked.example.com/mcp\n",
+        "---\nname: denylist-check\n---\nEndpoint: https://blocked.example.com/mcp\n",
         encoding="utf-8",
     )
     parsed = parse_skill_markdown_file(sample_file)
@@ -92,7 +92,7 @@ def test_mcp_denylist_detector_wildcard_blocks_all_mcp_endpoints(tmp_path: Path)
     """MCP_DENYLIST with wildcard (*) blocks all MCP endpoints."""
     sample_file = tmp_path / "SKILL.md"
     sample_file.write_text(
-        "---\nname: wildcard-denylist\n---\n" "Endpoint: https://any.example.com/mcp\n",
+        "---\nname: wildcard-denylist\n---\nEndpoint: https://any.example.com/mcp\n",
         encoding="utf-8",
     )
     parsed = parse_skill_markdown_file(sample_file)
@@ -112,7 +112,7 @@ def test_tool_invocation_detector_honors_prefixes(tmp_path: Path) -> None:
     """Consolidated finding includes prefix-matched tokens."""
     sample_file = tmp_path / "SKILL.md"
     sample_file.write_text(
-        "---\nname: tool-check\n---\n" "Use RUBE_SEARCH and MCP_LIST_TOOLS and SOMETHING_ELSE.\n",
+        "---\nname: tool-check\n---\nUse RUBE_SEARCH and MCP_LIST_TOOLS and SOMETHING_ELSE.\n",
         encoding="utf-8",
     )
     parsed = parse_skill_markdown_file(sample_file)
@@ -135,7 +135,7 @@ def test_tool_invocation_detector_detects_service_tokens(tmp_path: Path) -> None
     """Service tokens are consolidated into a single finding."""
     sample_file = tmp_path / "SKILL.md"
     sample_file.write_text(
-        "---\nname: tool-check\n---\n" "Use SLACK_SEND_MESSAGE and STRIPE_CREATE_CHARGE and USE_THIS_FORMAT.\n",
+        "---\nname: tool-check\n---\nUse SLACK_SEND_MESSAGE and STRIPE_CREATE_CHARGE and USE_THIS_FORMAT.\n",
         encoding="utf-8",
     )
     parsed = parse_skill_markdown_file(sample_file)
@@ -156,7 +156,7 @@ def test_dynamic_schema_detector_is_low_confidence(tmp_path: Path) -> None:
     """DYNAMIC_SCHEMA produces low-confidence findings."""
     sample_file = tmp_path / "SKILL.md"
     sample_file.write_text(
-        "---\nname: schema-check\n---\n" "Before executing any tool, list tools and inspect schema first.\n",
+        "---\nname: schema-check\n---\nBefore executing any tool, list tools and inspect schema first.\n",
         encoding="utf-8",
     )
     parsed = parse_skill_markdown_file(sample_file)
@@ -173,7 +173,7 @@ def test_auth_connection_detector_needs_multiple_hints(tmp_path: Path) -> None:
     """AUTH_CONNECTION requires 2+ non-negated hints to fire."""
     sample_file = tmp_path / "SKILL.md"
     sample_file.write_text(
-        "---\nname: auth-check\n---\n" "Authenticate with API key and complete connection setup.\n",
+        "---\nname: auth-check\n---\nAuthenticate with API key and complete connection setup.\n",
         encoding="utf-8",
     )
     parsed = parse_skill_markdown_file(sample_file)
@@ -189,7 +189,7 @@ def test_backtick_mcp_url_detected(tmp_path: Path) -> None:
     """Backtick-wrapped MCP URL is detected by MCP_ENDPOINT."""
     f = _skill_file(
         tmp_path,
-        "---\nname: test\n---\n" "Add `https://evil.example.net/mcp` as an MCP server.\n",
+        "---\nname: test\n---\nAdd `https://evil.example.net/mcp` as an MCP server.\n",
     )
     parsed = parse_skill_markdown_file(f)
     detector = McpEndpointDetector()
@@ -203,7 +203,7 @@ def test_paren_mcp_url_detected(tmp_path: Path) -> None:
     """Markdown-link wrapped MCP URL is detected by MCP_ENDPOINT."""
     f = _skill_file(
         tmp_path,
-        "---\nname: test\n---\n" "See [MCP](https://evil.example.net/mcp) for details.\n",
+        "---\nname: test\n---\nSee [MCP](https://evil.example.net/mcp) for details.\n",
     )
     parsed = parse_skill_markdown_file(f)
     detector = McpEndpointDetector()
@@ -230,7 +230,7 @@ def test_affirmative_auth_still_fires(tmp_path: Path) -> None:
     """Genuine auth requirements trigger AUTH_CONNECTION."""
     f = _skill_file(
         tmp_path,
-        "---\nname: test\n---\n" "Authenticate with API key and complete connection setup.\n",
+        "---\nname: test\n---\nAuthenticate with API key and complete connection setup.\n",
     )
     parsed = parse_skill_markdown_file(f)
     detector = AuthConnectionDetector()
@@ -272,7 +272,7 @@ def test_strong_plus_weak_fires(tmp_path: Path) -> None:
     """'authenticate' (strong) + 'connection' (weak) should fire."""
     f = _skill_file(
         tmp_path,
-        "---\nname: test\n---\n" "You must authenticate before using the connection.\n",
+        "---\nname: test\n---\nYou must authenticate before using the connection.\n",
     )
     parsed = parse_skill_markdown_file(f)
     detector = AuthConnectionDetector()
@@ -285,7 +285,7 @@ def test_two_strong_hints_fires(tmp_path: Path) -> None:
     """Two strong hints ('oauth' + 'login') should fire."""
     f = _skill_file(
         tmp_path,
-        "---\nname: test\n---\n" "Complete OAuth login to proceed.\n",
+        "---\nname: test\n---\nComplete OAuth login to proceed.\n",
     )
     parsed = parse_skill_markdown_file(f)
     detector = AuthConnectionDetector()
@@ -297,7 +297,7 @@ def test_evidence_points_to_strong_hint_line(tmp_path: Path) -> None:
     """Evidence references the line with the strong auth hint."""
     f = _skill_file(
         tmp_path,
-        "---\nname: test\n---\n" "Pagination uses token cursors.\n" "You must authenticate with OAuth to proceed.\n",
+        "---\nname: test\n---\nPagination uses token cursors.\nYou must authenticate with OAuth to proceed.\n",
     )
     parsed = parse_skill_markdown_file(f)
     detector = AuthConnectionDetector()

@@ -168,7 +168,7 @@ def test_parse_skill_config_line_inside_code_block_stays_code_block(tmp_path: Pa
     """Key-value lines inside code blocks keep field_source='code_block'."""
     skill_md = tmp_path / "SKILL.md"
     skill_md.write_text(
-        "---\nname: sample\n---\n" "```\nwebhook: https://example.com/hook\n```\n",
+        "---\nname: sample\n---\n```\nwebhook: https://example.com/hook\n```\n",
         encoding="utf-8",
     )
 

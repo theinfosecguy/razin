@@ -285,7 +285,7 @@ def test_rule_overrides_invalid_max_severity_returns_cfg006(tmp_path: Path) -> N
     """Invalid max_severity value is rejected."""
     _write_config(
         tmp_path,
-        "rule_overrides:\n" "  MCP_REQUIRED:\n" "    max_severity: critical\n",
+        "rule_overrides:\n  MCP_REQUIRED:\n    max_severity: critical\n",
     )
     errors = validate_config_file(tmp_path)
     assert any(e.code == CFG006 and "max_severity" in e.field for e in errors)
@@ -295,7 +295,7 @@ def test_rule_overrides_unknown_subkey_returns_cfg004(tmp_path: Path) -> None:
     """Unknown keys under a rule override are rejected."""
     _write_config(
         tmp_path,
-        "rule_overrides:\n" "  MCP_REQUIRED:\n" "    toggle: false\n",
+        "rule_overrides:\n  MCP_REQUIRED:\n    toggle: false\n",
     )
     errors = validate_config_file(tmp_path)
     assert any(e.code == CFG004 and "rule_overrides.MCP_REQUIRED.toggle" in e.field for e in errors)
@@ -305,7 +305,7 @@ def test_rule_overrides_invalid_enabled_type_returns_cfg005(tmp_path: Path) -> N
     """Non-boolean `enabled` values are rejected."""
     _write_config(
         tmp_path,
-        "rule_overrides:\n" "  MCP_REQUIRED:\n" "    enabled: maybe\n",
+        "rule_overrides:\n  MCP_REQUIRED:\n    enabled: maybe\n",
     )
     errors = validate_config_file(tmp_path)
     assert any(e.code == CFG005 and "rule_overrides.MCP_REQUIRED.enabled" in e.field for e in errors)
@@ -315,7 +315,7 @@ def test_rule_overrides_invalid_min_severity_returns_cfg006(tmp_path: Path) -> N
     """Invalid min_severity value is rejected."""
     _write_config(
         tmp_path,
-        "rule_overrides:\n" "  SECRET_REF:\n" "    min_severity: critical\n",
+        "rule_overrides:\n  SECRET_REF:\n    min_severity: critical\n",
     )
     errors = validate_config_file(tmp_path)
     assert any(e.code == CFG006 and "min_severity" in e.field for e in errors)
@@ -325,7 +325,7 @@ def test_rule_overrides_contradictory_bounds_returns_cfg008(tmp_path: Path) -> N
     """min_severity > max_severity is rejected."""
     _write_config(
         tmp_path,
-        "rule_overrides:\n" "  MCP_REQUIRED:\n" "    min_severity: high\n" "    max_severity: low\n",
+        "rule_overrides:\n  MCP_REQUIRED:\n    min_severity: high\n    max_severity: low\n",
     )
     errors = validate_config_file(tmp_path)
     assert any(e.code == CFG008 and e.field == "rule_overrides.MCP_REQUIRED" for e in errors)

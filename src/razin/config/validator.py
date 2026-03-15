@@ -537,7 +537,7 @@ def _validate_rule_override_severity(
                 path=path_str,
                 field=f"rule_overrides.{rule_id}.{key}",
                 message=f"invalid value for `{key}`",
-                hint=(f"expected one of: {', '.join(sorted(RULE_OVERRIDE_ALLOWED_SEVERITIES))}; " f"got: {severity!r}"),
+                hint=(f"expected one of: {', '.join(sorted(RULE_OVERRIDE_ALLOWED_SEVERITIES))}; got: {severity!r}"),
             )
         )
         return None

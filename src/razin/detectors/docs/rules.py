@@ -275,7 +275,7 @@ class DynamicSchemaDetector(Detector):
                     score=DYNAMIC_SCHEMA_SCORE,
                     confidence="low",
                     title="Dynamic schema discovery guidance",
-                    description=("Docs suggest discovering tools/schema at runtime before " "execution."),
+                    description=("Docs suggest discovering tools/schema at runtime before execution."),
                     evidence=evidence,
                     recommendation=("Review runtime-discovery flows and pin trusted schemas where possible."),
                 )
@@ -323,9 +323,7 @@ class AuthConnectionDetector(Detector):
                 title="Auth/connection requirements in docs",
                 description="Docs include authentication or connection setup requirements.",
                 evidence=evidence,
-                recommendation=(
-                    "Validate auth flows, secret handling, and connection " "policies before enabling skill."
-                ),
+                recommendation=("Validate auth flows, secret handling, and connection policies before enabling skill."),
             )
         ]
 

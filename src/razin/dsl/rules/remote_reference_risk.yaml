@@ -1,0 +1,14 @@
+rule_id: REMOTE_REFERENCE_RISK
+version: 1
+metadata:
+  title: "Risky remote reference detected"
+  description: "Skill contains remote reference patterns that may indicate insecure fetching, unsafe URI schemes, URL shorteners obscuring destinations, or fetch-and-apply instruction patterns."
+  recommendation: "Replace insecure http:// with https://, remove unsafe URI schemes, use full transparent URLs instead of shorteners, and avoid fetch-and-execute patterns in skill instructions."
+  confidence: medium
+scoring:
+  base_score: 62
+match:
+  source: raw_text
+  strategy: remote_reference_scan
+  min_signals: 1
+dedupe: false

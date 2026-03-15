@@ -291,7 +291,7 @@ def _validate_rule_metadata(
                 path=path_str,
                 field="metadata.confidence",
                 message="invalid confidence value",
-                hint=(f"expected one of: {', '.join(sorted(VALID_CONFIDENCES))}; " f"got: {metadata['confidence']!r}"),
+                hint=(f"expected one of: {', '.join(sorted(VALID_CONFIDENCES))}; got: {metadata['confidence']!r}"),
             )
         )
 
@@ -303,8 +303,7 @@ def _validate_rule_metadata(
                 field="metadata.classification",
                 message="invalid classification value",
                 hint=(
-                    f"expected one of: {', '.join(sorted(VALID_CLASSIFICATIONS))}; "
-                    f"got: {metadata['classification']!r}"
+                    f"expected one of: {', '.join(sorted(VALID_CLASSIFICATIONS))}; got: {metadata['classification']!r}"
                 ),
             )
         )
@@ -390,7 +389,7 @@ def _validate_rule_match(
                 path=path_str,
                 field="match.source",
                 message="invalid match source",
-                hint=(f"expected one of: {', '.join(sorted(VALID_SOURCES))}; " f"got: {match['source']!r}"),
+                hint=(f"expected one of: {', '.join(sorted(VALID_SOURCES))}; got: {match['source']!r}"),
             )
         )
 
@@ -410,7 +409,7 @@ def _validate_rule_match(
                 path=path_str,
                 field="match.strategy",
                 message="invalid match strategy",
-                hint=(f"expected one of: {', '.join(sorted(VALID_STRATEGIES))}; " f"got: {match['strategy']!r}"),
+                hint=(f"expected one of: {', '.join(sorted(VALID_STRATEGIES))}; got: {match['strategy']!r}"),
             )
         )
 
