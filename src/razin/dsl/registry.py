@@ -14,6 +14,7 @@ from razin.dsl.operations.filesystem import run_bundled_scripts_check
 from razin.dsl.operations.frontmatter import run_frontmatter_check
 from razin.dsl.operations.hidden_instructions import run_hidden_instruction_scan
 from razin.dsl.operations.ip_entropy import run_entropy_check, run_ip_address_scan
+from razin.dsl.operations.payload_decode import run_payload_decode_scan
 from razin.dsl.operations.text_match import (
     run_field_pattern_match,
     run_hint_count,
@@ -39,4 +40,5 @@ OP_REGISTRY: dict[str, Any] = {
     "hidden_instruction_scan": run_hidden_instruction_scan,
     "data_sensitivity_check": run_data_sensitivity_check,
     "bidi_control_scan": run_bidi_control_scan,
+    "payload_decode_scan": run_payload_decode_scan,
 }
