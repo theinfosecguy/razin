@@ -248,6 +248,63 @@ NON_SECRET_ENV_OPERATORS: frozenset[str] = frozenset(
     }
 )
 
+OBFUSCATED_PAYLOAD_SCORE: int = 78
+
+OBFUSCATED_BASE64_MIN_LENGTH: int = 20
+
+OBFUSCATED_HEX_MIN_LENGTH: int = 16
+
+OBFUSCATED_MAX_DECODE_LENGTH: int = 4096
+
+OBFUSCATED_MAX_CANDIDATES_PER_FILE: int = 50
+
+OBFUSCATED_BASE64_RE: Pattern[str] = re.compile(
+    r"[A-Za-z0-9+/\-_]{20,}={0,2}",
+)
+
+OBFUSCATED_HEX_RE: Pattern[str] = re.compile(
+    r"(?:0x)?(?:[0-9A-Fa-f]{2}){8,}",
+)
+
+OBFUSCATED_UNICODE_ESCAPE_RE: Pattern[str] = re.compile(
+    r"(?:\\u[0-9A-Fa-f]{4}){4,}",
+)
+
+OBFUSCATED_INJECTION_STRONG_HINTS: tuple[str, ...] = (
+    "ignore previous instructions",
+    "ignore all instructions",
+    "disregard instructions",
+    "disregard previous",
+    "override instructions",
+    "override previous",
+    "inject instructions",
+    "exfiltrate data",
+    "exfiltrate information",
+    "send data to",
+    "upload data to",
+    "bypass security",
+    "bypass restrictions",
+    "bypass safety",
+    "hidden instruction",
+    "system prompt override",
+)
+
+OBFUSCATED_INJECTION_WEAK_HINTS: tuple[str, ...] = (
+    "do not reveal",
+    "do not disclose",
+    "you are now",
+    "pretend you are",
+    "act as if",
+    "keep this secret",
+    "keep this hidden",
+    "never mention",
+    "never reveal",
+    "secretly",
+    "covertly",
+    "without telling",
+    "without the user knowing",
+)
+
 # Secret-like keywords that, when found in an env-var name, confirm it as
 # a genuine secret reference.
 SECRET_ENV_KEYWORDS: tuple[str, ...] = (

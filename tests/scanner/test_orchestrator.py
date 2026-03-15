@@ -17,6 +17,7 @@ from razin.scanner.pipeline.conversion import (
     candidate_to_finding,
     deserialize_findings,
     suppress_bidi_hidden_duplicates,
+    suppress_obfuscated_opaque_duplicates,
     suppress_redundant_candidates,
 )
 from razin.types import RuleOverrideConfig
@@ -424,3 +425,84 @@ def test_suppress_bidi_hidden_no_bidi_finding_preserves_all() -> None:
 
     assert len(suppressed) == 1
     assert suppressed[0].rule_id == "HIDDEN_INSTRUCTION"
+
+
+def test_suppress_obfuscated_opaque_same_line_removes_opaque() -> None:
+    """OPAQUE_BLOB is suppressed when INSTR_OBFUSCATED_PAYLOAD covers the same line."""
+    shared_evidence = Evidence(path="/tmp/SKILL.md", line=5, snippet="encoded blob")
+    candidates = [
+        FindingCandidate(
+            rule_id="INSTR_OBFUSCATED_PAYLOAD",
+            score=78,
+            confidence="high",
+            title="Obfuscated payload",
+            description="Base64 decodes to injection hints.",
+            evidence=shared_evidence,
+            recommendation="Review encoded content.",
+        ),
+        FindingCandidate(
+            rule_id="OPAQUE_BLOB",
+            score=54,
+            confidence="medium",
+            title="Opaque blob",
+            description="High-entropy value.",
+            evidence=shared_evidence,
+            recommendation="Replace opaque blobs.",
+        ),
+    ]
+
+    suppressed = suppress_obfuscated_opaque_duplicates(candidates)
+
+    assert len(suppressed) == 1
+    assert suppressed[0].rule_id == "INSTR_OBFUSCATED_PAYLOAD"
+
+
+def test_suppress_obfuscated_opaque_different_lines_preserves_both() -> None:
+    """Both findings are preserved when they are on different lines."""
+    obfuscated_evidence = Evidence(path="/tmp/SKILL.md", line=5, snippet="encoded")
+    opaque_evidence = Evidence(path="/tmp/SKILL.md", line=10, snippet="blob")
+    candidates = [
+        FindingCandidate(
+            rule_id="INSTR_OBFUSCATED_PAYLOAD",
+            score=78,
+            confidence="high",
+            title="Obfuscated payload",
+            description="Base64 injection.",
+            evidence=obfuscated_evidence,
+            recommendation="Review encoded content.",
+        ),
+        FindingCandidate(
+            rule_id="OPAQUE_BLOB",
+            score=54,
+            confidence="medium",
+            title="Opaque blob",
+            description="High-entropy value.",
+            evidence=opaque_evidence,
+            recommendation="Replace opaque blobs.",
+        ),
+    ]
+
+    suppressed = suppress_obfuscated_opaque_duplicates(candidates)
+
+    assert len(suppressed) == 2
+
+
+def test_suppress_obfuscated_opaque_no_obfuscated_preserves_all() -> None:
+    """No suppression occurs when INSTR_OBFUSCATED_PAYLOAD is absent."""
+    evidence = Evidence(path="/tmp/SKILL.md", line=5, snippet="blob")
+    candidates = [
+        FindingCandidate(
+            rule_id="OPAQUE_BLOB",
+            score=54,
+            confidence="medium",
+            title="Opaque blob",
+            description="High-entropy value.",
+            evidence=evidence,
+            recommendation="Replace opaque blobs.",
+        ),
+    ]
+
+    suppressed = suppress_obfuscated_opaque_duplicates(candidates)
+
+    assert len(suppressed) == 1
+    assert suppressed[0].rule_id == "OPAQUE_BLOB"

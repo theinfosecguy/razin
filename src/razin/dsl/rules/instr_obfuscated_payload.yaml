@@ -1,0 +1,17 @@
+rule_id: INSTR_OBFUSCATED_PAYLOAD
+version: 1
+metadata:
+  title: "Obfuscated instruction payload detected"
+  description: "Skill contains encoded text that decodes to prompt-injection or exfiltration patterns."
+  recommendation: "Decode and review suspicious payloads. Replace encoded content with clear, unobfuscated instructions."
+  confidence: high
+scoring:
+  base_score: 78
+match:
+  source: raw_text
+  strategy: payload_decode_scan
+  max_candidates: 50
+  max_decode_length: 4096
+  min_hint_matches: 2
+  require_strong: true
+dedupe: false

@@ -210,6 +210,31 @@ def suppress_bidi_hidden_duplicates(candidates: list[FindingCandidate]) -> list[
     return kept
 
 
+def suppress_obfuscated_opaque_duplicates(candidates: list[FindingCandidate]) -> list[FindingCandidate]:
+    """Suppress OPAQUE_BLOB when INSTR_OBFUSCATED_PAYLOAD covers the same evidence line.
+
+    When both rules fire on the same file path and line, the obfuscated-payload
+    detector provides more specific decoded-content evidence and takes precedence.
+    """
+    obfuscated_lines: set[tuple[str, int | None]] = set()
+    for candidate in candidates:
+        if candidate.rule_id == "INSTR_OBFUSCATED_PAYLOAD":
+            obfuscated_lines.add((candidate.evidence.path, candidate.evidence.line))
+    if not obfuscated_lines:
+        return candidates
+
+    kept: list[FindingCandidate] = []
+    for candidate in candidates:
+        if (
+            candidate.rule_id == "OPAQUE_BLOB"
+            and (candidate.evidence.path, candidate.evidence.line) in obfuscated_lines
+        ):
+            continue
+        kept.append(candidate)
+
+    return kept
+
+
 def deserialize_findings(payload: object) -> list[Finding]:
     """Deserialize cached finding payload dictionaries into Finding models."""
     if not isinstance(payload, list):
