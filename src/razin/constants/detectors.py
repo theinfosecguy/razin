@@ -340,3 +340,65 @@ CONFUSABLE_FRONTMATTER_KEYS: frozenset[str] = frozenset(
         "requires",
     }
 )
+
+REMOTE_REF_BASE_SCORE: int = 62
+
+REMOTE_REF_INSECURE_SCHEME_BOOST: int = 8
+
+REMOTE_REF_UNSAFE_SCHEME_SCORE: int = 72
+
+REMOTE_REF_SHORTENER_SCORE: int = 68
+
+REMOTE_REF_FETCH_APPLY_SCORE: int = 74
+
+REMOTE_REF_ANY_URI_RE: Pattern[str] = re.compile(
+    r"\b(?:data|javascript|vbscript|ftp|file|gopher|telnet|ldap):[^\s\"'<>]+",
+    re.IGNORECASE,
+)
+
+REMOTE_REF_HTTP_URL_RE: Pattern[str] = re.compile(
+    r"https?://[^\s\"'<>]+",
+    re.IGNORECASE,
+)
+
+REMOTE_REF_SHORTENER_DOMAINS: frozenset[str] = frozenset(
+    {
+        "bit.ly",
+        "t.co",
+        "goo.gl",
+        "tinyurl.com",
+        "ow.ly",
+        "is.gd",
+        "buff.ly",
+        "rebrand.ly",
+        "cutt.ly",
+        "shorturl.at",
+        "tiny.cc",
+        "lnkd.in",
+        "rb.gy",
+    }
+)
+
+REMOTE_REF_FETCH_APPLY_HINTS: tuple[str, ...] = (
+    "download and execute",
+    "download and run",
+    "fetch and execute",
+    "fetch and run",
+    "fetch config from",
+    "fetch configuration from",
+    "load instructions from",
+    "load config from",
+    "pull instructions from",
+    "pull config from",
+    "source instructions from",
+    "import instructions from",
+    "execute from url",
+    "execute from remote",
+    "run script from",
+    "eval remote",
+    "curl | sh",
+    "curl | bash",
+    "wget | sh",
+    "wget | bash",
+    "pipe to shell",
+)
