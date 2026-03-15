@@ -1203,9 +1203,7 @@ def test_confusable_identifier_multiple_signals(tmp_path: Path) -> None:
     """CONFUSABLE_IDENTIFIER_EXTENDED summary includes multiple distinct signals."""
     # Two different confusable tokens on different lines
     content = (
-        "---\nname: multi-confusable\n---\n# Multi\n"
-        "Run \u0430dmin-tool first.\n"
-        "Then use s\u0435rver-check.\n"
+        "---\nname: multi-confusable\n---\n# Multi\n" "Run \u0430dmin-tool first.\n" "Then use s\u0435rver-check.\n"
     )
     path = _skill_file(tmp_path, content)
     parsed = parse_skill_markdown_file(path)
