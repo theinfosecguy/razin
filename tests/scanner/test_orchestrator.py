@@ -16,6 +16,7 @@ from razin.scanner.pipeline.config_resolution import (
 from razin.scanner.pipeline.conversion import (
     candidate_to_finding,
     deserialize_findings,
+    suppress_bidi_hidden_duplicates,
     suppress_redundant_candidates,
 )
 from razin.types import RuleOverrideConfig
@@ -340,3 +341,86 @@ def test_resolve_rule_sources_sorts_rule_files(tmp_path: Path) -> None:
 
     assert resolved_dir is None
     assert resolved_files == tuple(sorted((first.resolve(), second.resolve())))
+
+
+def test_suppress_bidi_hidden_same_line_removes_hidden_instruction() -> None:
+    """HIDDEN_INSTRUCTION is suppressed when UNICODE_BIDI_CONTROL covers the same line."""
+    shared_evidence = Evidence(path="/tmp/SKILL.md", line=5, snippet="text with bidi")
+    candidates = [
+        FindingCandidate(
+            rule_id="UNICODE_BIDI_CONTROL",
+            score=85,
+            confidence="high",
+            title="Bidi control detected",
+            description="Bidi override found.",
+            evidence=shared_evidence,
+            recommendation="Remove bidi controls.",
+        ),
+        FindingCandidate(
+            rule_id="HIDDEN_INSTRUCTION",
+            score=90,
+            confidence="high",
+            title="Hidden instruction detected",
+            description="Zero-width chars found.",
+            evidence=shared_evidence,
+            recommendation="Remove hidden instructions.",
+        ),
+    ]
+
+    suppressed = suppress_bidi_hidden_duplicates(candidates)
+
+    assert len(suppressed) == 1
+    assert suppressed[0].rule_id == "UNICODE_BIDI_CONTROL"
+
+
+def test_suppress_bidi_hidden_different_lines_preserves_both() -> None:
+    """Both findings are preserved when they are on different lines."""
+    bidi_evidence = Evidence(path="/tmp/SKILL.md", line=5, snippet="bidi text")
+    hidden_evidence = Evidence(path="/tmp/SKILL.md", line=10, snippet="hidden text")
+    candidates = [
+        FindingCandidate(
+            rule_id="UNICODE_BIDI_CONTROL",
+            score=85,
+            confidence="high",
+            title="Bidi control detected",
+            description="Bidi override found.",
+            evidence=bidi_evidence,
+            recommendation="Remove bidi controls.",
+        ),
+        FindingCandidate(
+            rule_id="HIDDEN_INSTRUCTION",
+            score=90,
+            confidence="high",
+            title="Hidden instruction detected",
+            description="Zero-width chars found.",
+            evidence=hidden_evidence,
+            recommendation="Remove hidden instructions.",
+        ),
+    ]
+
+    suppressed = suppress_bidi_hidden_duplicates(candidates)
+
+    assert len(suppressed) == 2
+    rule_ids = {c.rule_id for c in suppressed}
+    assert rule_ids == {"UNICODE_BIDI_CONTROL", "HIDDEN_INSTRUCTION"}
+
+
+def test_suppress_bidi_hidden_no_bidi_finding_preserves_all() -> None:
+    """No suppression occurs when UNICODE_BIDI_CONTROL is absent."""
+    evidence = Evidence(path="/tmp/SKILL.md", line=5, snippet="hidden text")
+    candidates = [
+        FindingCandidate(
+            rule_id="HIDDEN_INSTRUCTION",
+            score=90,
+            confidence="high",
+            title="Hidden instruction detected",
+            description="Zero-width chars found.",
+            evidence=evidence,
+            recommendation="Remove hidden instructions.",
+        ),
+    ]
+
+    suppressed = suppress_bidi_hidden_duplicates(candidates)
+
+    assert len(suppressed) == 1
+    assert suppressed[0].rule_id == "HIDDEN_INSTRUCTION"
