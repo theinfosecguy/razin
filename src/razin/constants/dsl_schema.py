@@ -17,6 +17,7 @@ VALID_STRATEGIES: frozenset[str] = frozenset(
         "bundled_scripts_check",
         "hidden_instruction_scan",
         "data_sensitivity_check",
+        "bidi_control_scan",
     }
 )
 

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from razin.dsl.operations.bidi_control import run_bidi_control_scan
 from razin.dsl.operations.data_sensitivity import run_data_sensitivity_check
 from razin.dsl.operations.filesystem import run_bundled_scripts_check
 from razin.dsl.operations.frontmatter import run_frontmatter_check
@@ -37,4 +38,5 @@ OP_REGISTRY: dict[str, Any] = {
     "bundled_scripts_check": run_bundled_scripts_check,
     "hidden_instruction_scan": run_hidden_instruction_scan,
     "data_sensitivity_check": run_data_sensitivity_check,
+    "bidi_control_scan": run_bidi_control_scan,
 }

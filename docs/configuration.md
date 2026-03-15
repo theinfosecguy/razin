@@ -68,6 +68,7 @@ detectors:
     - DATA_SENSITIVITY
     - PROMPT_INJECTION
     - HIDDEN_INSTRUCTION
+    - UNICODE_BIDI_CONTROL
   disabled: []
 typosquat:
   baseline:

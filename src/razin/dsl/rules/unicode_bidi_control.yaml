@@ -1,0 +1,14 @@
+rule_id: UNICODE_BIDI_CONTROL
+version: 1
+metadata:
+  title: "Unicode bidirectional control characters detected"
+  description: "Skill contains Unicode bidi override or isolate controls that can make displayed text differ from how parsers interpret it (Trojan Source risk)."
+  recommendation: "Remove bidirectional control characters unless required for legitimate multilingual content. Review affected lines for hidden intent."
+  confidence: high
+scoring:
+  base_score: 85
+match:
+  source: raw_text
+  strategy: bidi_control_scan
+  min_signals: 1
+dedupe: false
