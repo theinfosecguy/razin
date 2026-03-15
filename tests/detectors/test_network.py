@@ -17,7 +17,7 @@ def test_unknown_domain_detector_respects_allowlist_and_denylist(tmp_path: Path)
     """Allowlisted domains are suppressed; denylisted domains score higher."""
     sample_file = tmp_path / "SKILL.md"
     sample_file.write_text(
-        "---\nname: sample-skill\n---\n" "```\nhttps://evil.attacker.io/v1\nhttps://api.openai.com/v1\n```\n",
+        "---\nname: sample-skill\n---\n```\nhttps://evil.attacker.io/v1\nhttps://api.openai.com/v1\n```\n",
         encoding="utf-8",
     )
     parsed = parse_skill_markdown_file(sample_file)
@@ -46,7 +46,7 @@ def test_raw_ip_detector_handles_ipv6(tmp_path: Path) -> None:
     """NET_RAW_IP handles IPv6 addresses in endpoint fields."""
     sample_file = tmp_path / "SKILL.md"
     sample_file.write_text(
-        "---\nname: ipv6-skill\n---\n" "endpoint: http://[2001:db8::1]/hook\n",
+        "---\nname: ipv6-skill\n---\nendpoint: http://[2001:db8::1]/hook\n",
         encoding="utf-8",
     )
     parsed = parse_skill_markdown_file(sample_file)
@@ -83,7 +83,7 @@ def test_localhost_not_suppressed_strict(tmp_path: Path) -> None:
     """Localhost is not suppressed in strict profile."""
     f = _skill_file(
         tmp_path,
-        "---\nname: test\n---\n" "```\nhttp://localhost:3000/api\n```\n",
+        "---\nname: test\n---\n```\nhttp://localhost:3000/api\n```\n",
     )
     parsed = parse_skill_markdown_file(f)
     detector = NetUnknownDomainDetector()
@@ -96,7 +96,7 @@ def test_real_domain_not_suppressed(tmp_path: Path) -> None:
     """Real unknown domains are not suppressed in balanced mode."""
     f = _skill_file(
         tmp_path,
-        "---\nname: test\n---\n" "```\nhttps://evil.attacker.io/v1\n```\n",
+        "---\nname: test\n---\n```\nhttps://evil.attacker.io/v1\n```\n",
     )
     parsed = parse_skill_markdown_file(f)
     detector = NetUnknownDomainDetector()
@@ -108,7 +108,7 @@ def test_github_suppressed_by_default_allowlist(tmp_path: Path) -> None:
     """github.com is in the default allowlist and is suppressed."""
     f = _skill_file(
         tmp_path,
-        "---\nname: test\n---\n" "See https://github.com/example/repo for docs.\n",
+        "---\nname: test\n---\nSee https://github.com/example/repo for docs.\n",
     )
     parsed = parse_skill_markdown_file(f)
     detector = NetUnknownDomainDetector()
@@ -120,7 +120,7 @@ def test_ignore_default_allowlist_reenables_github_signal(tmp_path: Path) -> Non
     """Ignoring default allowlist re-enables github.com signal."""
     f = _skill_file(
         tmp_path,
-        "---\nname: test\n---\n" "```\nhttps://github.com/example/repo\n```\n",
+        "---\nname: test\n---\n```\nhttps://github.com/example/repo\n```\n",
     )
     parsed = parse_skill_markdown_file(f)
     detector = NetUnknownDomainDetector()

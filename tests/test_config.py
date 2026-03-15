@@ -198,7 +198,7 @@ def test_default_allowlist_applies_when_not_ignored() -> None:
 def test_load_config_merges_custom_allowlist_with_defaults(tmp_path: Path) -> None:
     config_path = tmp_path / "razin.yaml"
     config_path.write_text(
-        "allowlist_domains:\n" "  - internal.example.com\n",
+        "allowlist_domains:\n  - internal.example.com\n",
         encoding="utf-8",
     )
 
@@ -212,7 +212,7 @@ def test_load_config_merges_custom_allowlist_with_defaults(tmp_path: Path) -> No
 def test_load_config_can_ignore_default_allowlist(tmp_path: Path) -> None:
     config_path = tmp_path / "razin.yaml"
     config_path.write_text(
-        "ignore_default_allowlist: true\n" "allowlist_domains:\n" "  - internal.example.com\n",
+        "ignore_default_allowlist: true\nallowlist_domains:\n  - internal.example.com\n",
         encoding="utf-8",
     )
 
@@ -236,7 +236,7 @@ def test_load_config_reads_custom_tool_tier_keywords(tmp_path: Path) -> None:
     """Custom tool tier keywords from razin.yaml override defaults."""
     config_path = tmp_path / "razin.yaml"
     config_path.write_text(
-        "tool_tier_keywords:\n" "  destructive:\n" "    - LAUNCH\n" "    - NUKE\n" "  write:\n" "    - DEPLOY\n",
+        "tool_tier_keywords:\n  destructive:\n    - LAUNCH\n    - NUKE\n  write:\n    - DEPLOY\n",
         encoding="utf-8",
     )
 
@@ -250,7 +250,7 @@ def test_load_config_tool_tier_keywords_partial_override(tmp_path: Path) -> None
     """Providing only destructive keywords keeps write defaults."""
     config_path = tmp_path / "razin.yaml"
     config_path.write_text(
-        "tool_tier_keywords:\n" "  destructive:\n" "    - OBLITERATE\n",
+        "tool_tier_keywords:\n  destructive:\n    - OBLITERATE\n",
         encoding="utf-8",
     )
 
@@ -326,7 +326,7 @@ def test_load_config_rejects_invalid_rule_override_severity(tmp_path: Path) -> N
     """Invalid rule_overrides.max_severity raises ConfigError."""
     config_path = tmp_path / "razin.yaml"
     config_path.write_text(
-        "rule_overrides:\n" "  MCP_REQUIRED:\n" "    max_severity: critical\n",
+        "rule_overrides:\n  MCP_REQUIRED:\n    max_severity: critical\n",
         encoding="utf-8",
     )
 
@@ -338,7 +338,7 @@ def test_load_config_rejects_invalid_rule_override_min_severity(tmp_path: Path) 
     """Invalid rule_overrides.min_severity raises ConfigError."""
     config_path = tmp_path / "razin.yaml"
     config_path.write_text(
-        "rule_overrides:\n" "  MCP_REQUIRED:\n" "    min_severity: critical\n",
+        "rule_overrides:\n  MCP_REQUIRED:\n    min_severity: critical\n",
         encoding="utf-8",
     )
 
@@ -350,7 +350,7 @@ def test_load_config_rejects_invalid_rule_override_enabled(tmp_path: Path) -> No
     """Invalid rule_overrides.enabled raises ConfigError."""
     config_path = tmp_path / "razin.yaml"
     config_path.write_text(
-        "rule_overrides:\n" "  MCP_REQUIRED:\n" "    enabled: nope\n",
+        "rule_overrides:\n  MCP_REQUIRED:\n    enabled: nope\n",
         encoding="utf-8",
     )
 
@@ -362,7 +362,7 @@ def test_load_config_rejects_contradictory_rule_override_bounds(tmp_path: Path) 
     """min_severity higher than max_severity is rejected."""
     config_path = tmp_path / "razin.yaml"
     config_path.write_text(
-        "rule_overrides:\n" "  MCP_REQUIRED:\n" "    min_severity: high\n" "    max_severity: low\n",
+        "rule_overrides:\n  MCP_REQUIRED:\n    min_severity: high\n    max_severity: low\n",
         encoding="utf-8",
     )
 

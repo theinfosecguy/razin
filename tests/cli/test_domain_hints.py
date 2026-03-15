@@ -102,10 +102,10 @@ def test_scan_emits_hints_for_dominant_net_doc_and_mcp(
     captured = capsys.readouterr()
     assert code == 0
     assert (
-        "hint: composio.dev appeared in 2/3 NET_DOC_DOMAIN findings; " "consider allowlist_domains in razin.yaml"
+        "hint: composio.dev appeared in 2/3 NET_DOC_DOMAIN findings; consider allowlist_domains in razin.yaml"
     ) in captured.err
     assert (
-        "hint: rube.app appeared in 2/3 MCP_ENDPOINT findings; " "consider mcp_allowlist_domains in razin.yaml"
+        "hint: rube.app appeared in 2/3 MCP_ENDPOINT findings; consider mcp_allowlist_domains in razin.yaml"
     ) in captured.err
 
 

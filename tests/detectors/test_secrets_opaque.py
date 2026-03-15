@@ -96,7 +96,7 @@ def test_dollar_add_operator_not_flagged(tmp_path: Path) -> None:
     """$add is an API operator, not a secret."""
     f = _skill_file(
         tmp_path,
-        "---\nname: test\n---\n" 'Use "$add": {"login_count": 1} to increment the counter.\n',
+        '---\nname: test\n---\nUse "$add": {"login_count": 1} to increment the counter.\n',
     )
     parsed = parse_skill_markdown_file(f)
     detector = SecretRefDetector()
@@ -108,7 +108,7 @@ def test_dollar_set_operator_not_flagged(tmp_path: Path) -> None:
     """$set and $setOnce are API operators, not secrets."""
     f = _skill_file(
         tmp_path,
-        "---\nname: test\n---\n" "$set overwrites existing values; $setOnce only sets if not already set.\n",
+        "---\nname: test\n---\n$set overwrites existing values; $setOnce only sets if not already set.\n",
     )
     parsed = parse_skill_markdown_file(f)
     detector = SecretRefDetector()

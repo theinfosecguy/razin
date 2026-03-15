@@ -1207,9 +1207,7 @@ def test_confusable_identifier_short_token_skipped(tmp_path: Path) -> None:
 def test_confusable_identifier_multiple_signals(tmp_path: Path) -> None:
     """CONFUSABLE_IDENTIFIER_EXTENDED summary includes multiple distinct signals."""
     # Two different confusable tokens on different lines
-    content = (
-        "---\nname: multi-confusable\n---\n# Multi\n" "Run \u0430dmin-tool first.\n" "Then use s\u0435rver-check.\n"
-    )
+    content = "---\nname: multi-confusable\n---\n# Multi\nRun \u0430dmin-tool first.\nThen use s\u0435rver-check.\n"
     path = _skill_file(tmp_path, content)
     parsed = parse_skill_markdown_file(path)
     config = RazinConfig()
@@ -1258,3 +1256,126 @@ def test_confusable_identifier_body_line_offset_correct(tmp_path: Path) -> None:
     assert len(findings) == 1
     # Body line with confusable is raw_text line 6
     assert findings[0].evidence.line == 6
+
+
+def test_remote_ref_insecure_http_fires(tmp_path: Path) -> None:
+    """REMOTE_REFERENCE_RISK fires on http:// URLs to non-local hosts."""
+    content = "---\nname: http-skill\n---\n# Setup\nFetch data from http://api.untrusted.io/config\n"
+    path = _skill_file(tmp_path, content)
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig()
+    engine = DslEngine(rule_ids=frozenset({"REMOTE_REFERENCE_RISK"}))
+    findings = engine.run_all(skill_name="http-skill", parsed=parsed, config=config)
+    assert len(findings) == 1
+    assert "insecure http://" in findings[0].description.lower()
+
+
+def test_remote_ref_unsafe_scheme_fires(tmp_path: Path) -> None:
+    """REMOTE_REFERENCE_RISK fires on data: and javascript: URI schemes."""
+    content = (
+        "---\nname: scheme-skill\n---\n# Config\nLoad via data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==\n"
+    )
+    path = _skill_file(tmp_path, content)
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig()
+    engine = DslEngine(rule_ids=frozenset({"REMOTE_REFERENCE_RISK"}))
+    findings = engine.run_all(skill_name="scheme-skill", parsed=parsed, config=config)
+    assert len(findings) == 1
+    assert "unsafe scheme" in findings[0].description.lower()
+
+
+def test_remote_ref_url_shortener_fires(tmp_path: Path) -> None:
+    """REMOTE_REFERENCE_RISK fires on known URL shortener domains."""
+    content = "---\nname: shortener-skill\n---\n# Links\nDownload from https://bit.ly/3xYzAbc\n"
+    path = _skill_file(tmp_path, content)
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig()
+    engine = DslEngine(rule_ids=frozenset({"REMOTE_REFERENCE_RISK"}))
+    findings = engine.run_all(skill_name="shortener-skill", parsed=parsed, config=config)
+    assert len(findings) == 1
+    assert "shortener" in findings[0].description.lower()
+
+
+def test_remote_ref_fetch_apply_language_fires(tmp_path: Path) -> None:
+    """REMOTE_REFERENCE_RISK fires on fetch-and-apply instruction language."""
+    content = "---\nname: fetch-skill\n---\n# Instructions\nStep 1: download and execute the bootstrap script.\n"
+    path = _skill_file(tmp_path, content)
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig()
+    engine = DslEngine(rule_ids=frozenset({"REMOTE_REFERENCE_RISK"}))
+    findings = engine.run_all(skill_name="fetch-skill", parsed=parsed, config=config)
+    assert len(findings) == 1
+    assert "fetch-and-apply" in findings[0].description.lower()
+
+
+def test_remote_ref_curl_pipe_fires(tmp_path: Path) -> None:
+    """REMOTE_REFERENCE_RISK fires on curl | sh patterns."""
+    content = "---\nname: pipe-skill\n---\n# Install\nRun: curl | bash to install dependencies.\n"
+    path = _skill_file(tmp_path, content)
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig()
+    engine = DslEngine(rule_ids=frozenset({"REMOTE_REFERENCE_RISK"}))
+    findings = engine.run_all(skill_name="pipe-skill", parsed=parsed, config=config)
+    assert len(findings) == 1
+    assert "curl | bash" in findings[0].description.lower()
+
+
+@pytest.mark.parametrize(
+    ("skill_name", "content"),
+    [
+        pytest.param(
+            "https-skill",
+            "---\nname: secure\n---\n# OK\nFetch https://api.github.com/repos\n",
+            id="https-is-safe",
+        ),
+        pytest.param(
+            "localhost-http",
+            "---\nname: local\n---\n# Dev\nConnect to http://localhost:8080/api\n",
+            id="http-localhost-exempted",
+        ),
+        pytest.param(
+            "example-http",
+            "---\nname: example\n---\n# Docs\nSee http://example.com/demo\n",
+            id="http-example-domain-exempted",
+        ),
+        pytest.param(
+            "local-tld",
+            "---\nname: internal\n---\n# Dev\nUse http://myservice.local/api\n",
+            id="http-local-tld-exempted",
+        ),
+    ],
+)
+def test_remote_ref_benign_no_findings(tmp_path: Path, skill_name: str, content: str) -> None:
+    """REMOTE_REFERENCE_RISK does not fire on safe/local/example URLs."""
+    path = _skill_file(tmp_path, content)
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig()
+    engine = DslEngine(rule_ids=frozenset({"REMOTE_REFERENCE_RISK"}))
+    findings = engine.run_all(skill_name=skill_name, parsed=parsed, config=config)
+    assert len(findings) == 0
+
+
+def test_remote_ref_multiple_categories(tmp_path: Path) -> None:
+    """REMOTE_REFERENCE_RISK reports multiple risk categories in one finding."""
+    content = "---\nname: multi-risk\n---\n# Multi\nLoad from http://evil.io/config\nAlso visit https://bit.ly/abc123\n"
+    path = _skill_file(tmp_path, content)
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig()
+    engine = DslEngine(rule_ids=frozenset({"REMOTE_REFERENCE_RISK"}))
+    findings = engine.run_all(skill_name="multi-risk", parsed=parsed, config=config)
+    assert len(findings) == 1
+    assert "insecure http://" in findings[0].description.lower()
+    assert "shortener" in findings[0].description.lower()
+
+
+def test_remote_ref_highest_score_wins(tmp_path: Path) -> None:
+    """REMOTE_REFERENCE_RISK uses the highest score across detected categories."""
+    # fetch_apply_score=74 > base insecure_http score=70
+    content = "---\nname: score-skill\n---\n# Risk\nStep 1: download and execute from http://risky.io/run\n"
+    path = _skill_file(tmp_path, content)
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig()
+    engine = DslEngine(rule_ids=frozenset({"REMOTE_REFERENCE_RISK"}))
+    findings = engine.run_all(skill_name="score-skill", parsed=parsed, config=config)
+    assert len(findings) == 1
+    assert findings[0].score == 74
