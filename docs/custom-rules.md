@@ -65,6 +65,7 @@ Required:
   - `bidi_control_scan`
   - `payload_decode_scan`
   - `data_sensitivity_check`
+  - `confusable_identifier_scan`
 
 ## Source and strategy matrix
 
@@ -74,7 +75,7 @@ The engine validates allowed `source` values and `strategy` values. In practice,
 | --- | --- | --- |
 | `fields` | `url_domain_filter`, `ip_address_scan`, `field_pattern_match`, `entropy_check`, `token_scan` | URLs, IPs, regex patterns, entropy, token scans in parsed fields |
 | `keys` | `key_pattern_match` | key-name pattern checks |
-| `raw_text` | `hint_count`, `keyword_in_text`, `hidden_instruction_scan`, `bidi_control_scan`, `payload_decode_scan`, `data_sensitivity_check` | prose-level pattern detection |
+| `raw_text` | `hint_count`, `keyword_in_text`, `hidden_instruction_scan`, `bidi_control_scan`, `payload_decode_scan`, `data_sensitivity_check`, `confusable_identifier_scan` | prose-level pattern detection |
 | `frontmatter` | `frontmatter_check`, `typosquat_check` | frontmatter requirements and name similarity checks |
 | `file_system` | `bundled_scripts_check` | presence checks for bundled scripts |
 

@@ -70,6 +70,7 @@ detectors:
     - HIDDEN_INSTRUCTION
     - UNICODE_BIDI_CONTROL
     - INSTR_OBFUSCATED_PAYLOAD
+    - CONFUSABLE_IDENTIFIER_EXTENDED
   disabled: []
 typosquat:
   baseline:

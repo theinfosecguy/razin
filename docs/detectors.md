@@ -46,7 +46,7 @@ Classification is additive metadata and does not change rule execution.
 
 ## Bundled public rule IDs
 
-Razin currently ships **22** public rule IDs.
+Razin currently ships **23** public rule IDs.
 
 | Rule ID | Classification | Score behavior | Confidence | Input surface | Matching logic |
 | --- | --- | --- | --- | --- | --- |
@@ -72,6 +72,7 @@ Razin currently ships **22** public rule IDs.
 | `TYPOSQUAT` | security | 76 | medium | frontmatter + derived names | Levenshtein-based similarity check against baseline (`max_distance: 2`, `min_name_length: 5`). |
 | `UNICODE_BIDI_CONTROL` | security | 85 base, +7 in code fences, +5 for unpaired overrides | high | raw text | Detects Unicode bidi override/isolate controls (U+202A–U+202E, U+2066–U+2069) indicating Trojan Source risk. |
 | `INSTR_OBFUSCATED_PAYLOAD` | security | 78 | high | raw text | Decodes base64 (including URL-safe), hex, and unicode-escape blocks with strong/weak hint matching (`min_hint_matches: 2`, `require_strong: true`). |
+| `CONFUSABLE_IDENTIFIER_EXTENDED` | security | 72 base, +5 if frontmatter signal | high | raw text + frontmatter | Mixed-script confusable identifier detection across frontmatter values, body identifiers, and URL hostnames. Deduplicates tokens across surfaces. |
 
 ## Detector behavior details
 
@@ -100,6 +101,7 @@ Razin currently ships **22** public rule IDs.
 - `HIDDEN_INSTRUCTION` detects hidden text vectors not visible in normal markdown rendering.
 - `UNICODE_BIDI_CONTROL` detects bidirectional override and isolate control characters that can make displayed text differ from parsed text (Trojan Source). It does not flag legitimate Arabic/Hebrew script content that does not use explicit bidi overrides. When both `UNICODE_BIDI_CONTROL` and `HIDDEN_INSTRUCTION` fire on the same evidence line, the more specific bidi finding suppresses the hidden-instruction finding.
 - `INSTR_OBFUSCATED_PAYLOAD` decodes base64 (standard and URL-safe), hex, and unicode-escape blocks bounded by length and candidate budget limits. Decoded content is checked against strong and weak injection hint lists; at least 2 total hint matches with at least 1 strong hint are required by default. Benign encoded content matching only a single weak hint does not trigger. When both `INSTR_OBFUSCATED_PAYLOAD` and `OPAQUE_BLOB` fire on the same evidence line, the obfuscated-payload finding suppresses the opaque-blob finding.
+- `CONFUSABLE_IDENTIFIER_EXTENDED` detects mixed-script confusable identifiers across three surfaces: frontmatter values (name, tool, server, etc.), body text identifiers, and URL hostnames. Tokens must mix ASCII with confusable-range characters (Cyrillic, Greek, Letterlike Symbols, Fullwidth Forms) and meet a minimum length of 3 characters. Evidence snippets annotate confusable characters with their Unicode codepoints and names. Frontmatter signals add a +5 score boost. When both `CONFUSABLE_IDENTIFIER_EXTENDED` and `HIDDEN_INSTRUCTION` fire on the same evidence line, the confusable-identifier finding suppresses the hidden-instruction finding.
 
 ### Typosquat baseline behavior
 
