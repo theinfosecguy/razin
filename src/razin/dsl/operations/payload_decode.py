@@ -12,7 +12,8 @@ from razin.constants.detectors import (
     OBFUSCATED_BASE64_RE,
     OBFUSCATED_HEX_MIN_LENGTH,
     OBFUSCATED_HEX_RE,
-    OBFUSCATED_INJECTION_HINTS,
+    OBFUSCATED_INJECTION_STRONG_HINTS,
+    OBFUSCATED_INJECTION_WEAK_HINTS,
     OBFUSCATED_MAX_CANDIDATES_PER_FILE,
     OBFUSCATED_MAX_DECODE_LENGTH,
     OBFUSCATED_UNICODE_ESCAPE_RE,
@@ -34,33 +35,37 @@ def run_payload_decode_scan(
     raw = ctx.parsed.raw_text
     max_candidates: int = match_config.get("max_candidates", OBFUSCATED_MAX_CANDIDATES_PER_FILE)
     max_decode_len: int = match_config.get("max_decode_length", OBFUSCATED_MAX_DECODE_LENGTH)
-    injection_hints: tuple[str, ...] = tuple(match_config.get("injection_hints", OBFUSCATED_INJECTION_HINTS))
-    min_hint_matches: int = match_config.get("min_hint_matches", 1)
+    strong_hints: tuple[str, ...] = tuple(match_config.get("strong_hints", OBFUSCATED_INJECTION_STRONG_HINTS))
+    weak_hints: tuple[str, ...] = tuple(match_config.get("weak_hints", OBFUSCATED_INJECTION_WEAK_HINTS))
+    min_hint_matches: int = match_config.get("min_hint_matches", 2)
+    require_strong: bool = match_config.get("require_strong", True)
 
     candidates: list[_DecodedCandidate] = []
-    candidates.extend(_extract_base64_candidates(raw, max_decode_len))
-    candidates.extend(_extract_hex_candidates(raw, max_decode_len))
-    candidates.extend(_extract_unicode_escape_candidates(raw, max_decode_len))
-
-    if len(candidates) > max_candidates:
-        candidates = candidates[:max_candidates]
+    budget = max_candidates
+    budget = _extract_base64_candidates(raw, max_decode_len, budget, candidates)
+    budget = _extract_hex_candidates(raw, max_decode_len, budget, candidates)
+    _extract_unicode_escape_candidates(raw, max_decode_len, budget, candidates)
 
     findings: list[FindingCandidate] = []
     seen_lines: set[int] = set()
 
     for candidate in candidates:
-        matched_hints = _match_injection_hints(candidate.decoded, injection_hints)
-        if len(matched_hints) < min_hint_matches:
+        matched_strong = _match_injection_hints(candidate.decoded, strong_hints)
+        matched_weak = _match_injection_hints(candidate.decoded, weak_hints)
+        total_matched = matched_strong + matched_weak
+        if len(total_matched) < min_hint_matches:
+            continue
+        if require_strong and not matched_strong:
             continue
 
         if candidate.line in seen_lines:
             continue
         seen_lines.add(candidate.line)
 
-        snippet = _render_evidence_snippet(candidate.encoding, candidate.encoded_preview, matched_hints)
-        hint_summary = "; ".join(matched_hints[:3])
-        if len(matched_hints) > 3:
-            hint_summary += f" (+{len(matched_hints) - 3} more)"
+        snippet = _render_evidence_snippet(candidate.encoding, candidate.encoded_preview, total_matched)
+        hint_summary = "; ".join(total_matched[:3])
+        if len(total_matched) > 3:
+            hint_summary += f" (+{len(total_matched) - 3} more)"
 
         description = metadata.get("description", "")
         description = (
@@ -105,10 +110,11 @@ def _line_number_at_offset(text: str, offset: int) -> int:
     return text[:offset].count("\n") + 1
 
 
-def _extract_base64_candidates(text: str, max_decode_len: int) -> list[_DecodedCandidate]:
-    """Find base64-like blocks in text and attempt decoding."""
-    results: list[_DecodedCandidate] = []
+def _extract_base64_candidates(text: str, max_decode_len: int, budget: int, out: list[_DecodedCandidate]) -> int:
+    """Find base64-like blocks in text and attempt decoding within budget."""
     for match in OBFUSCATED_BASE64_RE.finditer(text):
+        if budget <= 0:
+            break
         raw_match = match.group(0)
         if len(raw_match) < OBFUSCATED_BASE64_MIN_LENGTH:
             continue
@@ -116,7 +122,7 @@ def _extract_base64_candidates(text: str, max_decode_len: int) -> list[_DecodedC
         if decoded is None:
             continue
         line = _line_number_at_offset(text, match.start())
-        results.append(
+        out.append(
             _DecodedCandidate(
                 encoding="base64",
                 line=line,
@@ -124,13 +130,15 @@ def _extract_base64_candidates(text: str, max_decode_len: int) -> list[_DecodedC
                 decoded=decoded,
             )
         )
-    return results
+        budget -= 1
+    return budget
 
 
-def _extract_hex_candidates(text: str, max_decode_len: int) -> list[_DecodedCandidate]:
-    """Find hex-encoded blocks in text and attempt decoding."""
-    results: list[_DecodedCandidate] = []
+def _extract_hex_candidates(text: str, max_decode_len: int, budget: int, out: list[_DecodedCandidate]) -> int:
+    """Find hex-encoded blocks in text and attempt decoding within budget."""
     for match in OBFUSCATED_HEX_RE.finditer(text):
+        if budget <= 0:
+            break
         raw_match = match.group(0)
         hex_body = raw_match.removeprefix("0x")
         if len(hex_body) < OBFUSCATED_HEX_MIN_LENGTH:
@@ -139,7 +147,7 @@ def _extract_hex_candidates(text: str, max_decode_len: int) -> list[_DecodedCand
         if decoded is None:
             continue
         line = _line_number_at_offset(text, match.start())
-        results.append(
+        out.append(
             _DecodedCandidate(
                 encoding="hex",
                 line=line,
@@ -147,19 +155,23 @@ def _extract_hex_candidates(text: str, max_decode_len: int) -> list[_DecodedCand
                 decoded=decoded,
             )
         )
-    return results
+        budget -= 1
+    return budget
 
 
-def _extract_unicode_escape_candidates(text: str, max_decode_len: int) -> list[_DecodedCandidate]:
-    """Find unicode escape sequences in text and attempt decoding."""
-    results: list[_DecodedCandidate] = []
+def _extract_unicode_escape_candidates(
+    text: str, max_decode_len: int, budget: int, out: list[_DecodedCandidate]
+) -> int:
+    """Find unicode escape sequences in text and attempt decoding within budget."""
     for match in OBFUSCATED_UNICODE_ESCAPE_RE.finditer(text):
+        if budget <= 0:
+            break
         raw_match = match.group(0)
         decoded = _try_unicode_escape_decode(raw_match, max_decode_len)
         if decoded is None:
             continue
         line = _line_number_at_offset(text, match.start())
-        results.append(
+        out.append(
             _DecodedCandidate(
                 encoding="unicode-escape",
                 line=line,
@@ -167,22 +179,24 @@ def _extract_unicode_escape_candidates(text: str, max_decode_len: int) -> list[_
                 decoded=decoded,
             )
         )
-    return results
+        budget -= 1
+    return budget
 
 
 def _try_base64_decode(value: str, max_len: int) -> str | None:
-    """Attempt base64 decoding; return decoded UTF-8 text or None."""
-    try:
-        padded = value + "=" * (-len(value) % 4)
-        raw_bytes = base64.b64decode(padded, validate=True)
-        if len(raw_bytes) > max_len:
-            return None
-        decoded = raw_bytes.decode("utf-8", errors="strict")
-    except (binascii.Error, ValueError, UnicodeDecodeError):
-        return None
-    if not _looks_like_text(decoded):
-        return None
-    return decoded
+    """Attempt standard and URL-safe base64 decoding; return decoded UTF-8 text or None."""
+    padded = value + "=" * (-len(value) % 4)
+    for decoder in (base64.b64decode, base64.urlsafe_b64decode):
+        try:
+            raw_bytes = decoder(padded)
+            if len(raw_bytes) > max_len:
+                return None
+            decoded = raw_bytes.decode("utf-8", errors="strict")
+        except (binascii.Error, ValueError, UnicodeDecodeError):
+            continue
+        if _looks_like_text(decoded):
+            return decoded
+    return None
 
 
 def _try_hex_decode(hex_str: str, max_len: int) -> str | None:

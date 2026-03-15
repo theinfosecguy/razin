@@ -12,5 +12,6 @@ match:
   strategy: payload_decode_scan
   max_candidates: 50
   max_decode_length: 4096
-  min_hint_matches: 1
+  min_hint_matches: 2
+  require_strong: true
 dedupe: false

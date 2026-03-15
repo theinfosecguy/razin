@@ -259,7 +259,7 @@ OBFUSCATED_MAX_DECODE_LENGTH: int = 4096
 OBFUSCATED_MAX_CANDIDATES_PER_FILE: int = 50
 
 OBFUSCATED_BASE64_RE: Pattern[str] = re.compile(
-    r"[A-Za-z0-9+/]{20,}={0,2}",
+    r"[A-Za-z0-9+/\-_]{20,}={0,2}",
 )
 
 OBFUSCATED_HEX_RE: Pattern[str] = re.compile(
@@ -270,7 +270,7 @@ OBFUSCATED_UNICODE_ESCAPE_RE: Pattern[str] = re.compile(
     r"(?:\\u[0-9A-Fa-f]{4}){4,}",
 )
 
-OBFUSCATED_INJECTION_HINTS: tuple[str, ...] = (
+OBFUSCATED_INJECTION_STRONG_HINTS: tuple[str, ...] = (
     "ignore previous instructions",
     "ignore all instructions",
     "disregard instructions",
@@ -278,8 +278,6 @@ OBFUSCATED_INJECTION_HINTS: tuple[str, ...] = (
     "override instructions",
     "override previous",
     "inject instructions",
-    "do not reveal",
-    "do not disclose",
     "exfiltrate data",
     "exfiltrate information",
     "send data to",
@@ -289,6 +287,11 @@ OBFUSCATED_INJECTION_HINTS: tuple[str, ...] = (
     "bypass safety",
     "hidden instruction",
     "system prompt override",
+)
+
+OBFUSCATED_INJECTION_WEAK_HINTS: tuple[str, ...] = (
+    "do not reveal",
+    "do not disclose",
     "you are now",
     "pretend you are",
     "act as if",
