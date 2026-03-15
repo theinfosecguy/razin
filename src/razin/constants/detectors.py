@@ -319,3 +319,24 @@ SECRET_ENV_KEYWORDS: tuple[str, ...] = (
     "api_key",
     "apikey",
 )
+
+CONFUSABLE_IDENTIFIER_TOKEN_RE: Pattern[str] = re.compile(
+    r"\b[A-Za-z\u0370-\u03FF\u0400-\u04FF\u2100-\u214F\uFF00-\uFFEF]"
+    r"[A-Za-z0-9_.\-\u0370-\u03FF\u0400-\u04FF\u2100-\u214F\uFF00-\uFFEF]{2,}\b",
+)
+
+CONFUSABLE_IDENTIFIER_MIN_LENGTH: int = 3
+
+CONFUSABLE_FRONTMATTER_KEYS: frozenset[str] = frozenset(
+    {
+        "name",
+        "tool",
+        "tools",
+        "service",
+        "server",
+        "command",
+        "script",
+        "exec",
+        "requires",
+    }
+)
