@@ -39,6 +39,7 @@ from razin.scanner.pipeline.config_resolution import (
 from razin.scanner.pipeline.conversion import (
     candidate_to_finding,
     deserialize_findings,
+    suppress_bidi_hidden_duplicates,
     suppress_redundant_candidates,
 )
 from razin.scanner.pipeline.rule_selection import (
@@ -274,6 +275,7 @@ def scan_workspace(
             warnings.append(warning)
             logger.warning(warning)
         candidates = suppress_redundant_candidates(candidates)
+        candidates = suppress_bidi_hidden_duplicates(candidates)
 
         findings = [
             candidate_to_finding(

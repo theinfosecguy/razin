@@ -185,6 +185,31 @@ def suppress_redundant_candidates(candidates: list[FindingCandidate]) -> list[Fi
     return kept
 
 
+def suppress_bidi_hidden_duplicates(candidates: list[FindingCandidate]) -> list[FindingCandidate]:
+    """Suppress HIDDEN_INSTRUCTION when UNICODE_BIDI_CONTROL covers the same evidence line.
+
+    When both rules fire on the same file path and line, the more specific
+    bidi detector takes precedence. Findings on different lines are preserved.
+    """
+    bidi_lines: set[tuple[str, int | None]] = set()
+    for candidate in candidates:
+        if candidate.rule_id == "UNICODE_BIDI_CONTROL":
+            bidi_lines.add((candidate.evidence.path, candidate.evidence.line))
+    if not bidi_lines:
+        return candidates
+
+    kept: list[FindingCandidate] = []
+    for candidate in candidates:
+        if (
+            candidate.rule_id == "HIDDEN_INSTRUCTION"
+            and (candidate.evidence.path, candidate.evidence.line) in bidi_lines
+        ):
+            continue
+        kept.append(candidate)
+
+    return kept
+
+
 def deserialize_findings(payload: object) -> list[Finding]:
     """Deserialize cached finding payload dictionaries into Finding models."""
     if not isinstance(payload, list):
