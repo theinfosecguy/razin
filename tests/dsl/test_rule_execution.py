@@ -1077,3 +1077,181 @@ def test_obfuscated_payload_budget_limits_decode_attempts(tmp_path: Path) -> Non
     engine = DslEngine(rule_ids=frozenset({"INSTR_OBFUSCATED_PAYLOAD"}))
     findings = engine.run_all(skill_name="budget-skill", parsed=parsed, config=config)
     assert len(findings) <= 10
+
+
+def test_confusable_identifier_cyrillic_frontmatter_fires(tmp_path: Path) -> None:
+    """CONFUSABLE_IDENTIFIER_EXTENDED fires when Cyrillic chars appear in frontmatter name."""
+    # \u0430 = Cyrillic 'a', visually identical to Latin 'a'
+    content = "---\nname: \u0430dmin-tool\n---\n# Tool\nA helper skill.\n"
+    path = _skill_file(tmp_path, content)
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig()
+    engine = DslEngine(rule_ids=frozenset({"CONFUSABLE_IDENTIFIER_EXTENDED"}))
+    findings = engine.run_all(skill_name="confusable-skill", parsed=parsed, config=config)
+    assert len(findings) == 1
+    assert findings[0].confidence == "high"
+    assert "confusable" in findings[0].description.lower()
+
+
+def test_confusable_identifier_greek_body_fires(tmp_path: Path) -> None:
+    """CONFUSABLE_IDENTIFIER_EXTENDED fires when Greek chars mix with Latin in body text."""
+    # \u03bf = Greek omicron, visually similar to Latin 'o'
+    content = "---\nname: greek-skill\n---\n# Body\nUse the t\u03bfol MCP_FETCH to download.\n"
+    path = _skill_file(tmp_path, content)
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig()
+    engine = DslEngine(rule_ids=frozenset({"CONFUSABLE_IDENTIFIER_EXTENDED"}))
+    findings = engine.run_all(skill_name="greek-skill", parsed=parsed, config=config)
+    assert len(findings) == 1
+    assert findings[0].confidence == "high"
+
+
+def test_confusable_identifier_url_hostname_fires(tmp_path: Path) -> None:
+    """CONFUSABLE_IDENTIFIER_EXTENDED fires when URL hostname contains confusable chars."""
+    # \u0430 = Cyrillic 'a' in hostname
+    content = "---\nname: url-skill\n---\n# URLs\nFetch from https://\u0430pi.example.com/data\n"
+    path = _skill_file(tmp_path, content)
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig()
+    engine = DslEngine(rule_ids=frozenset({"CONFUSABLE_IDENTIFIER_EXTENDED"}))
+    findings = engine.run_all(skill_name="url-skill", parsed=parsed, config=config)
+    assert len(findings) == 1
+    assert "confusable" in findings[0].description.lower()
+
+
+@pytest.mark.parametrize(
+    ("skill_name", "content"),
+    [
+        pytest.param(
+            "ascii-skill",
+            "---\nname: my-tool\n---\n# Tool\nA pure ASCII skill with no confusables.\n",
+            id="pure-ascii",
+        ),
+        pytest.param(
+            "multilingual-skill",
+            "---\nname: doc-helper\n---\n# \u30c9\u30ad\u30e5\u30e1\u30f3\u30c8\n\u3053\u306e\u30b9\u30ad\u30eb\u306f\u65e5\u672c\u8a9e\u306e\u30c9\u30ad\u30e5\u30e1\u30f3\u30c8\u3092\u751f\u6210\u3057\u307e\u3059\u3002\n",
+            id="benign-japanese",
+        ),
+        pytest.param(
+            "cyrillic-only",
+            "---\nname: \u043f\u0440\u0438\u043c\u0435\u0440\n---\n# \u041f\u0440\u0438\u043c\u0435\u0440\n\u042d\u0442\u043e \u043f\u043e\u043b\u043d\u043e\u0441\u0442\u044c\u044e \u043a\u0438\u0440\u0438\u043b\u043b\u0438\u0447\u0435\u0441\u043a\u0438\u0439 \u0442\u0435\u043a\u0441\u0442.\n",
+            id="pure-cyrillic-no-ascii-mix",
+        ),
+    ],
+)
+def test_confusable_identifier_benign_no_findings(tmp_path: Path, skill_name: str, content: str) -> None:
+    """CONFUSABLE_IDENTIFIER_EXTENDED does not fire on benign content."""
+    path = _skill_file(tmp_path, content)
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig()
+    engine = DslEngine(rule_ids=frozenset({"CONFUSABLE_IDENTIFIER_EXTENDED"}))
+    findings = engine.run_all(skill_name=skill_name, parsed=parsed, config=config)
+    assert len(findings) == 0
+
+
+def test_confusable_identifier_frontmatter_score_boost(tmp_path: Path) -> None:
+    """CONFUSABLE_IDENTIFIER_EXTENDED scores higher when frontmatter contains confusables."""
+    # Frontmatter signal should add +5 to base_score of 72
+    content = "---\nname: \u0430dmin-tool\n---\n# Tool\nA helper skill.\n"
+    path = _skill_file(tmp_path, content)
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig()
+    engine = DslEngine(rule_ids=frozenset({"CONFUSABLE_IDENTIFIER_EXTENDED"}))
+    findings = engine.run_all(skill_name="boost-skill", parsed=parsed, config=config)
+    assert len(findings) == 1
+    assert findings[0].score == 77
+
+
+def test_confusable_identifier_evidence_rendering(tmp_path: Path) -> None:
+    """CONFUSABLE_IDENTIFIER_EXTENDED evidence snippet annotates confusable chars."""
+    # \u0430 = Cyrillic 'a' → should appear as [U+0430 ...]
+    content = "---\nname: \u0430dmin-tool\n---\n# Evidence\nA skill.\n"
+    path = _skill_file(tmp_path, content)
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig()
+    engine = DslEngine(rule_ids=frozenset({"CONFUSABLE_IDENTIFIER_EXTENDED"}))
+    findings = engine.run_all(skill_name="evidence-skill", parsed=parsed, config=config)
+    assert len(findings) == 1
+    assert "[U+0430" in findings[0].evidence.snippet
+
+
+def test_confusable_identifier_dedup_across_surfaces(tmp_path: Path) -> None:
+    """CONFUSABLE_IDENTIFIER_EXTENDED deduplicates the same confusable token across surfaces."""
+    # Same token in frontmatter and body should produce one finding
+    content = "---\nname: \u0430dmin\n---\n# Body\nUse \u0430dmin to manage.\n"
+    path = _skill_file(tmp_path, content)
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig()
+    engine = DslEngine(rule_ids=frozenset({"CONFUSABLE_IDENTIFIER_EXTENDED"}))
+    findings = engine.run_all(skill_name="dedup-skill", parsed=parsed, config=config)
+    assert len(findings) == 1
+
+
+def test_confusable_identifier_short_token_skipped(tmp_path: Path) -> None:
+    """CONFUSABLE_IDENTIFIER_EXTENDED skips tokens shorter than min_length."""
+    # \u0430b = only 2 chars, below default min_length of 3
+    content = "---\nname: short-test\n---\n# Short\nUse \u0430b for tasks.\n"
+    path = _skill_file(tmp_path, content)
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig()
+    engine = DslEngine(rule_ids=frozenset({"CONFUSABLE_IDENTIFIER_EXTENDED"}))
+    findings = engine.run_all(skill_name="short-skill", parsed=parsed, config=config)
+    assert len(findings) == 0
+
+
+def test_confusable_identifier_multiple_signals(tmp_path: Path) -> None:
+    """CONFUSABLE_IDENTIFIER_EXTENDED summary includes multiple distinct signals."""
+    # Two different confusable tokens on different lines
+    content = (
+        "---\nname: multi-confusable\n---\n# Multi\n"
+        "Run \u0430dmin-tool first.\n"
+        "Then use s\u0435rver-check.\n"
+    )
+    path = _skill_file(tmp_path, content)
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig()
+    engine = DslEngine(rule_ids=frozenset({"CONFUSABLE_IDENTIFIER_EXTENDED"}))
+    findings = engine.run_all(skill_name="multi-skill", parsed=parsed, config=config)
+    assert len(findings) == 1
+    # Description summary should mention both tokens
+    assert "\u0430dmin" in findings[0].description
+    assert "s\u0435rver" in findings[0].description
+
+
+def test_confusable_identifier_non_allowlisted_frontmatter_key_no_finding(tmp_path: Path) -> None:
+    """CONFUSABLE_IDENTIFIER_EXTENDED ignores confusables in non-allowlisted frontmatter keys."""
+    # 'description' is not in CONFUSABLE_FRONTMATTER_KEYS, so this should not fire
+    content = "---\nname: safe-tool\ndescription: Use \u0430dmin-tool safely\n---\n# Body\nClean content here.\n"
+    path = _skill_file(tmp_path, content)
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig()
+    engine = DslEngine(rule_ids=frozenset({"CONFUSABLE_IDENTIFIER_EXTENDED"}))
+    findings = engine.run_all(skill_name="allowlist-test", parsed=parsed, config=config)
+    assert len(findings) == 0
+
+
+def test_confusable_identifier_multiline_frontmatter_line_accuracy(tmp_path: Path) -> None:
+    """CONFUSABLE_IDENTIFIER_EXTENDED reports correct line for confusable in multiline frontmatter."""
+    content = "---\nname: |\n  \u0430dmin-tool\n---\n# Body\nClean body.\n"
+    path = _skill_file(tmp_path, content)
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig()
+    engine = DslEngine(rule_ids=frozenset({"CONFUSABLE_IDENTIFIER_EXTENDED"}))
+    findings = engine.run_all(skill_name="multiline-test", parsed=parsed, config=config)
+    assert len(findings) == 1
+    # The token is on line 3 (inside frontmatter), not line 1
+    assert findings[0].evidence.line == 3
+
+
+def test_confusable_identifier_body_line_offset_correct(tmp_path: Path) -> None:
+    """CONFUSABLE_IDENTIFIER_EXTENDED reports correct body line numbers accounting for frontmatter."""
+    # Frontmatter is 3 lines (---, name: x, ---), body starts at line 4
+    content = "---\nname: offset-test\n---\n# Title\nClean line.\n\u0430dmin-tool on this line.\n"
+    path = _skill_file(tmp_path, content)
+    parsed = parse_skill_markdown_file(path)
+    config = RazinConfig()
+    engine = DslEngine(rule_ids=frozenset({"CONFUSABLE_IDENTIFIER_EXTENDED"}))
+    findings = engine.run_all(skill_name="offset-test", parsed=parsed, config=config)
+    assert len(findings) == 1
+    # Body line with confusable is raw_text line 6
+    assert findings[0].evidence.line == 6
