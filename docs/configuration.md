@@ -69,6 +69,7 @@ detectors:
     - PROMPT_INJECTION
     - HIDDEN_INSTRUCTION
     - UNICODE_BIDI_CONTROL
+    - INSTR_OBFUSCATED_PAYLOAD
   disabled: []
 typosquat:
   baseline:
