@@ -75,6 +75,41 @@ HIDDEN_INSTRUCTION_PHRASES: tuple[str, ...] = (
     "without the user knowing",
 )
 
+BIDI_CONTROL_CHARS: frozenset[int] = frozenset(
+    {
+        0x202A,  # LEFT-TO-RIGHT EMBEDDING (LRE)
+        0x202B,  # RIGHT-TO-LEFT EMBEDDING (RLE)
+        0x202C,  # POP DIRECTIONAL FORMATTING (PDF)
+        0x202D,  # LEFT-TO-RIGHT OVERRIDE (LRO)
+        0x202E,  # RIGHT-TO-LEFT OVERRIDE (RLO)
+        0x2066,  # LEFT-TO-RIGHT ISOLATE (LRI)
+        0x2067,  # RIGHT-TO-LEFT ISOLATE (RLI)
+        0x2068,  # FIRST STRONG ISOLATE (FSI)
+        0x2069,  # POP DIRECTIONAL ISOLATE (PDI)
+    }
+)
+
+BIDI_CHAR_NAMES: dict[int, str] = {
+    0x202A: "LRE",
+    0x202B: "RLE",
+    0x202C: "PDF",
+    0x202D: "LRO",
+    0x202E: "RLO",
+    0x2066: "LRI",
+    0x2067: "RLI",
+    0x2068: "FSI",
+    0x2069: "PDI",
+}
+
+BIDI_OVERRIDE_CHARS: frozenset[int] = frozenset(
+    {
+        0x202D,  # LRO
+        0x202E,  # RLO
+    }
+)
+
+BIDI_OVERRIDE_CLOSER: int = 0x202C  # PDF
+
 HOMOGLYPH_CONFUSABLE_RANGES: tuple[tuple[int, int], ...] = (
     (0x0400, 0x04FF),  # Cyrillic
     (0x0370, 0x03FF),  # Greek
