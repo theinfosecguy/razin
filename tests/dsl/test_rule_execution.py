@@ -1129,12 +1129,17 @@ def test_confusable_identifier_url_hostname_fires(tmp_path: Path) -> None:
         ),
         pytest.param(
             "multilingual-skill",
-            "---\nname: doc-helper\n---\n# \u30c9\u30ad\u30e5\u30e1\u30f3\u30c8\n\u3053\u306e\u30b9\u30ad\u30eb\u306f\u65e5\u672c\u8a9e\u306e\u30c9\u30ad\u30e5\u30e1\u30f3\u30c8\u3092\u751f\u6210\u3057\u307e\u3059\u3002\n",
+            "---\nname: doc-helper\n---\n# \u30c9\u30ad\u30e5\u30e1\u30f3\u30c8\n"
+            "\u3053\u306e\u30b9\u30ad\u30eb\u306f\u65e5\u672c\u8a9e\u306e\u30c9\u30ad\u30e5\u30e1\u30f3\u30c8"
+            "\u3092\u751f\u6210\u3057\u307e\u3059\u3002\n",
             id="benign-japanese",
         ),
         pytest.param(
             "cyrillic-only",
-            "---\nname: \u043f\u0440\u0438\u043c\u0435\u0440\n---\n# \u041f\u0440\u0438\u043c\u0435\u0440\n\u042d\u0442\u043e \u043f\u043e\u043b\u043d\u043e\u0441\u0442\u044c\u044e \u043a\u0438\u0440\u0438\u043b\u043b\u0438\u0447\u0435\u0441\u043a\u0438\u0439 \u0442\u0435\u043a\u0441\u0442.\n",
+            "---\nname: \u043f\u0440\u0438\u043c\u0435\u0440\n---\n# \u041f\u0440\u0438\u043c\u0435\u0440\n"
+            "\u042d\u0442\u043e \u043f\u043e\u043b\u043d\u043e\u0441\u0442\u044c\u044e"
+            " \u043a\u0438\u0440\u0438\u043b\u043b\u0438\u0447\u0435\u0441\u043a\u0438\u0439"
+            " \u0442\u0435\u043a\u0441\u0442.\n",
             id="pure-cyrillic-no-ascii-mix",
         ),
     ],
