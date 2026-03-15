@@ -71,7 +71,7 @@ Razin currently ships **22** public rule IDs.
 | `DATA_SENSITIVITY` | security | tiered (`high:65`, `medium:40`, `low:15`) + keyword bonus | medium | raw text + parsed fields | Service/keyword-based sensitivity classifier with category inference. |
 | `TYPOSQUAT` | security | 76 | medium | frontmatter + derived names | Levenshtein-based similarity check against baseline (`max_distance: 2`, `min_name_length: 5`). |
 | `UNICODE_BIDI_CONTROL` | security | 85 base, +7 in code fences, +5 for unpaired overrides | high | raw text | Detects Unicode bidi override/isolate controls (U+202A–U+202E, U+2066–U+2069) indicating Trojan Source risk. |
-| `INSTR_OBFUSCATED_PAYLOAD` | security | 78 | high | raw text | Decodes base64, hex, and unicode-escape blocks, then checks decoded content for injection/exfiltration hints. |
+| `INSTR_OBFUSCATED_PAYLOAD` | security | 78 | high | raw text | Decodes base64 (including URL-safe), hex, and unicode-escape blocks with strong/weak hint matching (`min_hint_matches: 2`, `require_strong: true`). |
 
 ## Detector behavior details
 
@@ -99,7 +99,7 @@ Razin currently ships **22** public rule IDs.
 - `PROMPT_INJECTION` requires at least two total hints and at least one strong hint.
 - `HIDDEN_INSTRUCTION` detects hidden text vectors not visible in normal markdown rendering.
 - `UNICODE_BIDI_CONTROL` detects bidirectional override and isolate control characters that can make displayed text differ from parsed text (Trojan Source). It does not flag legitimate Arabic/Hebrew script content that does not use explicit bidi overrides. When both `UNICODE_BIDI_CONTROL` and `HIDDEN_INSTRUCTION` fire on the same evidence line, the more specific bidi finding suppresses the hidden-instruction finding.
-- `INSTR_OBFUSCATED_PAYLOAD` decodes base64, hex, and unicode-escape blocks bounded by length limits, then checks decoded content for injection/exfiltration hint phrases. Benign encoded content without injection hints does not trigger. When both `INSTR_OBFUSCATED_PAYLOAD` and `OPAQUE_BLOB` fire on the same evidence line, the obfuscated-payload finding suppresses the opaque-blob finding.
+- `INSTR_OBFUSCATED_PAYLOAD` decodes base64 (standard and URL-safe), hex, and unicode-escape blocks bounded by length and candidate budget limits. Decoded content is checked against strong and weak injection hint lists; at least 2 total hint matches with at least 1 strong hint are required by default. Benign encoded content matching only a single weak hint does not trigger. When both `INSTR_OBFUSCATED_PAYLOAD` and `OPAQUE_BLOB` fire on the same evidence line, the obfuscated-payload finding suppresses the opaque-blob finding.
 
 ### Typosquat baseline behavior
 
