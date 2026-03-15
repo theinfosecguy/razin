@@ -91,8 +91,7 @@ def _validate_match(match: Any, source_path: str) -> None:
         raise ConfigError(f"YAML rule at {source_path}: match missing 'source'")
     if match["source"] not in VALID_SOURCES:
         raise ConfigError(
-            f"YAML rule at {source_path}: match.source must be one of "
-            f"{sorted(VALID_SOURCES)}, got {match['source']!r}"
+            f"YAML rule at {source_path}: match.source must be one of {sorted(VALID_SOURCES)}, got {match['source']!r}"
         )
     if "strategy" not in match:
         raise ConfigError(f"YAML rule at {source_path}: match missing 'strategy'")

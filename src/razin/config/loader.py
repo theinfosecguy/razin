@@ -288,6 +288,6 @@ def _parse_override_severity(
         return None
     if not isinstance(value, str) or value not in RULE_OVERRIDE_ALLOWED_SEVERITIES:
         raise ConfigError(
-            f"rule_overrides.{rule_id}.{key} must be one of " f"{', '.join(sorted(RULE_OVERRIDE_ALLOWED_SEVERITIES))}"
+            f"rule_overrides.{rule_id}.{key} must be one of {', '.join(sorted(RULE_OVERRIDE_ALLOWED_SEVERITIES))}"
         )
     return cast(Severity, value)

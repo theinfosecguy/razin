@@ -80,7 +80,7 @@ class NetRawIpDetector(Detector):
                         title="Raw IP endpoint in config",
                         description=_raw_ip_description(ip_address),
                         evidence=field_evidence(parsed, field),
-                        recommendation=("Replace raw IP endpoints with approved DNS domains " "and allowlist checks."),
+                        recommendation=("Replace raw IP endpoints with approved DNS domains and allowlist checks."),
                     )
                 )
                 break
@@ -125,7 +125,7 @@ class NetUnknownDomainDetector(Detector):
                             score=NET_DENYLIST_DOMAIN_SCORE,
                             confidence="high",
                             title="Denylisted domain in config",
-                            description=(f"Configuration references '{domain}', which is " "denylisted."),
+                            description=(f"Configuration references '{domain}', which is denylisted."),
                             evidence=field_evidence(parsed, field),
                             recommendation="Remove or replace denylisted domains.",
                         )
@@ -211,7 +211,7 @@ class NetDocDomainDetector(Detector):
                         description=f"Documentation references external domain '{domain}'.",
                         evidence=field_evidence(parsed, field),
                         recommendation=(
-                            "Review documentation URLs and add trusted domains " "to the allowlist if appropriate."
+                            "Review documentation URLs and add trusted domains to the allowlist if appropriate."
                         ),
                     )
                 )
@@ -390,13 +390,13 @@ class TyposquatDetector(Detector):
                             score=TYPOSQUAT_SCORE,
                             confidence="medium",
                             title="Potential typosquat skill name",
-                            description=(f"Skill name '{candidate_name}' is close to " f"baseline '{baseline}'."),
+                            description=(f"Skill name '{candidate_name}' is close to baseline '{baseline}'."),
                             evidence=Evidence(
                                 path=str(parsed.file_path),
                                 line=1,
                                 snippet=(parsed.raw_text.splitlines()[0][:200] if parsed.raw_text else ""),
                             ),
-                            recommendation=("Verify package origin and exact spelling " "before trust or deployment."),
+                            recommendation=("Verify package origin and exact spelling before trust or deployment."),
                         )
                     )
                     return findings
@@ -539,8 +539,8 @@ def _raw_ip_score(ip_address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> 
 def _raw_ip_description(ip_address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> str:
     """Return a finding description based on raw IP type."""
     if _is_non_public_ip(ip_address):
-        return "Configuration references a non-public raw IP address " f"({ip_address.compressed})."
-    return "Configuration references a public raw IP address " f"({ip_address.compressed}), bypassing domain controls."
+        return f"Configuration references a non-public raw IP address ({ip_address.compressed})."
+    return f"Configuration references a public raw IP address ({ip_address.compressed}), bypassing domain controls."
 
 
 def _is_non_public_ip(ip_address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:

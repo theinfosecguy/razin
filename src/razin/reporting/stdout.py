@@ -109,10 +109,7 @@ class StdoutReporter:
             sep,
             "",
             f"  Risk Score  {score_str} ({sev_str})",
-            (
-                f"  Files       {r.scanned_files} scanned / "
-                f"{skills_with_findings} with findings / {clean_files} clean"
-            ),
+            (f"  Files       {r.scanned_files} scanned / {skills_with_findings} with findings / {clean_files} clean"),
         ]
 
         if self._filters.active():
