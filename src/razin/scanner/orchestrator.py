@@ -43,6 +43,7 @@ from razin.scanner.pipeline.conversion import (
     suppress_confusable_hidden_duplicates,
     suppress_obfuscated_opaque_duplicates,
     suppress_redundant_candidates,
+    suppress_remote_ref_domain_duplicates,
 )
 from razin.scanner.pipeline.rule_selection import (
     resolve_detector_toggles,
@@ -280,6 +281,7 @@ def scan_workspace(
         candidates = suppress_bidi_hidden_duplicates(candidates)
         candidates = suppress_confusable_hidden_duplicates(candidates)
         candidates = suppress_obfuscated_opaque_duplicates(candidates)
+        candidates = suppress_remote_ref_domain_duplicates(candidates)
 
         findings = [
             candidate_to_finding(
