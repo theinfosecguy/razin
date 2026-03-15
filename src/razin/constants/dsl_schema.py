@@ -20,6 +20,7 @@ VALID_STRATEGIES: frozenset[str] = frozenset(
         "bidi_control_scan",
         "payload_decode_scan",
         "confusable_identifier_scan",
+        "remote_reference_scan",
     }
 )
 
