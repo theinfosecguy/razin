@@ -1,0 +1,15 @@
+rule_id: CONFUSABLE_IDENTIFIER_EXTENDED
+version: 1
+metadata:
+  title: "Confusable identifier spoofing detected"
+  description: "Skill contains identifiers with mixed-script confusable characters that may disguise malicious tool names, hostnames, or metadata."
+  recommendation: "Replace confusable characters with their ASCII equivalents. Verify that identifiers match intended tool or service names."
+  confidence: high
+scoring:
+  base_score: 72
+match:
+  source: raw_text
+  strategy: confusable_identifier_scan
+  min_length: 3
+  min_signals: 1
+dedupe: false

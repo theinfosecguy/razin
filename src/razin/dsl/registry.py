@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from razin.dsl.operations.bidi_control import run_bidi_control_scan
+from razin.dsl.operations.confusable_identifier import run_confusable_identifier_scan
 from razin.dsl.operations.data_sensitivity import run_data_sensitivity_check
 from razin.dsl.operations.filesystem import run_bundled_scripts_check
 from razin.dsl.operations.frontmatter import run_frontmatter_check
@@ -41,4 +42,5 @@ OP_REGISTRY: dict[str, Any] = {
     "data_sensitivity_check": run_data_sensitivity_check,
     "bidi_control_scan": run_bidi_control_scan,
     "payload_decode_scan": run_payload_decode_scan,
+    "confusable_identifier_scan": run_confusable_identifier_scan,
 }

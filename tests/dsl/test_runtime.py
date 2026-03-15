@@ -21,9 +21,9 @@ from .conftest import _skill_file, _write_rule_file
 
 
 def test_load_all_bundled_rules() -> None:
-    """Engine loads all 19 bundled rules."""
+    """Engine loads all bundled rules."""
     engine = DslEngine()
-    assert engine.rule_count == 20
+    assert engine.rule_count == 21
     assert "AUTH_CONNECTION" in engine.rule_ids
     assert "NET_RAW_IP" in engine.rule_ids
     assert "PROMPT_INJECTION" in engine.rule_ids
@@ -639,7 +639,7 @@ def test_overlay_no_custom_source_uses_bundled_only() -> None:
     """Overlay without custom source loads bundled rules only."""
     engine = DslEngine(rules_mode="overlay")
 
-    assert engine.rule_count == 20
+    assert engine.rule_count == 21
     assert "AUTH_CONNECTION" in engine.rule_ids
 
 
@@ -647,7 +647,7 @@ def test_replace_mode_without_custom_uses_bundled() -> None:
     """Replace mode with no custom source falls back to bundled."""
     engine = DslEngine(rules_mode="replace")
 
-    assert engine.rule_count == 20
+    assert engine.rule_count == 21
 
 
 def test_overlay_fingerprint_differs_from_replace(tmp_path: Path) -> None:

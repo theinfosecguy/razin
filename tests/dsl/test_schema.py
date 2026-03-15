@@ -106,7 +106,7 @@ def test_compile_rejects_unregistered_strategy() -> None:
 def test_all_yaml_files_valid() -> None:
     """All bundled YAML rule files parse and compile without error."""
     engine = DslEngine()
-    assert engine.rule_count == 20
+    assert engine.rule_count == 21
     assert len(engine.rule_ids) == len(set(engine.rule_ids))
 
 

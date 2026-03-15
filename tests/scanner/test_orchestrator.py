@@ -17,6 +17,7 @@ from razin.scanner.pipeline.conversion import (
     candidate_to_finding,
     deserialize_findings,
     suppress_bidi_hidden_duplicates,
+    suppress_confusable_hidden_duplicates,
     suppress_obfuscated_opaque_duplicates,
     suppress_redundant_candidates,
 )
@@ -506,3 +507,86 @@ def test_suppress_obfuscated_opaque_no_obfuscated_preserves_all() -> None:
 
     assert len(suppressed) == 1
     assert suppressed[0].rule_id == "OPAQUE_BLOB"
+
+
+def test_suppress_confusable_hidden_same_line_removes_hidden_instruction() -> None:
+    """HIDDEN_INSTRUCTION is suppressed when CONFUSABLE_IDENTIFIER_EXTENDED covers the same line."""
+    shared_evidence = Evidence(path="/tmp/SKILL.md", line=5, snippet="confusable text")
+    candidates = [
+        FindingCandidate(
+            rule_id="CONFUSABLE_IDENTIFIER_EXTENDED",
+            score=77,
+            confidence="high",
+            title="Confusable identifier spoofing detected",
+            description="Mixed-script confusables found.",
+            evidence=shared_evidence,
+            recommendation="Replace confusable characters.",
+        ),
+        FindingCandidate(
+            rule_id="HIDDEN_INSTRUCTION",
+            score=90,
+            confidence="high",
+            title="Hidden instruction detected",
+            description="Homoglyph chars found.",
+            evidence=shared_evidence,
+            recommendation="Remove hidden instructions.",
+        ),
+    ]
+
+    suppressed = suppress_confusable_hidden_duplicates(candidates)
+
+    assert len(suppressed) == 1
+    assert suppressed[0].rule_id == "CONFUSABLE_IDENTIFIER_EXTENDED"
+
+
+def test_suppress_confusable_hidden_different_lines_preserves_both() -> None:
+    """Both findings are preserved when they are on different lines."""
+    confusable_evidence = Evidence(path="/tmp/SKILL.md", line=5, snippet="confusable text")
+    hidden_evidence = Evidence(path="/tmp/SKILL.md", line=10, snippet="hidden text")
+    candidates = [
+        FindingCandidate(
+            rule_id="CONFUSABLE_IDENTIFIER_EXTENDED",
+            score=77,
+            confidence="high",
+            title="Confusable identifier spoofing detected",
+            description="Mixed-script confusables found.",
+            evidence=confusable_evidence,
+            recommendation="Replace confusable characters.",
+        ),
+        FindingCandidate(
+            rule_id="HIDDEN_INSTRUCTION",
+            score=90,
+            confidence="high",
+            title="Hidden instruction detected",
+            description="Homoglyph chars found.",
+            evidence=hidden_evidence,
+            recommendation="Remove hidden instructions.",
+        ),
+    ]
+
+    suppressed = suppress_confusable_hidden_duplicates(candidates)
+
+    assert len(suppressed) == 2
+    rule_ids = {c.rule_id for c in suppressed}
+    assert rule_ids == {"CONFUSABLE_IDENTIFIER_EXTENDED", "HIDDEN_INSTRUCTION"}
+
+
+def test_suppress_confusable_hidden_no_confusable_preserves_all() -> None:
+    """No suppression occurs when CONFUSABLE_IDENTIFIER_EXTENDED is absent."""
+    evidence = Evidence(path="/tmp/SKILL.md", line=5, snippet="hidden text")
+    candidates = [
+        FindingCandidate(
+            rule_id="HIDDEN_INSTRUCTION",
+            score=90,
+            confidence="high",
+            title="Hidden instruction detected",
+            description="Homoglyph chars found.",
+            evidence=evidence,
+            recommendation="Remove hidden instructions.",
+        ),
+    ]
+
+    suppressed = suppress_confusable_hidden_duplicates(candidates)
+
+    assert len(suppressed) == 1
+    assert suppressed[0].rule_id == "HIDDEN_INSTRUCTION"
