@@ -43,3 +43,8 @@ DEFAULT_DETECTORS: tuple[str, ...] = (
 )
 
 DEFAULT_TOOL_PREFIXES_CONFIG: tuple[str, ...] = DEFAULT_TOOL_PREFIXES
+
+DEFAULT_QUIET_MODE_ENABLED: bool = False
+DEFAULT_QUIET_MODE_FORMAT: str = "jsonl"
+ALLOWED_QUIET_FORMATS: frozenset[str] = frozenset({"jsonl"})
+ALLOWED_QUIET_WRITE_MODES: frozenset[str] = frozenset({"overwrite", "append"})
