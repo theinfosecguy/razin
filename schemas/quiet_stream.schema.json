@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/theinfosecguy/razin/schemas/quiet_stream.schema.json",
+  "title": "Razin Quiet Stream",
+  "description": "JSONL record envelope for quiet-mode output. Each line in the output file is one record matching this schema.",
+  "type": "object",
+  "required": ["type", "version", "timestamp", "data"],
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": ["finding", "warning", "summary"],
+      "description": "Record type discriminator."
+    },
+    "version": {
+      "type": "string",
+      "description": "Quiet stream schema version (semver)."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp when the record was emitted."
+    },
+    "data": {
+      "type": "object",
+      "description": "Record payload, structure depends on the type field."
+    }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": { "properties": { "type": { "const": "finding" } }, "required": ["type"] },
+      "then": { "properties": { "data": { "$ref": "#/$defs/FindingData" } } }
+    },
+    {
+      "if": { "properties": { "type": { "const": "warning" } }, "required": ["type"] },
+      "then": { "properties": { "data": { "$ref": "#/$defs/WarningData" } } }
+    },
+    {
+      "if": { "properties": { "type": { "const": "summary" } }, "required": ["type"] },
+      "then": { "properties": { "data": { "$ref": "#/$defs/SummaryData" } } }
+    }
+  ],
+  "$defs": {
+    "FindingData": {
+      "type": "object",
+      "required": [
+        "id",
+        "severity",
+        "score",
+        "confidence",
+        "title",
+        "description",
+        "evidence",
+        "skill",
+        "rule_id",
+        "recommendation",
+        "classification"
+      ],
+      "properties": {
+        "id": { "type": "string" },
+        "severity": { "$ref": "#/$defs/Severity" },
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "confidence": { "$ref": "#/$defs/Confidence" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "evidence": { "$ref": "#/$defs/Evidence" },
+        "skill": { "type": "string" },
+        "rule_id": { "type": "string" },
+        "recommendation": { "type": "string" },
+        "classification": { "$ref": "#/$defs/Classification" },
+        "severity_override": {
+          "oneOf": [
+            { "$ref": "#/$defs/SeverityOverride" },
+            { "type": "null" }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "WarningData": {
+      "type": "object",
+      "required": ["message"],
+      "properties": {
+        "message": { "type": "string", "description": "Warning message text." }
+      },
+      "additionalProperties": false
+    },
+    "SummaryData": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "scanned_files",
+        "total_findings",
+        "written_findings",
+        "filtered_out_findings",
+        "aggregate_score",
+        "aggregate_severity",
+        "counts_by_severity",
+        "gate_scope",
+        "gate_failed",
+        "duration_seconds"
+      ],
+      "properties": {
+        "schema_version": { "type": "string" },
+        "scanned_files": { "type": "integer", "minimum": 0 },
+        "total_findings": { "type": "integer", "minimum": 0 },
+        "written_findings": { "type": "integer", "minimum": 0 },
+        "filtered_out_findings": { "type": "integer", "minimum": 0 },
+        "aggregate_score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "aggregate_severity": { "$ref": "#/$defs/Severity" },
+        "counts_by_severity": {
+          "type": "object",
+          "properties": {
+            "low": { "type": "integer", "minimum": 0 },
+            "medium": { "type": "integer", "minimum": 0 },
+            "high": { "type": "integer", "minimum": 0 }
+          },
+          "additionalProperties": false
+        },
+        "gate_scope": {
+          "type": "string",
+          "const": "all_findings",
+          "description": "Gate evaluation always uses all findings regardless of output filters."
+        },
+        "gate_failed": { "type": "boolean" },
+        "duration_seconds": { "type": "number", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "Evidence": {
+      "type": "object",
+      "required": ["path", "line", "snippet"],
+      "properties": {
+        "path": { "type": "string" },
+        "line": { "type": ["integer", "null"] },
+        "snippet": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "Severity": {
+      "type": "string",
+      "enum": ["low", "medium", "high"]
+    },
+    "Confidence": {
+      "type": "string",
+      "enum": ["low", "medium", "high"]
+    },
+    "Classification": {
+      "type": "string",
+      "enum": ["security", "informational"]
+    },
+    "SeverityOverride": {
+      "type": "object",
+      "required": ["original", "applied", "reason"],
+      "properties": {
+        "original": { "$ref": "#/$defs/Severity" },
+        "applied": { "$ref": "#/$defs/Severity" },
+        "reason": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  }
+}
