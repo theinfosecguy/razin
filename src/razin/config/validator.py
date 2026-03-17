@@ -8,13 +8,19 @@ from typing import Any
 
 import yaml
 
-from razin.constants.config import CONFIG_FILENAME, RULE_OVERRIDE_ALLOWED_SEVERITIES
+from razin.constants.config import (
+    ALLOWED_QUIET_FORMATS,
+    ALLOWED_QUIET_WRITE_MODES,
+    CONFIG_FILENAME,
+    RULE_OVERRIDE_ALLOWED_SEVERITIES,
+)
 from razin.constants.profiles import VALID_PROFILES
 from razin.constants.scoring import SEVERITY_RANK
 from razin.constants.validation import (
     ALLOWED_CONFIG_KEYS,
     ALLOWED_DATA_SENSITIVITY_KEYS,
     ALLOWED_DETECTOR_KEYS,
+    ALLOWED_QUIET_MODE_KEYS,
     ALLOWED_RULE_OVERRIDE_KEYS,
     ALLOWED_TOOL_TIER_KEYS,
     ALLOWED_TYPOSQUAT_KEYS,
@@ -27,6 +33,7 @@ from razin.constants.validation import (
     CFG007,
     CFG008,
     CFG009,
+    CFG011,
     LIST_OF_STRINGS_KEYS,
 )
 from razin.exceptions.validation import ValidationError
@@ -180,6 +187,7 @@ def validate_config_file(
     _validate_tool_tier_block(raw, path_str, errors)
     _validate_data_sensitivity_block(raw, path_str, errors)
     _validate_rule_overrides_block(raw, path_str, errors)
+    _validate_quiet_mode_block(raw, path_str, errors)
 
     return errors
 
@@ -542,3 +550,108 @@ def _validate_rule_override_severity(
         )
         return None
     return severity
+
+
+def _validate_quiet_mode_block(
+    raw: dict[str, Any],
+    path_str: str,
+    errors: list[ValidationError],
+) -> None:
+    """Validate the ``quiet_mode`` nested mapping in razin.yaml."""
+    if "quiet_mode" not in raw:
+        return
+    qm = raw["quiet_mode"]
+    if qm is None:
+        return
+    if not isinstance(qm, dict):
+        errors.append(
+            ValidationError(
+                code=CFG009,
+                path=path_str,
+                field="quiet_mode",
+                message="`quiet_mode` must be a mapping",
+            )
+        )
+        return
+
+    for key in sorted(qm.keys()):
+        if key not in ALLOWED_QUIET_MODE_KEYS:
+            errors.append(
+                ValidationError(
+                    code=CFG004,
+                    path=path_str,
+                    field=f"quiet_mode.{key}",
+                    message=f"unknown key `{key}` in `quiet_mode`",
+                    hint=_suggest_key(key, ALLOWED_QUIET_MODE_KEYS),
+                )
+            )
+
+    if "enabled" in qm and not isinstance(qm["enabled"], bool):
+        errors.append(
+            ValidationError(
+                code=CFG005,
+                path=path_str,
+                field="quiet_mode.enabled",
+                message="invalid type for `quiet_mode.enabled`",
+                hint="expected a boolean",
+            )
+        )
+
+    if "output_path" in qm and qm["output_path"] is not None and not isinstance(qm["output_path"], str):
+        errors.append(
+            ValidationError(
+                code=CFG005,
+                path=path_str,
+                field="quiet_mode.output_path",
+                message="invalid type for `quiet_mode.output_path`",
+                hint="expected a string",
+            )
+        )
+
+    if "format" in qm:
+        val = qm["format"]
+        if not isinstance(val, str) or val not in ALLOWED_QUIET_FORMATS:
+            errors.append(
+                ValidationError(
+                    code=CFG006,
+                    path=path_str,
+                    field="quiet_mode.format",
+                    message="invalid value for `quiet_mode.format`",
+                    hint=f"expected one of: {', '.join(sorted(ALLOWED_QUIET_FORMATS))}; got: {val!r}",
+                )
+            )
+
+    for bool_key in ("include_warnings", "include_summary"):
+        if bool_key in qm and not isinstance(qm[bool_key], bool):
+            errors.append(
+                ValidationError(
+                    code=CFG005,
+                    path=path_str,
+                    field=f"quiet_mode.{bool_key}",
+                    message=f"invalid type for `quiet_mode.{bool_key}`",
+                    hint="expected a boolean",
+                )
+            )
+
+    if "write_mode" in qm:
+        val = qm["write_mode"]
+        if not isinstance(val, str) or val not in ALLOWED_QUIET_WRITE_MODES:
+            errors.append(
+                ValidationError(
+                    code=CFG006,
+                    path=path_str,
+                    field="quiet_mode.write_mode",
+                    message="invalid value for `quiet_mode.write_mode`",
+                    hint=f"expected one of: {', '.join(sorted(ALLOWED_QUIET_WRITE_MODES))}; got: {val!r}",
+                )
+            )
+
+    if qm.get("enabled") is True and not qm.get("output_path"):
+        errors.append(
+            ValidationError(
+                code=CFG011,
+                path=path_str,
+                field="quiet_mode.output_path",
+                message="`quiet_mode.output_path` is required when `quiet_mode.enabled` is true",
+            )
+        )
