@@ -95,6 +95,39 @@ razin scan -r . --group-by skill
 razin scan -r . --group-by rule
 ```
 
+## JSONL quiet stream
+
+```bash
+razin scan -r . --quiet-mode --quiet-output results.jsonl
+```
+
+Quiet mode writes one JSON record per line to the specified file. No stdout is emitted.
+
+Record types:
+
+- `finding`: one per written finding (after output filters).
+- `warning`: one per scan warning (if `include_warnings` is enabled).
+- `summary`: final record with transparency fields (if `include_summary` is enabled).
+
+Each record has an envelope with `type`, `version`, `timestamp`, and `data` fields. The schema is at `schemas/quiet_stream.schema.json`.
+
+Summary record transparency fields:
+
+- `total_findings`: count of all findings from full scan.
+- `written_findings`: count of findings written to output (after filters).
+- `filtered_out_findings`: count of findings excluded by filters.
+- `gate_scope`: always `all_findings` (gate evaluation is never affected by output filters).
+- `gate_failed`: boolean reflecting the exit code decision.
+
+Config-based quiet mode:
+
+```yaml
+quiet_mode:
+  enabled: true
+  output_path: scan-results.jsonl
+  write_mode: append
+```
+
 ## Cache artifact
 
 When output is enabled and caching is on, Razin also writes:

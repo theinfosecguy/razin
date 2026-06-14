@@ -12,6 +12,7 @@ CFG007: str = "CFG007"  # value out of range
 CFG008: str = "CFG008"  # contradictory detector config
 CFG009: str = "CFG009"  # invalid nested mapping
 CFG010: str = "CFG010"  # root directory not found
+CFG011: str = "CFG011"  # missing conditional requirement
 
 RULE001: str = "RULE001"  # rule file not found / unreadable
 RULE002: str = "RULE002"  # invalid file extension
@@ -34,6 +35,7 @@ ALL_CFG_CODES: tuple[str, ...] = (
     CFG008,
     CFG009,
     CFG010,
+    CFG011,
 )
 
 ALL_RULE_CODES: tuple[str, ...] = (
@@ -65,6 +67,7 @@ ALLOWED_CONFIG_KEYS: frozenset[str] = frozenset(
         "rule_overrides",
         "skill_globs",
         "max_file_mb",
+        "quiet_mode",
     }
 )
 
@@ -75,6 +78,9 @@ ALLOWED_DATA_SENSITIVITY_KEYS: frozenset[str] = frozenset(
     {"high_services", "medium_services", "low_services", "high_keywords", "medium_keywords", "service_categories"}
 )
 ALLOWED_RULE_OVERRIDE_KEYS: frozenset[str] = frozenset({"enabled", "max_severity", "min_severity"})
+ALLOWED_QUIET_MODE_KEYS: frozenset[str] = frozenset(
+    {"enabled", "output_path", "format", "include_warnings", "include_summary", "write_mode"}
+)
 
 LIST_OF_STRINGS_KEYS: tuple[str, ...] = (
     "allowlist_domains",

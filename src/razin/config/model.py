@@ -18,7 +18,13 @@ from razin.constants.profiles import (
     PROFILE_SUPPRESS_LOCAL_HOSTS,
     ProfileName,
 )
-from razin.types.config import DataSensitivityConfig, DetectorConfig, RuleOverrideConfig, ToolTierConfig
+from razin.types.config import (
+    DataSensitivityConfig,
+    DetectorConfig,
+    QuietModeConfig,
+    RuleOverrideConfig,
+    ToolTierConfig,
+)
 
 
 def _merge_domains(*domain_sets: tuple[str, ...]) -> tuple[str, ...]:
@@ -48,6 +54,7 @@ class RazinConfig:
     typosquat_baseline: tuple[str, ...] = ()
     skill_globs: tuple[str, ...] = DEFAULT_SKILL_GLOBS
     max_file_mb: int = DEFAULT_MAX_FILE_MB
+    quiet_mode: QuietModeConfig = QuietModeConfig()
 
     @property
     def aggregate_min_rule_score(self) -> int:

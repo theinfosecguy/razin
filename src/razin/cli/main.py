@@ -10,10 +10,12 @@ from pathlib import Path
 from razin import __version__
 from razin.cli.domain_analysis import build_dominant_domain_hints
 from razin.cli.handlers import evaluate_fail_thresholds, handle_init, handle_validate_config
+from razin.config.loader import load_config
 from razin.constants.branding import CLI_DESCRIPTION
 from razin.constants.reporting import VALID_OUTPUT_FORMATS
 from razin.exceptions import ConfigError, RazinError
 from razin.exceptions.validation import format_errors
+from razin.reporting.quiet_writer import write_quiet_output
 from razin.reporting.stdout import StdoutReporter
 from razin.scanner import scan_workspace
 from razin.validation import preflight_validate
@@ -141,6 +143,17 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Show only security-classified findings in stdout and file outputs",
     )
+    scan.add_argument(
+        "--quiet-mode",
+        action="store_true",
+        help="Enable quiet mode: write to file only, no stdout output",
+    )
+    scan.add_argument(
+        "--quiet-output",
+        type=Path,
+        default=None,
+        help="Quiet mode output file path (required when --quiet-mode is enabled)",
+    )
 
     validate = subparsers.add_parser("validate-config", help="Validate configuration without scanning")
     validate.add_argument("-r", "--root", type=Path, required=True, help="Workspace root path")
@@ -231,6 +244,55 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
 
+    try:
+        user_config = load_config(args.root, args.config)
+    except ConfigError:
+        user_config = None
+
+    quiet_enabled = args.quiet_mode
+    quiet_output = args.quiet_output
+
+    if quiet_output is not None and not quiet_enabled:
+        quiet_enabled = True
+
+    quiet_include_warnings = True
+    quiet_include_summary = True
+    quiet_write_mode = "overwrite"
+
+    if user_config is not None:
+        qm = user_config.quiet_mode
+        if not quiet_enabled and qm.enabled:
+            quiet_enabled = True
+        if quiet_enabled:
+            if quiet_output is None and qm.output_path is not None:
+                quiet_output = Path(qm.output_path)
+            quiet_include_warnings = qm.include_warnings
+            quiet_include_summary = qm.include_summary
+            quiet_write_mode = qm.write_mode
+
+    if quiet_enabled:
+        conflicting: list[str] = []
+        if args.output_dir is not None:
+            conflicting.append("-o/--output-dir")
+        if output_formats != ("json",):
+            conflicting.append("--output-format")
+        if args.group_by is not None:
+            conflicting.append("--group-by")
+        if args.summary_only:
+            conflicting.append("--summary-only")
+        if conflicting:
+            print(
+                f"Configuration error: quiet mode conflicts with: {', '.join(conflicting)}",
+                file=sys.stderr,
+            )
+            return 2
+        if quiet_output is None:
+            print(
+                "Configuration error: --quiet-output is required when quiet mode is enabled",
+                file=sys.stderr,
+            )
+            return 2
+
     validation_errors = preflight_validate(
         root=args.root,
         config_path=args.config,
@@ -269,7 +331,18 @@ def main(argv: list[str] | None = None) -> int:
 
     exit_code = evaluate_fail_thresholds(result, fail_on=args.fail_on, fail_on_score=args.fail_on_score)
 
-    if not args.no_stdout:
+    if quiet_enabled:
+        write_quiet_output(
+            out_path=quiet_output,
+            result=result,
+            min_severity=args.min_severity,
+            security_only=args.security_only,
+            include_warnings=quiet_include_warnings,
+            include_summary=quiet_include_summary,
+            write_mode=quiet_write_mode,
+            gate_failed=exit_code != 0,
+        )
+    elif not args.no_stdout:
         use_color = not args.no_color and sys.stdout.isatty()
         reporter = StdoutReporter(
             result,

@@ -86,6 +86,25 @@ razin scan -r . -R ./enterprise-rules --rules-mode overlay --duplicate-policy ov
       --fail-on-score 50
 ```
 
+## Quiet mode in CI
+
+Quiet mode is designed for CI and automation pipelines that need machine-ingestible output without terminal noise.
+
+```bash
+razin scan -r . --quiet-mode --quiet-output results.jsonl --fail-on medium
+```
+
+**Gotcha**: Output filters (`--min-severity`, `--security-only`) affect only what gets written to the quiet output file. Gate evaluation (`--fail-on`, `--fail-on-score`) always uses all findings from the full scan. The quiet summary record includes `gate_scope: "all_findings"` for auditability.
+
+Quiet mode rejects conflicting output flags: `-o`, `--output-format`, `--group-by`, `--summary-only`. Use config-based quiet mode for persistent settings:
+
+```yaml
+quiet_mode:
+  enabled: true
+  output_path: scan-results.jsonl
+  write_mode: overwrite
+```
+
 ## Docs CI checks in this repository
 
 ```bash

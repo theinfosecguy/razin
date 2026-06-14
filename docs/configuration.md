@@ -26,6 +26,7 @@ Top-level keys currently accepted:
 - `rule_overrides`
 - `skill_globs`
 - `max_file_mb`
+- `quiet_mode`
 
 Default: `max_file_mb` is `2` when omitted.
 
@@ -106,6 +107,33 @@ skill_globs:
   - "**/SKILL.md"
 max_file_mb: 2
 ```
+
+## `quiet_mode`
+
+`quiet_mode` controls file-only output for CI and automation pipelines.
+
+Supported keys:
+
+- `enabled`: boolean. Enable quiet mode from config (default: `false`).
+- `output_path`: string. File path for quiet output. Required when `enabled` is `true`; validated at config load time.
+- `format`: output format. Currently only `jsonl` is supported.
+- `include_warnings`: boolean. Include warning records (default: `true`).
+- `include_summary`: boolean. Include a final summary record (default: `true`).
+- `write_mode`: `overwrite` (default) or `append`.
+
+Example:
+
+```yaml
+quiet_mode:
+  enabled: true
+  output_path: scan-results.jsonl
+  format: jsonl
+  include_warnings: true
+  include_summary: true
+  write_mode: overwrite
+```
+
+CLI flags `--quiet-mode` and `--quiet-output` override config values for enablement and output path. Behavior fields (`include_warnings`, `include_summary`, `write_mode`) are always loaded from config when available.
 
 ## `detectors`
 

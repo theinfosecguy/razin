@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
 
 from razin.constants.data_sensitivity import (
     HIGH_SENSITIVITY_KEYWORDS,
@@ -53,3 +54,15 @@ class RuleOverrideConfig:
     enabled: bool = True
     max_severity: Severity | None = None
     min_severity: Severity | None = None
+
+
+@dataclass(frozen=True)
+class QuietModeConfig:
+    """Quiet-mode output settings from ``razin.yaml``."""
+
+    enabled: bool = False
+    output_path: str | None = None
+    format: Literal["jsonl"] = "jsonl"
+    include_warnings: bool = True
+    include_summary: bool = True
+    write_mode: Literal["overwrite", "append"] = "overwrite"

@@ -9,8 +9,12 @@ import yaml
 
 from razin.config.model import RazinConfig
 from razin.constants.config import (
+    ALLOWED_QUIET_FORMATS,
+    ALLOWED_QUIET_WRITE_MODES,
     CONFIG_FILENAME,
     DEFAULT_MAX_FILE_MB,
+    DEFAULT_QUIET_MODE_ENABLED,
+    DEFAULT_QUIET_MODE_FORMAT,
     DEFAULT_SKILL_GLOBS,
     DEFAULT_TOOL_PREFIXES_CONFIG,
     RULE_OVERRIDE_ALLOWED_KEYS,
@@ -34,7 +38,13 @@ from razin.constants.profiles import (
 from razin.constants.scoring import SEVERITY_RANK
 from razin.exceptions import ConfigError
 from razin.types import Severity
-from razin.types.config import DataSensitivityConfig, DetectorConfig, RuleOverrideConfig, ToolTierConfig
+from razin.types.config import (
+    DataSensitivityConfig,
+    DetectorConfig,
+    QuietModeConfig,
+    RuleOverrideConfig,
+    ToolTierConfig,
+)
 
 
 def load_config(root: Path, config_path: Path | None = None) -> RazinConfig:
@@ -117,6 +127,8 @@ def load_config(root: Path, config_path: Path | None = None) -> RazinConfig:
 
     rule_overrides = _parse_rule_overrides(raw.get("rule_overrides"))
 
+    quiet_mode = _build_quiet_mode_config(raw.get("quiet_mode", {}))
+
     return RazinConfig(
         profile=profile_raw,  # type: ignore[arg-type]
         allowlist_domains=_normalize_domains(
@@ -149,6 +161,7 @@ def load_config(root: Path, config_path: Path | None = None) -> RazinConfig:
         rule_overrides=rule_overrides,
         skill_globs=tuple(_ensure_string_list(raw.get("skill_globs", DEFAULT_SKILL_GLOBS), "skill_globs")),
         max_file_mb=max_file_mb,
+        quiet_mode=quiet_mode,
     )
 
 
@@ -291,3 +304,47 @@ def _parse_override_severity(
             f"rule_overrides.{rule_id}.{key} must be one of {', '.join(sorted(RULE_OVERRIDE_ALLOWED_SEVERITIES))}"
         )
     return cast(Severity, value)
+
+
+def _build_quiet_mode_config(raw: Any) -> QuietModeConfig:
+    """Build a QuietModeConfig from the raw quiet_mode YAML block."""
+    if raw is None:
+        return QuietModeConfig()
+    if not isinstance(raw, dict):
+        raise ConfigError("quiet_mode must be a mapping")
+
+    enabled = raw.get("enabled", DEFAULT_QUIET_MODE_ENABLED)
+    if not isinstance(enabled, bool):
+        raise ConfigError("quiet_mode.enabled must be a boolean")
+
+    output_path = raw.get("output_path")
+    if output_path is not None and not isinstance(output_path, str):
+        raise ConfigError("quiet_mode.output_path must be a string")
+
+    fmt = raw.get("format", DEFAULT_QUIET_MODE_FORMAT)
+    if not isinstance(fmt, str) or fmt not in ALLOWED_QUIET_FORMATS:
+        raise ConfigError(f"quiet_mode.format must be one of {', '.join(sorted(ALLOWED_QUIET_FORMATS))}")
+
+    include_warnings = raw.get("include_warnings", True)
+    if not isinstance(include_warnings, bool):
+        raise ConfigError("quiet_mode.include_warnings must be a boolean")
+
+    include_summary = raw.get("include_summary", True)
+    if not isinstance(include_summary, bool):
+        raise ConfigError("quiet_mode.include_summary must be a boolean")
+
+    write_mode = raw.get("write_mode", "overwrite")
+    if not isinstance(write_mode, str) or write_mode not in ALLOWED_QUIET_WRITE_MODES:
+        raise ConfigError(f"quiet_mode.write_mode must be one of {', '.join(sorted(ALLOWED_QUIET_WRITE_MODES))}")
+
+    if enabled and not output_path:
+        raise ConfigError("quiet_mode.output_path is required when quiet_mode.enabled is true")
+
+    return QuietModeConfig(
+        enabled=enabled,
+        output_path=output_path,
+        format=fmt,  # type: ignore[arg-type]
+        include_warnings=include_warnings,
+        include_summary=include_summary,
+        write_mode=write_mode,  # type: ignore[arg-type]
+    )

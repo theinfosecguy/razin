@@ -48,6 +48,8 @@ razin scan -r . -o output/ --profile balanced
 | `--summary-only` | Stdout-only mode: show summary block, no finding rows. |
 | `--fail-on {high,medium,low}` | Exit 1 if any finding meets or exceeds this severity. |
 | `--fail-on-score N` | Exit 1 if aggregate score meets or exceeds `N` (0-100). |
+| `--quiet-mode` | Enable quiet mode: write to file only, no stdout output. |
+| `--quiet-output PATH` | Quiet mode output file path. Implies `--quiet-mode` when provided. |
 
 ### Flag interactions and constraints
 
@@ -62,6 +64,11 @@ razin scan -r . -o output/ --profile balanced
 | `--summary-only` with `--group-by` | `--summary-only` wins; no table is rendered. |
 | `--min-severity` with `--security-only` | Both filters are applied to stdout and artifact outputs. |
 | `--min-severity` / `--security-only` with `--fail-on` / `--fail-on-score` | Exit logic uses all findings from the scan, not filtered output. |
+| `--quiet-mode` without `--quiet-output` | Invalid unless config provides `quiet_mode.output_path`. Returns exit code `2`. |
+| `--quiet-output PATH` without `--quiet-mode` | Valid. `--quiet-output` implies quiet mode. |
+| `--quiet-mode` with `-o` / `--output-format` / `--group-by` / `--summary-only` | Invalid. Quiet mode conflicts with these output flags. Returns exit code `2`. |
+| `--quiet-mode` with `--no-stdout` | Allowed. `--no-stdout` is redundant but not an error. |
+| `--quiet-mode` with `--min-severity` / `--security-only` | Filters apply only to written quiet records. Gate still uses all findings. |
 
 ### Operational behavior details
 
@@ -157,6 +164,9 @@ For automation and CI:
 ```bash
 # Quiet CI run with both severity and score gates
 razin scan -r . --fail-on medium --fail-on-score 50 --no-stdout
+
+# Quiet mode: write JSONL to file, zero stdout
+razin scan -r . --quiet-mode --quiet-output results.jsonl --fail-on medium
 
 # Validate custom rule files only
 razin validate-config -r . -f ./rules/custom_1.yaml -f ./rules/custom_2.yaml
