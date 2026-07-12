@@ -53,7 +53,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--profile",
         choices=["strict", "balanced", "audit"],
         default=None,
-        help="Policy profile: strict (all signals), balanced (default, reduced noise), audit (informational only)",
+        help="Policy profile: strict, balanced (default, reduced noise), audit (non-blocking review)",
     )
     rules_source = scan.add_mutually_exclusive_group()
     rules_source.add_argument(
@@ -69,7 +69,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         action="append",
         default=None,
-        help="Custom DSL rule file path (repeat for multiple files)",
+        help="Custom DSL rule file path (repeat; reserved strong-signal IDs are rejected)",
     )
     scan.add_argument("-n", "--no-cache", action="store_true", help="Disable cache reads/writes")
     scan.add_argument(
@@ -125,7 +125,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=None,
         metavar="N",
-        help="Exit 1 if aggregate score meets or exceeds N (0-100, for CI gating)",
+        help="Exit 1 if review priority meets or exceeds N (0-100, for CI gating)",
     )
     scan.add_argument(
         "--min-severity",
@@ -172,7 +172,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         action="append",
         default=None,
-        help="Custom DSL rule file path (repeat for multiple files)",
+        help="Custom DSL rule file path (repeat; reserved strong-signal IDs are rejected)",
     )
 
     init = subparsers.add_parser("init", help="Generate a starter razin.yaml")
@@ -321,6 +321,7 @@ def main(argv: list[str] | None = None) -> int:
             security_only=args.security_only,
             disable_rules=tuple(args.disable_rule),
             only_rules=tuple(args.only_rules),
+            excluded_paths=((quiet_output.resolve(),) if quiet_enabled and quiet_output is not None else ()),
         )
     except ConfigError as exc:
         print(f"Configuration error: {exc}", file=sys.stderr)

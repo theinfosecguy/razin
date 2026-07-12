@@ -12,10 +12,19 @@ from pathlib import Path
 
 from razin.config import config_fingerprint, load_config
 from razin.constants.cache import CACHE_FILENAME
+from razin.constants.config import CONFIG_FILENAME
+from razin.constants.discovery import AUTO_TYPOSQUAT_BASELINE_MAX_SKILLS
 from razin.constants.engines import ENGINE_DSL
 from razin.constants.mcp import MCP_REMOTE_RULE_IDS
+from razin.constants.package_analysis import PACKAGE_RULE_IDS
 from razin.constants.profiles import VALID_PROFILES
-from razin.constants.reporting import VALID_OUTPUT_FORMATS
+from razin.constants.reporting import (
+    CSV_FINDINGS_FILENAME,
+    FINDINGS_FILENAME,
+    SARIF_FINDINGS_FILENAME,
+    SUMMARY_FILENAME,
+    VALID_OUTPUT_FORMATS,
+)
 from razin.dsl import DslEngine
 from razin.exceptions import ConfigError, SkillParseError
 from razin.exceptions.dsl import DslError
@@ -23,9 +32,16 @@ from razin.io import file_sha256
 from razin.model import ScanResult
 from razin.parsers import parse_skill_markdown_file
 from razin.reporting.filters import OutputFilters, build_filter_metadata, filter_findings
+from razin.scanner.assessment import assess_workspace, package_assessment_counts
 from razin.scanner.cache import build_scan_fingerprint, load_cache, new_cache, save_cache
-from razin.scanner.discovery import assign_unique_skill_names, collect_all_skill_names, discover_skill_files
+from razin.scanner.discovery import (
+    assign_unique_skill_names,
+    collect_all_skill_names,
+    derive_skill_name,
+    discover_skill_files_with_issues,
+)
 from razin.scanner.mcp_remote import collect_mcp_remote_candidates
+from razin.scanner.package_analysis import analyze_skill_package, incomplete_skill_candidate
 from razin.scanner.pipeline.cache_utils import (
     get_or_create_cache_namespace,
     is_cache_hit,
@@ -63,6 +79,31 @@ def _path_for_warning(path: Path, root: Path) -> str:
         return path.as_posix()
 
 
+def _generated_output_exclusions(
+    out: Path | None, package_root: Path, skill_names: tuple[str, ...]
+) -> tuple[Path, ...]:
+    if out is None:
+        return ()
+    try:
+        out.relative_to(package_root)
+    except ValueError:
+        pass
+    else:
+        if out != package_root:
+            return (out,)
+    global_paths = (
+        out / CACHE_FILENAME,
+        out / CSV_FINDINGS_FILENAME,
+        out / SARIF_FINDINGS_FILENAME,
+    )
+    skill_paths = tuple(
+        path
+        for skill_name in skill_names
+        for path in (out / skill_name / FINDINGS_FILENAME, out / skill_name / SUMMARY_FILENAME)
+    )
+    return (*global_paths, *skill_paths)
+
+
 def scan_workspace(
     *,
     root: Path,
@@ -82,6 +123,7 @@ def scan_workspace(
     security_only: bool = False,
     disable_rules: tuple[str, ...] = (),
     only_rules: tuple[str, ...] = (),
+    excluded_paths: tuple[Path, ...] = (),
 ) -> ScanResult:
     """Scan a workspace and optionally write per-skill findings and summaries."""
     invalid_formats = set(output_formats) - VALID_OUTPUT_FORMATS
@@ -109,6 +151,7 @@ def scan_workspace(
             raise ConfigError(f"Output directory is not writable: {out} ({exc})") from exc
 
     config = load_config(root, config_path)
+    effective_config_path = config_path.resolve() if config_path is not None else root / CONFIG_FILENAME
     if profile is not None and profile in VALID_PROFILES:
         config = replace(config, profile=profile)  # type: ignore[arg-type]
     if mcp_allowlist:
@@ -122,9 +165,13 @@ def scan_workspace(
         rule_files=rule_files,
     )
 
-    skill_files = discover_skill_files(root, config.skill_globs, resolved_max_file_mb)
+    skill_files, discovery_issues = discover_skill_files_with_issues(
+        root,
+        config.skill_globs,
+        resolved_max_file_mb,
+    )
 
-    if not config.typosquat_baseline and len(skill_files) >= 2:
+    if not config.typosquat_baseline and 2 <= len(skill_files) <= AUTO_TYPOSQUAT_BASELINE_MAX_SKILLS:
         auto_baseline = collect_all_skill_names(skill_files, root)
         config = replace(config, typosquat_baseline=auto_baseline)
         logger.info(
@@ -132,6 +179,13 @@ def scan_workspace(
             len(auto_baseline),
             len(skill_files),
         )
+    elif not config.typosquat_baseline and len(skill_files) > AUTO_TYPOSQUAT_BASELINE_MAX_SKILLS:
+        warning = (
+            f"Skipped implicit typosquat baseline for {len(skill_files)} skills; "
+            f"the automatic limit is {AUTO_TYPOSQUAT_BASELINE_MAX_SKILLS}. Configure typosquat.baseline explicitly."
+        )
+        warnings.append(warning)
+        logger.warning(warning)
     skill_names_by_file, duplicate_name_groups = assign_unique_skill_names(skill_files, root)
     for base_name, paths in sorted(duplicate_name_groups.items()):
         rendered_paths = ", ".join(_path_for_warning(path, root) for path in paths)
@@ -154,7 +208,7 @@ def scan_workspace(
         raise ConfigError(str(exc)) from exc
 
     loaded_dsl_rule_ids = tuple(dict.fromkeys(full_dsl_engine.public_rule_ids))
-    selectable_rule_ids = tuple(dict.fromkeys((*loaded_dsl_rule_ids, *MCP_REMOTE_RULE_IDS)))
+    selectable_rule_ids = tuple(dict.fromkeys((*loaded_dsl_rule_ids, *MCP_REMOTE_RULE_IDS, *PACKAGE_RULE_IDS)))
     detector_toggle_selection = resolve_detector_toggles(
         available_rule_ids=selectable_rule_ids,
         detectors=config.detectors,
@@ -198,6 +252,9 @@ def scan_workspace(
     executed_remote_rule_ids = frozenset(
         rule_id for rule_id in selection.executed_rule_ids if rule_id in MCP_REMOTE_RULE_IDS
     )
+    executed_package_rule_ids = frozenset(
+        rule_id for rule_id in selection.executed_rule_ids if rule_id in PACKAGE_RULE_IDS
+    )
     rulepack_fingerprint = dsl_engine.fingerprint()
     active_rule_overrides = selection.active_rule_overrides
     serialized_rule_overrides = _serialize_rule_overrides(active_rule_overrides)
@@ -206,6 +263,22 @@ def scan_workspace(
     disable_sources = selection.disable_sources
 
     findings_by_skill: dict[str, list] = {}
+    if "INCOMPLETE_SCAN" in executed_package_rule_ids:
+        for issue in discovery_issues:
+            skill_name = derive_skill_name(issue.path, root)
+            candidate = incomplete_skill_candidate(issue.path, issue.reason)
+            findings_by_skill.setdefault(skill_name, []).append(
+                candidate_to_finding(
+                    skill_name,
+                    candidate,
+                    rule_override=active_rule_overrides.get(candidate.rule_id),
+                    high_severity_min=config.high_severity_min,
+                    medium_severity_min=config.medium_severity_min,
+                )
+            )
+            warning = f"Incomplete scan for {issue.path}: {issue.reason}"
+            warnings.append(warning)
+            logger.warning(warning)
 
     cache_path = (out / CACHE_FILENAME) if out is not None else None
     cache_payload = new_cache() if (no_cache or out is None) else load_cache(cache_path)  # type: ignore[arg-type]
@@ -214,6 +287,7 @@ def scan_workspace(
         config_fingerprint=fingerprint,
         engine=resolved_engine,
         rulepack_fingerprint=rulepack_fingerprint,
+        executed_rule_ids=rules_executed,
     )
     cache_namespace = get_or_create_cache_namespace(
         cache_payload=cache_payload,
@@ -243,9 +317,36 @@ def scan_workspace(
             logger.warning(warning)
             continue
 
+        try:
+            skill_text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            skill_text = ""
+        package_result = analyze_skill_package(
+            skill_path=path,
+            skill_text=skill_text,
+            config=config,
+            active_rule_ids=executed_package_rule_ids,
+            excluded_paths=(
+                *excluded_paths,
+                effective_config_path,
+                *_generated_output_exclusions(
+                    out,
+                    path.parent,
+                    tuple(sorted(skill_names_by_file.values())),
+                ),
+            ),
+        )
+        package_sha256 = package_result.package_sha256 if config.package_analysis.enabled else None
+
         entry = cache_files.get(cache_key)
         if (
-            is_cache_hit(entry, sha256=sha256, mtime_ns=mtime_ns, mcp_dependency=mcp_dependency)
+            is_cache_hit(
+                entry,
+                sha256=sha256,
+                mtime_ns=mtime_ns,
+                mcp_dependency=mcp_dependency,
+                package_sha256=package_sha256,
+            )
             and isinstance(entry, dict)
             and entry.get("skill_name") == skill_name
         ):
@@ -256,17 +357,39 @@ def scan_workspace(
             continue
 
         cache_misses += 1
+        candidates = list(package_result.candidates)
         try:
             parsed = parse_skill_markdown_file(path)
         except SkillParseError as exc:
             warning = f"Parse error in {path}: {exc}"
             warnings.append(warning)
             logger.warning(warning)
-            cache_files.pop(cache_key, None)
+            if "INCOMPLETE_SCAN" in executed_package_rule_ids:
+                candidates.append(incomplete_skill_candidate(path, f"SKILL.md parsing failed: {exc}"))
+            findings = [
+                candidate_to_finding(
+                    skill_name,
+                    candidate,
+                    rule_override=active_rule_overrides.get(candidate.rule_id),
+                    high_severity_min=config.high_severity_min,
+                    medium_severity_min=config.medium_severity_min,
+                )
+                for candidate in candidates
+            ]
+            findings_by_skill.setdefault(skill_name, []).extend(findings)
+            parse_error_cache_entry: CacheFileEntry = {
+                "mtime_ns": mtime_ns,
+                "sha256": sha256,
+                "skill_name": skill_name,
+                "findings": [finding.to_dict() for finding in findings],
+            }
+            if package_sha256 is not None:
+                parse_error_cache_entry["package_sha256"] = package_sha256
+            cache_files[cache_key] = parse_error_cache_entry
             continue
         findings_by_skill.setdefault(skill_name, [])
 
-        candidates = dsl_engine.run_all(skill_name=skill_name, parsed=parsed, config=config)
+        candidates.extend(dsl_engine.run_all(skill_name=skill_name, parsed=parsed, config=config))
         mcp_candidates, mcp_warnings = collect_mcp_remote_candidates(
             parsed=parsed,
             root=root,
@@ -305,6 +428,8 @@ def scan_workspace(
             cache_entry["mcp_json_path"] = mcp_dependency[0]
             cache_entry["mcp_json_mtime_ns"] = mcp_dependency[1]
             cache_entry["mcp_json_sha256"] = mcp_dependency[2]
+        if package_sha256 is not None:
+            cache_entry["package_sha256"] = package_sha256
         cache_files[cache_key] = cache_entry
 
     for stale_key in set(cache_files) - discovered_keys:
@@ -384,11 +509,13 @@ def scan_workspace(
         high_min=config.high_severity_min,
         medium_min=config.medium_severity_min,
     )
+    assessment_counts = package_assessment_counts(findings_by_skill)
+    workspace_assessment = assess_workspace(assessment_counts)
 
     sorted_findings = sorted(all_findings, key=lambda f: (-f.score, f.id))
 
     return ScanResult(
-        scanned_files=len(skill_files),
+        scanned_files=len(skill_files) + len(discovery_issues),
         total_findings=len(all_findings),
         aggregate_score=agg_score,
         aggregate_severity=agg_severity,
@@ -406,6 +533,10 @@ def scan_workspace(
         rules_executed=rules_executed,
         rules_disabled=rules_disabled,
         disable_sources=_serialize_disable_sources(disable_sources),
+        review_priority=agg_score,
+        review_priority_level=agg_severity,
+        workspace_assessment=workspace_assessment,
+        assessment_counts=assessment_counts,
     )
 
 

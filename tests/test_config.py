@@ -174,12 +174,12 @@ def test_data_sensitivity_service_categories_change_fingerprint() -> None:
     assert config_fingerprint(default) != config_fingerprint(custom)
 
 
-def test_profile_aggregate_min_rule_score() -> None:
+def test_profile_keeps_legacy_aggregate_values_for_compatibility() -> None:
     strict = RazinConfig(profile="strict")
     balanced = RazinConfig(profile="balanced")
     audit = RazinConfig(profile="audit")
     assert strict.aggregate_min_rule_score < balanced.aggregate_min_rule_score
-    assert audit.aggregate_min_rule_score > 100  # nothing contributes
+    assert audit.aggregate_min_rule_score > 100
 
 
 def test_profile_suppress_local_hosts() -> None:
@@ -299,6 +299,63 @@ def test_strict_subdomains_changes_fingerprint() -> None:
     assert config_fingerprint(default) != config_fingerprint(strict)
 
 
+def test_load_config_reads_package_analysis_and_known_bad_iocs(tmp_path: Path) -> None:
+    digest = "a" * 64
+    config_path = tmp_path / "razin.yaml"
+    config_path.write_text(
+        "package_analysis:\n"
+        "  max_files: 42\n"
+        "  max_total_mb: 8\n"
+        "  max_file_mb: 1\n"
+        "  max_findings_per_rule: 3\n"
+        "  emit_inventory: true\n"
+        "  known_bad:\n"
+        "    domains: [Bad.Example]\n"
+        f"    sha256: [{digest}]\n"
+        "    indicators: [marker-123]\n",
+        encoding="utf-8",
+    )
+
+    loaded = load_config(tmp_path, config_path)
+
+    assert loaded.package_analysis.max_files == 42
+    assert loaded.package_analysis.max_total_mb == 8
+    assert loaded.package_analysis.max_file_mb == 1
+    assert loaded.package_analysis.max_findings_per_rule == 3
+    assert loaded.package_analysis.emit_inventory is True
+    assert loaded.package_analysis.known_bad.domains == ("bad.example",)
+    assert loaded.package_analysis.known_bad.sha256 == (digest,)
+    assert loaded.package_analysis.known_bad.indicators == ("marker-123",)
+
+
+@pytest.mark.parametrize(
+    "yaml_content",
+    [
+        "package_analysis: nope\n",
+        "package_analysis:\n  max_files: true\n",
+        "package_analysis:\n  max_total_mb: 0\n",
+        "package_analysis:\n  known_bad: nope\n",
+        "package_analysis:\n  known_bad:\n    sha256: [not-a-hash]\n",
+        "package_analysis:\n  known_bad:\n    indicators: [x]\n",
+        "package_analysis:\n  known_bad:\n    domains: ['https://bad.example/path']\n",
+    ],
+)
+def test_load_config_rejects_invalid_package_analysis(tmp_path: Path, yaml_content: str) -> None:
+    config_path = tmp_path / "razin.yaml"
+    config_path.write_text(yaml_content, encoding="utf-8")
+
+    with pytest.raises(ConfigError, match="package_analysis"):
+        load_config(tmp_path, config_path)
+
+
+def test_package_analysis_changes_fingerprint() -> None:
+    from razin.types import PackageAnalysisConfig
+
+    assert config_fingerprint(RazinConfig()) != config_fingerprint(
+        RazinConfig(package_analysis=PackageAnalysisConfig(max_files=12))
+    )
+
+
 def test_load_config_reads_rule_overrides(tmp_path: Path) -> None:
     """rule_overrides block is parsed into the config model."""
     config_path = tmp_path / "razin.yaml"
@@ -309,7 +366,7 @@ def test_load_config_reads_rule_overrides(tmp_path: Path) -> None:
         "    max_severity: low\n"
         "  AUTH_CONNECTION:\n"
         "    max_severity: medium\n"
-        "  SECRET_REF:\n"
+        "  KNOWN_BAD_FILE_HASH:\n"
         "    min_severity: high\n",
         encoding="utf-8",
     )
@@ -319,7 +376,18 @@ def test_load_config_reads_rule_overrides(tmp_path: Path) -> None:
     assert loaded.rule_overrides["MCP_REQUIRED"].enabled is False
     assert loaded.rule_overrides["MCP_REQUIRED"].max_severity == "low"
     assert loaded.rule_overrides["AUTH_CONNECTION"].max_severity == "medium"
-    assert loaded.rule_overrides["SECRET_REF"].min_severity == "high"
+    assert loaded.rule_overrides["KNOWN_BAD_FILE_HASH"].min_severity == "high"
+
+
+def test_load_config_rejects_min_severity_above_signal_contract(tmp_path: Path) -> None:
+    config_path = tmp_path / "razin.yaml"
+    config_path.write_text(
+        "rule_overrides:\n  SECRET_REF:\n    min_severity: medium\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigError, match="evidence kind"):
+        load_config(tmp_path, config_path)
 
 
 def test_load_config_rejects_invalid_rule_override_severity(tmp_path: Path) -> None:
@@ -380,7 +448,7 @@ def test_rule_overrides_change_fingerprint() -> None:
 def test_rule_overrides_min_severity_changes_fingerprint() -> None:
     """Changing min severity override invalidates config fingerprint."""
     default = RazinConfig()
-    overridden = RazinConfig(rule_overrides={"SECRET_REF": RuleOverrideConfig(min_severity="high")})
+    overridden = RazinConfig(rule_overrides={"KNOWN_BAD_FILE_HASH": RuleOverrideConfig(min_severity="high")})
     assert config_fingerprint(default) != config_fingerprint(overridden)
 
 

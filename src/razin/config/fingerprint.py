@@ -52,6 +52,18 @@ def config_fingerprint(config: RazinConfig, max_file_mb_override: int | None = N
         ),
         "skill_globs": list(config.skill_globs),
         "max_file_mb": (max_file_mb_override if max_file_mb_override is not None else config.max_file_mb),
+        "package_analysis": {
+            "enabled": config.package_analysis.enabled,
+            "max_files": config.package_analysis.max_files,
+            "max_directories": config.package_analysis.max_directories,
+            "max_total_mb": config.package_analysis.max_total_mb,
+            "max_file_mb": config.package_analysis.max_file_mb,
+            "max_findings_per_rule": config.package_analysis.max_findings_per_rule,
+            "emit_inventory": config.package_analysis.emit_inventory,
+            "known_bad_domains": list(config.package_analysis.known_bad.domains),
+            "known_bad_sha256": list(config.package_analysis.known_bad.sha256),
+            "known_bad_indicators": list(config.package_analysis.known_bad.indicators),
+        },
     }
     blob = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(blob).hexdigest()

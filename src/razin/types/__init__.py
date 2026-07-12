@@ -13,7 +13,14 @@ from .common import (
     SignalKind,
     WorkspaceAssessment,
 )
-from .config import DataSensitivityConfig, DetectorConfig, RuleOverrideConfig, ToolTierConfig
+from .config import (
+    DataSensitivityConfig,
+    DetectorConfig,
+    IocConfig,
+    PackageAnalysisConfig,
+    RuleOverrideConfig,
+    ToolTierConfig,
+)
 from .init_config import DomainCount, InitConfigDraft, InitFromScanAnalysis
 
 __all__ = [
@@ -28,6 +35,7 @@ __all__ = [
     "DomainCount",
     "InitConfigDraft",
     "InitFromScanAnalysis",
+    "IocConfig",
     "JsonObject",
     "JsonScalar",
     "JsonValue",
@@ -35,6 +43,7 @@ __all__ = [
     "RuleOverrideConfig",
     "Severity",
     "SignalKind",
+    "PackageAnalysisConfig",
     "ToolTierConfig",
     "WorkspaceAssessment",
 ]

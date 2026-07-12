@@ -66,3 +66,26 @@ class QuietModeConfig:
     include_warnings: bool = True
     include_summary: bool = True
     write_mode: Literal["overwrite", "append"] = "overwrite"
+
+
+@dataclass(frozen=True)
+class IocConfig:
+    """Operator-supplied indicators that are safe to match locally."""
+
+    domains: tuple[str, ...] = ()
+    sha256: tuple[str, ...] = ()
+    indicators: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class PackageAnalysisConfig:
+    """Bounds and indicators for non-executing whole-package analysis."""
+
+    enabled: bool = True
+    max_files: int = 256
+    max_directories: int = 128
+    max_total_mb: int = 16
+    max_file_mb: int = 2
+    max_findings_per_rule: int = 20
+    emit_inventory: bool = False
+    known_bad: IocConfig = IocConfig()

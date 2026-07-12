@@ -68,6 +68,7 @@ ALLOWED_CONFIG_KEYS: frozenset[str] = frozenset(
         "skill_globs",
         "max_file_mb",
         "quiet_mode",
+        "package_analysis",
     }
 )
 
@@ -81,6 +82,19 @@ ALLOWED_RULE_OVERRIDE_KEYS: frozenset[str] = frozenset({"enabled", "max_severity
 ALLOWED_QUIET_MODE_KEYS: frozenset[str] = frozenset(
     {"enabled", "output_path", "format", "include_warnings", "include_summary", "write_mode"}
 )
+ALLOWED_PACKAGE_ANALYSIS_KEYS: frozenset[str] = frozenset(
+    {
+        "enabled",
+        "max_files",
+        "max_directories",
+        "max_total_mb",
+        "max_file_mb",
+        "max_findings_per_rule",
+        "emit_inventory",
+        "known_bad",
+    }
+)
+ALLOWED_KNOWN_BAD_KEYS: frozenset[str] = frozenset({"domains", "sha256", "indicators"})
 
 LIST_OF_STRINGS_KEYS: tuple[str, ...] = (
     "allowlist_domains",

@@ -17,6 +17,7 @@ class CacheFileEntry(TypedDict):
     mcp_json_path: NotRequired[str]
     mcp_json_mtime_ns: NotRequired[int]
     mcp_json_sha256: NotRequired[str]
+    package_sha256: NotRequired[str]
 
 
 class CacheNamespace(TypedDict):

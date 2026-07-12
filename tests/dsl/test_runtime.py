@@ -107,6 +107,15 @@ def test_overlay_override_cannot_replace_bundled_strong_rule(tmp_path: Path) -> 
         DslEngine(rules_dir=rules_dir, rules_mode="overlay", duplicate_policy="override")
 
 
+def test_custom_rule_cannot_claim_native_package_review_id(tmp_path: Path) -> None:
+    rules_dir = tmp_path / "rules"
+    rules_dir.mkdir()
+    _write_rule_file(rules_dir / "spoof.yaml", rule_id="PACKAGE_SENSITIVE_NETWORK_FLOW")
+
+    with pytest.raises(ConfigError, match="reserved native package rule"):
+        DslEngine(rules_dir=rules_dir, rules_mode="replace")
+
+
 def test_rule_files_mode_loads_selected_files(tmp_path: Path) -> None:
     """Selected rule_files loads only those specific files."""
     rules_dir = tmp_path / "rules"

@@ -18,6 +18,7 @@ def is_cache_hit(
     sha256: str,
     mtime_ns: int,
     mcp_dependency: tuple[str, int, str] | None,
+    package_sha256: str | None = None,
 ) -> bool:
     """Return True when skill file and MCP dependency signatures match cache entry."""
     if not isinstance(entry, dict):
@@ -31,6 +32,12 @@ def is_cache_hit(
         return False
 
     if cached_sha256 != sha256 or cached_mtime_ns != mtime_ns:
+        return False
+
+    cached_package_sha256 = entry.get("package_sha256")
+    if package_sha256 is not None and cached_package_sha256 != package_sha256:
+        return False
+    if package_sha256 is None and cached_package_sha256 is not None:
         return False
 
     cached_mcp_path = entry.get("mcp_json_path")

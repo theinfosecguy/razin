@@ -6,7 +6,7 @@ import hashlib
 import json
 from pathlib import Path
 
-from razin.constants.cache import CACHE_TEMP_PREFIX, CACHE_TEMP_SUFFIX, CACHE_VERSION, LEGACY_CACHE_ENGINE
+from razin.constants.cache import CACHE_TEMP_PREFIX, CACHE_TEMP_SUFFIX, CACHE_VERSION
 from razin.io import load_json_file, write_json_atomic
 from razin.types import CacheFileEntry, CacheNamespace, CachePayload
 
@@ -35,8 +35,6 @@ def load_cache(cache_path: Path) -> CachePayload:
     version = payload.get("version")
     if version == CACHE_VERSION:
         return _load_v3_payload(payload)
-    if version == 2:
-        return _migrate_v2_payload(payload)
     return new_cache()
 
 
@@ -45,12 +43,14 @@ def build_scan_fingerprint(
     config_fingerprint: str,
     engine: str,
     rulepack_fingerprint: str,
+    executed_rule_ids: tuple[str, ...] = (),
 ) -> str:
-    """Return stable scan fingerprint across config, engine, and rulepack."""
+    """Return stable scan fingerprint across config, engine, rules, and rulepack."""
     payload = {
         "config_fingerprint": config_fingerprint,
         "engine": engine,
         "rulepack_fingerprint": rulepack_fingerprint,
+        "executed_rule_ids": list(executed_rule_ids),
     }
     blob = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(blob).hexdigest()
@@ -82,37 +82,6 @@ def save_cache(cache_path: Path, payload: CachePayload) -> None:
         temp_prefix=CACHE_TEMP_PREFIX,
         temp_suffix=CACHE_TEMP_SUFFIX,
     )
-
-
-def _migrate_v2_payload(payload: dict[object, object]) -> CachePayload:
-    config_fingerprint = payload.get("config_fingerprint")
-    raw_files = payload.get("files")
-
-    if not isinstance(config_fingerprint, str):
-        config_fingerprint = ""
-
-    files = _normalize_files(raw_files)
-    if not config_fingerprint and not files:
-        return new_cache()
-
-    rulepack_fingerprint = ""
-    scan_fingerprint = build_scan_fingerprint(
-        config_fingerprint=config_fingerprint,
-        engine=LEGACY_CACHE_ENGINE,
-        rulepack_fingerprint=rulepack_fingerprint,
-    )
-    return {
-        "version": CACHE_VERSION,
-        "namespaces": {
-            scan_fingerprint: {
-                "scan_fingerprint": scan_fingerprint,
-                "config_fingerprint": config_fingerprint,
-                "engine": LEGACY_CACHE_ENGINE,
-                "rulepack_fingerprint": rulepack_fingerprint,
-                "files": files,
-            }
-        },
-    }
 
 
 def _normalize_namespace(value: dict[object, object], *, fallback_scan_fingerprint: str) -> CacheNamespace:
@@ -155,6 +124,7 @@ def _normalize_files(raw_files: object) -> dict[str, CacheFileEntry]:
         mcp_json_path = value.get("mcp_json_path")
         mcp_json_mtime_ns = value.get("mcp_json_mtime_ns")
         mcp_json_sha256 = value.get("mcp_json_sha256")
+        package_sha256 = value.get("package_sha256")
 
         if not isinstance(mtime_ns, int):
             continue
@@ -177,6 +147,8 @@ def _normalize_files(raw_files: object) -> dict[str, CacheFileEntry]:
             entry["mcp_json_mtime_ns"] = mcp_json_mtime_ns
         if isinstance(mcp_json_sha256, str):
             entry["mcp_json_sha256"] = mcp_json_sha256
+        if isinstance(package_sha256, str):
+            entry["package_sha256"] = package_sha256
 
         files[key] = entry
     return files

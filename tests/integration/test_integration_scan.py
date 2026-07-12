@@ -624,8 +624,8 @@ def test_binary_skill_skipped_with_warning(tmp_path: Path) -> None:
     assert result.total_findings >= 0
 
 
-def test_symlink_outside_root_scanned(tmp_path: Path) -> None:
-    """Symlinked SKILL.md resolving outside root is discovered and scanned."""
+def test_symlink_outside_root_is_reported_incomplete(tmp_path: Path) -> None:
+    """Symlinked SKILL.md resolving outside root is not trusted or followed."""
     external = tmp_path / "external"
     external.mkdir()
     (external / "SKILL.md").write_text(
@@ -642,8 +642,11 @@ def test_symlink_outside_root_scanned(tmp_path: Path) -> None:
 
     result = scan_workspace(root=root, out=out, no_cache=True)
 
+    # The summary counts both the parsed package and the explicitly unassessed
+    # symlink package; the external target itself is never read.
     assert result.scanned_files == 2
-    assert len(result.warnings) == 0
+    assert any("Symbolic-link SKILL.md" in warning for warning in result.warnings)
+    assert any(finding.rule_id == "INCOMPLETE_SCAN" for finding in result.findings)
 
 
 def test_readonly_output_dir_raises_config_error(tmp_path: Path) -> None:
