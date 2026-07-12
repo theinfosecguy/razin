@@ -17,11 +17,15 @@ Writes per-skill artifacts:
 JSON details:
 
 - `findings.json` is an array of finding objects.
-- Each finding includes `classification` (`security` or `informational`).
+- Each finding includes `classification` (`security` or `informational`) and `signal_kind` (capability, review, dangerous behavior, IOC, integrity violation, attack chain, or analysis gap).
 - If `rule_overrides` adjust severity (raise or cap), finding objects include `severity_override` metadata.
 - `summary.json` includes:
   - `counts_by_severity`
   - `counts_by_rule`
+  - `review_priority` and `review_priority_level` (triage values, not maliciousness probabilities)
+  - per-skill `assessment` (`malicious/high-confidence-chain`, `risky-but-legitimate/review`, `dynamic-analysis-required/unknown`, or `clean/no-evidence`)
+  - `top_risks`, ordered with actionable security evidence before contextual findings
+  - deprecated compatibility aliases `overall_score` and `overall_severity`
   - optional `output_filter` metadata (`shown`, `total`, `filtered`, `min_severity`, `security_only`)
   - optional `rule_overrides` metadata
   - optional rule-selection metadata: `rules_executed`, `rules_disabled`, `disable_sources`
@@ -50,6 +54,7 @@ CSV columns:
 - `title`
 - `description`
 - `recommendation`
+- `signal_kind` (appended in schema v2 so existing column positions remain stable)
 
 ## SARIF
 
@@ -63,7 +68,7 @@ Writes:
 
 SARIF details:
 
-- Each result includes `properties.classification`.
+- Each result includes `properties.classification` and `properties.signal_kind`.
 - Capped findings include `properties.severity_override`.
 - Run-level properties include:
   - `ruleDistribution`
@@ -116,6 +121,8 @@ Summary record transparency fields:
 - `total_findings`: count of all findings from full scan.
 - `written_findings`: count of findings written to output (after filters).
 - `filtered_out_findings`: count of findings excluded by filters.
+- `workspace_assessment`: workspace verdict (`contains-high-confidence-malicious`, `review-required`, `incomplete`, or `clean`).
+- `assessment_counts`: number of scanned packages in each of the four per-skill assessment states.
 - `gate_scope`: always `all_findings` (gate evaluation is never affected by output filters).
 - `gate_failed`: boolean reflecting the exit code decision.
 

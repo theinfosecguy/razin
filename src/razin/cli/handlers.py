@@ -24,6 +24,7 @@ from razin.constants.scoring import SEVERITY_RANK
 from razin.exceptions.validation import ValidationError, format_errors
 from razin.io.json_io import write_text_atomic
 from razin.model import ScanResult
+from razin.scanner.assessment import review_priority_score, signal_kind_for_rule
 from razin.validation import preflight_validate
 
 
@@ -38,13 +39,23 @@ def evaluate_fail_thresholds(
     When both ``--fail-on`` and ``--fail-on-score`` are provided, either
     condition being met causes failure (logical OR).
     """
+    if result.aggregate_min_rule_score > 100:
+        return 0
+
     if fail_on is not None:
         threshold = SEVERITY_RANK.get(fail_on, 0)
         for finding in result.findings:
-            if SEVERITY_RANK.get(finding.severity, 0) >= threshold:
+            if (
+                finding.classification == "security"
+                and signal_kind_for_rule(finding.rule_id) != "capability"
+                and SEVERITY_RANK.get(finding.severity, 0) >= threshold
+            ):
                 return 1
 
-    if fail_on_score is not None and result.aggregate_score >= fail_on_score:
+    priority = review_priority_score(result.findings)
+    if not result.findings:
+        priority = result.review_priority if result.review_priority is not None else result.aggregate_score
+    if fail_on_score is not None and priority >= fail_on_score:
         return 1
 
     return 0

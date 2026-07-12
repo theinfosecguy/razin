@@ -40,6 +40,7 @@ def _build_sarif_result(finding: Finding) -> dict[str, Any]:
             "skill": finding.skill,
             "recommendation": finding.recommendation,
             "classification": finding.classification,
+            "signal_kind": finding.signal_kind,
         },
     }
     if finding.severity_override is not None:

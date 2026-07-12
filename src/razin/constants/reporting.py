@@ -9,8 +9,8 @@ SARIF_FINDINGS_FILENAME: str = "findings.sarif"
 REPORT_TEMP_PREFIX: str = ".tmp-"
 REPORT_TEMP_SUFFIX: str = ".json"
 
-SCHEMA_VERSION: str = "1.0.0"
-QUIET_STREAM_VERSION: str = "1.0.0"
+SCHEMA_VERSION: str = "2.0.0"
+QUIET_STREAM_VERSION: str = "2.0.0"
 
 VALID_OUTPUT_FORMATS: frozenset[str] = frozenset({"json", "csv", "sarif"})
 DEFAULT_OUTPUT_FORMAT: str = "json"
@@ -28,6 +28,7 @@ CSV_COLUMNS: tuple[str, ...] = (
     "title",
     "description",
     "recommendation",
+    "signal_kind",
 )
 
 SARIF_VERSION: str = "2.1.0"

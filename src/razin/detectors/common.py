@@ -21,8 +21,11 @@ def field_evidence(parsed: ParsedSkillDocument, field: DocumentField) -> Evidenc
 def extract_domain(url: str) -> str | None:
     """Extract and normalize hostname from a URL string."""
     cleaned = normalize_url(url)
-    parsed = urlparse(cleaned)
-    host = parsed.hostname
+    try:
+        parsed = urlparse(cleaned)
+        host = parsed.hostname
+    except ValueError:
+        return None
     if not host:
         return None
     return host.lower().strip()

@@ -110,8 +110,10 @@ def test_candidate_to_finding_uses_profile_thresholds() -> None:
     balanced = candidate_to_finding("skill-a", candidate, high_severity_min=80, medium_severity_min=50)
     strict = candidate_to_finding("skill-a", candidate, high_severity_min=70, medium_severity_min=40)
 
-    assert balanced.severity == "medium"
-    assert strict.severity == "high"
+    assert balanced.severity == "low"
+    assert strict.severity == "low"
+    assert balanced.classification == "informational"
+    assert strict.classification == "informational"
 
 
 def test_candidate_to_finding_propagates_classification() -> None:
@@ -152,12 +154,12 @@ def test_candidate_to_finding_applies_rule_override_cap() -> None:
         medium_severity_min=50,
     )
 
-    assert finding.severity == "medium"
-    assert finding.score == 79
+    assert finding.severity == "low"
+    assert finding.score == 49
     assert finding.severity_override is not None
     assert finding.severity_override.original == "high"
-    assert finding.severity_override.applied == "medium"
-    assert finding.severity_override.reason == "rule_override"
+    assert finding.severity_override.applied == "low"
+    assert finding.severity_override.reason == "rule_override+signal_policy"
 
 
 def test_candidate_to_finding_applies_rule_override_bump() -> None:
@@ -180,11 +182,12 @@ def test_candidate_to_finding_applies_rule_override_bump() -> None:
         medium_severity_min=50,
     )
 
-    assert finding.severity == "high"
-    assert finding.score == 80
+    assert finding.severity == "low"
+    assert finding.score == 49
     assert finding.severity_override is not None
     assert finding.severity_override.original == "low"
-    assert finding.severity_override.applied == "high"
+    assert finding.severity_override.applied == "low"
+    assert finding.severity_override.reason == "rule_override+signal_policy"
 
 
 def test_suppress_redundant_candidates_keeps_mcp_and_removes_overlapping_unknown_domain() -> None:

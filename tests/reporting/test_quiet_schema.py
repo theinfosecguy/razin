@@ -9,6 +9,7 @@ from typing import Any
 import jsonschema
 import pytest
 
+from razin.constants.reporting import QUIET_STREAM_VERSION
 from razin.model import Evidence, Finding, ScanResult
 from razin.reporting.quiet_writer import write_quiet_output
 
@@ -93,6 +94,29 @@ def test_summary_record_validates(tmp_path: Path) -> None:
     assert len(summary_lines) == 1
     record = json.loads(summary_lines[0])
     jsonschema.validate(record, schema)
+    assert record["data"]["workspace_assessment"] == "incomplete"
+    assert record["data"]["assessment_counts"]["dynamic-analysis-required/unknown"] == 1
+
+
+def test_legacy_summary_aliases_match_computed_review_priority(tmp_path: Path) -> None:
+    out = tmp_path / "out.jsonl"
+    result = _dummy_result(findings=(_dummy_finding(),))
+    result = ScanResult(
+        **{
+            **result.__dict__,
+            "aggregate_score": 99,
+            "aggregate_severity": "high",
+            "review_priority": 55,
+            "review_priority_level": "medium",
+        }
+    )
+
+    write_quiet_output(out_path=out, result=result, include_warnings=False)
+    records = [json.loads(line) for line in out.read_text(encoding="utf-8").splitlines()]
+    record = next(item for item in records if item["type"] == "summary")
+
+    assert record["data"]["aggregate_score"] == record["data"]["review_priority"] == 55
+    assert record["data"]["aggregate_severity"] == record["data"]["review_priority_level"] == "medium"
 
 
 def test_all_record_types_validate_together(tmp_path: Path) -> None:
@@ -167,7 +191,7 @@ def test_schema_rejects_mismatched_type_and_data(record_type: str, bad_data: dic
     schema = _load_schema()
     record = {
         "type": record_type,
-        "version": "1.0.0",
+        "version": QUIET_STREAM_VERSION,
         "timestamp": "2026-03-16T00:00:00+00:00",
         "data": bad_data,
     }

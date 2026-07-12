@@ -20,6 +20,7 @@ from razin.dsl.registry import OP_REGISTRY
 from razin.exceptions import ConfigError
 from razin.exceptions.dsl import DslCompileError, DslRuntimeError, DslSchemaError
 from razin.model import FindingCandidate, ParsedSkillDocument
+from razin.scanner.assessment import RESERVED_STRONG_RULE_IDS
 from razin.types.dsl import EvalContext
 
 logger = logging.getLogger(__name__)
@@ -62,6 +63,16 @@ class DslEngine:
             internal_rule_id = raw.get("rule_id")
             public_rule_id = raw.get("public_rule_id", internal_rule_id)
 
+            if yaml_path not in bundled_paths:
+                claimed_ids = {value for value in (internal_rule_id, public_rule_id) if isinstance(value, str)}
+                reserved_ids = claimed_ids & RESERVED_STRONG_RULE_IDS
+                if reserved_ids:
+                    rendered = ", ".join(sorted(reserved_ids))
+                    raise ConfigError(
+                        f"Custom rule {yaml_path} uses reserved strong-signal rule ID(s): {rendered}. "
+                        "Custom DSL rules default to analysis-gap semantics and cannot claim trusted IOC, "
+                        "integrity, or attack-chain identities."
+                    )
             if rule_ids is not None and internal_rule_id not in rule_ids and public_rule_id not in rule_ids:
                 continue
 

@@ -46,6 +46,7 @@ def render_csv_string(findings: list[Finding]) -> str:
                 f.title,
                 f.description,
                 f.recommendation,
+                f.signal_kind,
             )
         )
     return buf.getvalue()

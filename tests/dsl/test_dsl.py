@@ -555,6 +555,7 @@ def test_custom_rule_source_forces_cache_miss(basic_repo_root: Path, tmp_path: P
 
     custom_rules = tmp_path / "rules"
     shutil.copytree(RULES_DIR, custom_rules)
+    (custom_rules / "instr_obfuscated_payload.yaml").unlink()
 
     out = tmp_path / "out"
     first = scan_workspace(root=basic_repo_root, out=out, engine="dsl")
@@ -572,6 +573,7 @@ def test_rulepack_change_forces_cache_miss(basic_repo_root: Path, tmp_path: Path
 
     custom_rules = tmp_path / "rules"
     shutil.copytree(RULES_DIR, custom_rules)
+    (custom_rules / "instr_obfuscated_payload.yaml").unlink()
 
     out = tmp_path / "out"
     first = scan_workspace(root=basic_repo_root, out=out, engine="dsl", rules_dir=custom_rules)

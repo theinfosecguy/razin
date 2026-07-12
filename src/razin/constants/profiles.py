@@ -1,15 +1,14 @@
 """Policy profile constants and presets.
 
-Razin supports three policy profiles that control scoring thresholds
-and aggregate behavior without changing which detectors run:
+Razin supports three policy profiles that control severity thresholds and
+domain suppression without changing which detectors run:
 
-- ``strict``: All findings contribute to aggregate; no domain suppression
-  beyond explicit allowlists.  Suitable for high-assurance review.
-- ``balanced``: Context-only signals (TOOL_INVOCATION, DYNAMIC_SCHEMA,
-  MCP_REQUIRED) are excluded from aggregate scoring.
+- ``strict``: No domain suppression beyond explicit allowlists. Suitable for
+  high-assurance review.
+- ``balanced``: Local/dev hosts are suppressed and common signals use higher
+  severity thresholds.
   Local/dev hosts are always suppressed.  Suitable for team triage.
-- ``audit``: All findings are reported but aggregate score is always 0
-  (informational-only).  Suitable for exploration and labeling.
+- ``audit``: All findings are reported. Suitable for exploration and labeling.
 """
 
 from __future__ import annotations
@@ -21,18 +20,15 @@ ProfileName = Literal["strict", "balanced", "audit"]
 VALID_PROFILES: frozenset[str] = frozenset({"strict", "balanced", "audit"})
 DEFAULT_PROFILE: ProfileName = "balanced"
 
-# Per-profile minimum rule score for aggregate contribution.
-# Rules with a per-rule max below this threshold are excluded from
-# the probabilistic-OR aggregate (they still appear as findings).
+# Deprecated compatibility values. Review priority ignores aggregate minimums.
 PROFILE_AGGREGATE_MIN_SCORE: dict[str, int] = {
     "strict": 20,
     "balanced": 40,
-    "audit": 101,  # nothing contributes → aggregate falls back to max
+    "audit": 101,
 }
 
-# Per-profile severity thresholds.  Balanced raises the bar so that
-# single common signals (e.g. MCP_ENDPOINT at 70) don't push every
-# skill to high — reviewers see high only for genuinely multi-signal risk.
+# Per-profile severity thresholds. Signal-kind policy separately prevents
+# capability/review/analysis-gap rules from reaching unsupported severities.
 PROFILE_HIGH_SEVERITY_MIN: dict[str, int] = {
     "strict": 70,
     "balanced": 80,

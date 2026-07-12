@@ -5,6 +5,7 @@ metadata:
   description_template: "Field '{key}' declares command-like behavior."
   recommendation: "Review and constrain command execution fields."
   confidence: high
+  classification: informational
 scoring:
   base_score: 72
 match:

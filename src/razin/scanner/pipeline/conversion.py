@@ -9,8 +9,9 @@ from typing import cast
 from razin.constants.ids import FINDING_ID_HEX_LENGTH
 from razin.constants.scoring import SEVERITY_RANK
 from razin.model import Evidence, Finding, FindingCandidate, SeverityOverride
+from razin.scanner.assessment import max_allowed_severity, signal_kind_for_rule
 from razin.scanner.score import aggregate_severity
-from razin.types import Classification, Confidence, RuleOverrideConfig, Severity
+from razin.types import Classification, Confidence, RuleOverrideConfig, Severity, SignalKind
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,7 @@ def candidate_to_finding(
     score = max(0, min(100, int(candidate.score)))
     severity = aggregate_severity(score, high_min=high_severity_min, medium_min=medium_severity_min)
     severity_override: SeverityOverride | None = None
+    signal_kind = signal_kind_for_rule(candidate.rule_id)
 
     if rule_override is not None and (rule_override.max_severity is not None or rule_override.min_severity is not None):
         score, severity, severity_override = _apply_rule_override(
@@ -36,6 +38,15 @@ def candidate_to_finding(
             high_severity_min=high_severity_min,
             medium_severity_min=medium_severity_min,
         )
+
+    score, severity, severity_override = _enforce_signal_policy(
+        score=score,
+        severity=severity,
+        signal_kind=signal_kind,
+        existing_override=severity_override,
+        high_severity_min=high_severity_min,
+        medium_severity_min=medium_severity_min,
+    )
 
     identity = "|".join(
         [
@@ -61,8 +72,46 @@ def candidate_to_finding(
         skill=skill_name,
         rule_id=candidate.rule_id,
         recommendation=candidate.recommendation,
-        classification=candidate.classification,
+        classification=("informational" if signal_kind == "capability" else candidate.classification),
         severity_override=severity_override,
+        signal_kind=signal_kind,
+    )
+
+
+def _enforce_signal_policy(
+    *,
+    score: int,
+    severity: Severity,
+    signal_kind: SignalKind,
+    existing_override: SeverityOverride | None,
+    high_severity_min: int,
+    medium_severity_min: int,
+) -> tuple[int, Severity, SeverityOverride | None]:
+    """Cap severity to the strongest claim supported by a rule's evidence."""
+    maximum = max_allowed_severity(signal_kind)
+    if SEVERITY_RANK[severity] <= SEVERITY_RANK[maximum]:
+        return score, severity, existing_override
+
+    adjusted_score = _cap_score_to_max_severity(
+        score=score,
+        max_severity=maximum,
+        high_severity_min=high_severity_min,
+        medium_severity_min=medium_severity_min,
+    )
+    adjusted_severity = aggregate_severity(
+        adjusted_score,
+        high_min=high_severity_min,
+        medium_min=medium_severity_min,
+    )
+    if SEVERITY_RANK[adjusted_severity] > SEVERITY_RANK[maximum]:
+        adjusted_severity = maximum
+
+    original = existing_override.original if existing_override is not None else severity
+    reason = "signal_policy" if existing_override is None else f"{existing_override.reason}+signal_policy"
+    return (
+        adjusted_score,
+        adjusted_severity,
+        SeverityOverride(original=original, applied=adjusted_severity, reason=reason),
     )
 
 
@@ -320,6 +369,7 @@ def deserialize_findings(payload: object) -> list[Finding]:
                 recommendation=str(item.get("recommendation", "")),
                 classification=as_classification(item.get("classification")),
                 severity_override=_deserialize_severity_override(item.get("severity_override")),
+                signal_kind=as_signal_kind(item.get("signal_kind"), rule_id=str(item.get("rule_id", ""))),
             )
         )
 
@@ -345,6 +395,19 @@ def as_classification(value: object) -> Classification:
     if isinstance(value, str) and value in {"security", "informational"}:
         return cast(Classification, value)
     return "security"
+
+
+def as_signal_kind(value: object, *, rule_id: str = "") -> SignalKind:
+    """Derive authoritative signal metadata instead of trusting cache input."""
+    expected = signal_kind_for_rule(rule_id)
+    if value is not None and value != expected:
+        logger.debug(
+            "Ignoring cached signal_kind %r for rule %s; expected %s",
+            value,
+            rule_id,
+            expected,
+        )
+    return expected
 
 
 def _deserialize_severity_override(value: object) -> SeverityOverride | None:

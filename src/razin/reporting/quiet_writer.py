@@ -13,6 +13,12 @@ from typing import Any
 from razin.constants.reporting import QUIET_STREAM_VERSION, SCHEMA_VERSION
 from razin.constants.scoring import SEVERITY_RANK
 from razin.model import Finding, ScanResult
+from razin.scanner.assessment import (
+    assess_workspace,
+    package_assessment_counts_from_findings,
+    review_priority_score,
+)
+from razin.scanner.score import aggregate_severity
 from razin.types.common import Severity
 
 
@@ -161,14 +167,34 @@ def _build_summary_data(
     gate_failed: bool,
 ) -> dict[str, Any]:
     """Build the summary record payload with transparency fields."""
+    priority = result.review_priority
+    if priority is None:
+        priority = review_priority_score(result.findings)
+    priority_level = result.review_priority_level
+    if priority_level is None:
+        priority_level = aggregate_severity(
+            priority,
+            high_min=result.high_severity_min,
+            medium_min=result.medium_severity_min,
+        )
+    assessment_counts = result.assessment_counts or package_assessment_counts_from_findings(
+        result.findings,
+        total_packages=result.scanned_files,
+    )
+    workspace_assessment = result.workspace_assessment or assess_workspace(assessment_counts)
+
     return {
         "schema_version": SCHEMA_VERSION,
         "scanned_files": result.scanned_files,
         "total_findings": total_count,
         "written_findings": written_count,
         "filtered_out_findings": total_count - written_count,
-        "aggregate_score": result.aggregate_score,
-        "aggregate_severity": result.aggregate_severity,
+        "aggregate_score": priority,
+        "aggregate_severity": priority_level,
+        "review_priority": priority,
+        "review_priority_level": priority_level,
+        "workspace_assessment": workspace_assessment,
+        "assessment_counts": assessment_counts,
         "counts_by_severity": result.counts_by_severity,
         "gate_scope": "all_findings",
         "gate_failed": gate_failed,
