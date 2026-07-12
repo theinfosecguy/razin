@@ -23,7 +23,9 @@ JSON details:
   - `counts_by_severity`
   - `counts_by_rule`
   - `review_priority` and `review_priority_level` (triage values, not maliciousness probabilities)
-  - per-skill `assessment` (`malicious/high-confidence-chain`, `risky-but-legitimate/review`, `dynamic-analysis-required/unknown`, or `clean/no-evidence`)
+  - per-skill `evidence_verdict` (`high-confidence-malicious-evidence`, `review-required`, `capability-only`, or `no-actionable-malicious-evidence`)
+  - independent `coverage_status` (`complete`, `incomplete`, or `not-evaluated`)
+  - machine-readable `coverage_reasons` that remain present even when gap findings are disabled
   - `top_risks`, ordered with actionable security evidence before contextual findings
   - deprecated compatibility aliases `overall_score` and `overall_severity`
   - optional `output_filter` metadata (`shown`, `total`, `filtered`, `min_severity`, `security_only`)
@@ -121,10 +123,16 @@ Summary record transparency fields:
 - `total_findings`: count of all findings from full scan.
 - `written_findings`: count of findings written to output (after filters).
 - `filtered_out_findings`: count of findings excluded by filters.
-- `workspace_assessment`: workspace verdict (`contains-high-confidence-malicious`, `review-required`, `incomplete`, or `clean`).
-- `assessment_counts`: number of scanned packages in each of the four per-skill assessment states.
+- `workspace_evidence_verdict`: strongest workspace evidence without claiming package intent.
+- `workspace_coverage_status`: independent workspace coverage (`complete`, `incomplete`, or `not-evaluated`).
+- `evidence_verdict_counts`: package counts for each evidence verdict.
+- `coverage_counts`: package counts for each coverage state.
 - `gate_scope`: always `all_findings` (gate evaluation is never affected by output filters).
 - `gate_failed`: boolean reflecting the exit code decision.
+
+Summary and quiet-stream outputs use schema version `3.0.0`. Frozen v2 schemas
+remain under `schemas/v2/` for consumers migrating from the former composite
+assessment field.
 
 Config-based quiet mode:
 

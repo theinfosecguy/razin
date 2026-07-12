@@ -17,6 +17,22 @@ type SignalKind = Literal[
     "attack_chain",
     "analysis_gap",
 ]
+type EvidenceVerdict = Literal[
+    "high-confidence-malicious-evidence",
+    "review-required",
+    "capability-only",
+    "no-actionable-malicious-evidence",
+]
+type WorkspaceEvidenceVerdict = Literal[
+    "contains-high-confidence-malicious-evidence",
+    "review-required",
+    "capability-only",
+    "no-actionable-malicious-evidence",
+]
+type CoverageStatus = Literal["complete", "incomplete", "not-evaluated"]
+
+# Deprecated Python compatibility aliases. Version 3 reports no longer
+# serialize these lossy composite states.
 type AssessmentState = Literal[
     "malicious/high-confidence-chain",
     "risky-but-legitimate/review",

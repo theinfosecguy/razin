@@ -6,9 +6,15 @@ from razin.model import Evidence, Finding, FindingCandidate
 from razin.scanner.assessment import (
     assess_package,
     assess_workspace,
+    coverage_status_for_package,
+    evidence_verdict_for_package,
     package_assessment_counts,
+    package_coverage_counts,
+    package_evidence_verdict_counts,
     review_priority_score,
     signal_kind_for_rule,
+    workspace_coverage_status,
+    workspace_evidence_verdict,
 )
 from razin.scanner.pipeline.conversion import candidate_to_finding, deserialize_findings
 from razin.types import Classification, Severity, SignalKind
@@ -58,7 +64,7 @@ def test_unknown_rule_defaults_to_analysis_gap_and_cannot_be_high() -> None:
     assert finding.signal_kind == "analysis_gap"
     assert finding.severity == "medium"
     assert finding.score == 69
-    assert assess_package([finding]) == "dynamic-analysis-required/unknown"
+    assert evidence_verdict_for_package([finding]) == "review-required"
 
 
 def test_capability_is_informational_low_and_has_no_priority() -> None:
@@ -69,7 +75,7 @@ def test_capability_is_informational_low_and_has_no_priority() -> None:
     assert finding.severity == "low"
     assert finding.score == 39
     assert review_priority_score([finding]) == 0
-    assert assess_package([finding]) == "clean/no-evidence"
+    assert evidence_verdict_for_package([finding]) == "capability-only"
 
 
 def test_capability_cannot_gain_priority_from_inconsistent_security_classification() -> None:
@@ -88,7 +94,7 @@ def test_review_signal_cannot_make_high_confidence_malicious_claim() -> None:
 
     assert finding.signal_kind == "review"
     assert finding.severity == "medium"
-    assert assess_package([finding]) == "risky-but-legitimate/review"
+    assert evidence_verdict_for_package([finding]) == "review-required"
 
 
 def test_composed_attack_chain_can_be_high_confidence_malicious() -> None:
@@ -97,7 +103,7 @@ def test_composed_attack_chain_can_be_high_confidence_malicious() -> None:
     assert finding.signal_kind == "attack_chain"
     assert finding.severity == "high"
     assert review_priority_score([finding]) == 90
-    assert assess_package([finding]) == "malicious/high-confidence-chain"
+    assert evidence_verdict_for_package([finding]) == "high-confidence-malicious-evidence"
 
 
 def test_dangerous_remote_execution_is_high_priority_without_claiming_malicious_intent() -> None:
@@ -106,7 +112,7 @@ def test_dangerous_remote_execution_is_high_priority_without_claiming_malicious_
     assert finding.signal_kind == "dangerous_behavior"
     assert finding.severity == "high"
     assert review_priority_score([finding]) == 96
-    assert assess_package([finding]) == "risky-but-legitimate/review"
+    assert evidence_verdict_for_package([finding]) == "review-required"
 
 
 def test_strong_assessment_is_independent_of_display_thresholds_and_caps() -> None:
@@ -124,8 +130,8 @@ def test_strong_assessment_is_independent_of_display_thresholds_and_caps() -> No
 
     assert balanced.severity == "medium"
     assert policy_capped.severity == "low"
-    assert assess_package([balanced]) == "malicious/high-confidence-chain"
-    assert assess_package([policy_capped]) == "malicious/high-confidence-chain"
+    assert evidence_verdict_for_package([balanced]) == "high-confidence-malicious-evidence"
+    assert evidence_verdict_for_package([policy_capped]) == "high-confidence-malicious-evidence"
 
 
 def test_policy_denylist_is_review_evidence_not_known_malicious_ioc() -> None:
@@ -133,7 +139,7 @@ def test_policy_denylist_is_review_evidence_not_known_malicious_ioc() -> None:
         finding = candidate_to_finding("skill", _candidate(rule_id))
         assert finding.signal_kind == "review"
         assert finding.severity == "medium"
-        assert assess_package([finding]) == "risky-but-legitimate/review"
+        assert evidence_verdict_for_package([finding]) == "review-required"
 
 
 def test_deserialization_derives_signal_kind_instead_of_trusting_cache() -> None:
@@ -152,7 +158,7 @@ def test_deserialization_derives_signal_kind_instead_of_trusting_cache() -> None
 
     assert [finding.signal_kind for finding in findings] == ["capability", "analysis_gap", "attack_chain"]
     assert review_priority_score(findings[:1]) == 0
-    assert assess_package(findings[1:2]) == "dynamic-analysis-required/unknown"
+    assert evidence_verdict_for_package(findings[1:2]) == "review-required"
 
 
 def test_priority_uses_strongest_evidence_without_probability_combination() -> None:
@@ -170,36 +176,56 @@ def test_priority_uses_strongest_evidence_without_probability_combination() -> N
     assert review_priority_score(findings) == 62
 
 
-def test_empty_package_has_clean_no_evidence_state() -> None:
+def test_empty_package_has_no_actionable_evidence_state() -> None:
     assert review_priority_score([]) == 0
-    assert assess_package([]) == "clean/no-evidence"
+    assert evidence_verdict_for_package([]) == "no-actionable-malicious-evidence"
 
 
-def test_workspace_assessment_preserves_per_package_distribution() -> None:
+def test_workspace_preserves_independent_evidence_and_coverage_axes() -> None:
     packages = {
         "malicious": [_finding(rule_id="PACKAGE_DATA_EXFILTRATION", score=90, signal_kind="attack_chain")],
         "review": [_finding(rule_id="PROMPT_INJECTION", score=60, signal_kind="review")],
-        "incomplete": [_finding(rule_id="INCOMPLETE_SCAN", score=40, signal_kind="analysis_gap")],
+        "incomplete": [
+            _finding(
+                rule_id="INCOMPLETE_SCAN",
+                score=40,
+                signal_kind="analysis_gap",
+                classification="informational",
+            )
+        ],
         "clean": [],
     }
 
-    counts = package_assessment_counts(packages)
-
-    assert counts == {
-        "malicious/high-confidence-chain": 1,
-        "risky-but-legitimate/review": 1,
-        "dynamic-analysis-required/unknown": 1,
-        "clean/no-evidence": 1,
-    }
-    assert assess_workspace(counts) == "contains-high-confidence-malicious"
-
-
-def test_workspace_incomplete_takes_precedence_over_review() -> None:
-    counts = package_assessment_counts(
-        {
-            "review": [_finding(rule_id="PROMPT_INJECTION", score=60, signal_kind="review")],
-            "incomplete": [_finding(rule_id="INCOMPLETE_SCAN", score=40, signal_kind="analysis_gap")],
-        }
+    verdict_counts = package_evidence_verdict_counts(packages)
+    coverage_counts = package_coverage_counts(
+        {"malicious": "complete", "review": "complete", "incomplete": "incomplete", "clean": "complete"}
     )
 
-    assert assess_workspace(counts) == "incomplete"
+    assert verdict_counts == {
+        "high-confidence-malicious-evidence": 1,
+        "review-required": 1,
+        "capability-only": 0,
+        "no-actionable-malicious-evidence": 2,
+    }
+    assert coverage_counts == {"complete": 3, "incomplete": 1, "not-evaluated": 0}
+    assert workspace_evidence_verdict(verdict_counts) == "contains-high-confidence-malicious-evidence"
+    assert workspace_coverage_status(coverage_counts) == "incomplete"
+
+
+def test_coverage_fallback_never_claims_complete_without_structured_state() -> None:
+    gap = _finding(rule_id="INCOMPLETE_SCAN", score=40, signal_kind="analysis_gap")
+
+    assert coverage_status_for_package([gap]) == "incomplete"
+    assert coverage_status_for_package([]) == "not-evaluated"
+
+
+def test_empty_workspace_coverage_is_not_evaluated() -> None:
+    assert workspace_coverage_status({"complete": 0, "incomplete": 0, "not-evaluated": 0}) == "not-evaluated"
+
+
+def test_v2_python_assessment_aliases_remain_available() -> None:
+    findings = [_finding(rule_id="PROMPT_INJECTION", score=60, signal_kind="review")]
+    counts = package_assessment_counts({"skill": findings})
+
+    assert assess_package(findings) == "risky-but-legitimate/review"
+    assert assess_workspace(counts) == "review-required"

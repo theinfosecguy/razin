@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-CACHE_VERSION: int = 4
+CACHE_VERSION: int = 5
 CACHE_FILENAME: str = ".razin-cache.json"
 CACHE_TEMP_PREFIX: str = ".cache-"
 CACHE_TEMP_SUFFIX: str = ".tmp"

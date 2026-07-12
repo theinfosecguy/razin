@@ -2,12 +2,13 @@
 
 Razin's benchmark measures two distinct package-level outcomes:
 
-- **block** is positive only for `malicious/high-confidence-chain`.
+- **block** is positive only for `high-confidence-malicious-evidence`.
 - **review** is positive for either a high-confidence chain or
-  `risky-but-legitimate/review`.
+  `review-required`.
 
-An incomplete scan or `DYNAMIC_ANALYSIS_REQUIRED` package earns neither outcome
-and is penalized in both confusion matrices. Reports include support,
+Evidence verdict and structural coverage are independent. An `incomplete` or
+`not-evaluated` package earns neither outcome and is penalized in both confusion
+matrices even if its evidence verdict is reviewable or high-confidence. Reports include support,
 TP/FP/FN/TN, precision, recall, F1, specificity, false-positive rate,
 incomplete rate, exact rule matches, and manifest, gate, trusted-config, and
 corpus-content hashes.
@@ -15,6 +16,10 @@ corpus-content hashes.
 Reports distinguish `gate_status: not-evaluated` from `passed` and `failed`.
 When no gate file is supplied, `gate_passed` is `null`; an ungated evaluation
 is never presented as a successful quality gate.
+
+Benchmark manifests remain schema `2.0`; gate configurations and generated
+reports use schema `3.0`. Report samples preserve raw evidence predicates but
+qualify `block_positive` and `review_positive` on complete structural coverage.
 
 ## Synthetic pull-request gate
 
@@ -65,13 +70,13 @@ trusted config and does not load a corpus-local `razin.yaml`.
 
 An enforced gate file must contain separate `block.overall` and
 `review.overall` scopes. Each must set positive sample, malicious, and benign
-support; nonzero precision and recall floors; an incomplete-rate ceiling; and
+support; nonzero precision and recall floors; a coverage-failure-rate ceiling; and
 either an FPR ceiling or specificity floor. Undefined metrics fail. A status
 other than `enforced` always leaves the run red.
 
 Support floors must be positive integers. Enforced overall gates also require
 precision of at least `0.5`, recall of at least `0.1`, FPR below `0.5` (or
-specificity at least `0.5`), and incomplete rate below `0.25`; checked-in gates
+specificity at least `0.5`), and coverage failure rate below `0.25`; checked-in gates
 should be stricter. Family gates are rejected unless the manifest explicitly
 declares an authoritative family mapping.
 

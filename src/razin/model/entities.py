@@ -10,10 +10,13 @@ from razin.types import (
     AssessmentState,
     Classification,
     Confidence,
+    CoverageStatus,
+    EvidenceVerdict,
     RuleDisableSource,
     Severity,
     SignalKind,
     WorkspaceAssessment,
+    WorkspaceEvidenceVerdict,
 )
 
 type FrontmatterData = dict[str, Any] | None
@@ -76,6 +79,18 @@ class Finding:
 
 
 @dataclass(frozen=True)
+class PackageOutcome:
+    """Independent evidence and coverage axes for one scanned package."""
+
+    skill: str
+    evidence_verdict: EvidenceVerdict
+    coverage_status: CoverageStatus
+    coverage_reasons: tuple[str, ...] = ()
+    package_analysis_digest: str | None = None
+    package_analysis_digest_version: int | None = None
+
+
+@dataclass(frozen=True)
 class Summary:
     """Per-skill summary report."""
 
@@ -89,7 +104,9 @@ class Summary:
     top_risks: tuple[dict[str, object], ...]
     review_priority: int
     review_priority_level: Severity
-    assessment: AssessmentState
+    evidence_verdict: EvidenceVerdict
+    coverage_status: CoverageStatus
+    coverage_reasons: tuple[str, ...]
     shown_finding_count: int | None = None
     output_filter: dict[str, object] | None = None
     rule_overrides: dict[str, dict[str, Severity]] | None = None
@@ -101,11 +118,17 @@ class Summary:
         """Convert summary to a JSON-serializable dictionary."""
         data = asdict(self)
         data["top_risks"] = list(data["top_risks"])
+        data["coverage_reasons"] = list(data["coverage_reasons"])
         if data["rules_executed"] is not None:
             data["rules_executed"] = list(data["rules_executed"])
         if data["rules_disabled"] is not None:
             data["rules_disabled"] = list(data["rules_disabled"])
         return data
+
+    @property
+    def assessment(self) -> AssessmentState:
+        """Return the deprecated v2 composite state for Python compatibility."""
+        return _legacy_assessment_state(self.evidence_verdict, self.coverage_status)
 
 
 @dataclass(frozen=True)
@@ -166,5 +189,45 @@ class ScanResult:
     disable_sources: dict[str, RuleDisableSource] = field(default_factory=dict)
     review_priority: int | None = None
     review_priority_level: Severity | None = None
-    workspace_assessment: WorkspaceAssessment | None = None
-    assessment_counts: dict[AssessmentState, int] = field(default_factory=dict)
+    workspace_evidence_verdict: WorkspaceEvidenceVerdict | None = None
+    workspace_coverage_status: CoverageStatus | None = None
+    evidence_verdict_counts: dict[EvidenceVerdict, int] = field(default_factory=dict)
+    coverage_counts: dict[CoverageStatus, int] = field(default_factory=dict)
+    package_outcomes: tuple[PackageOutcome, ...] = field(default_factory=tuple)
+
+    @property
+    def assessment_counts(self) -> dict[AssessmentState, int]:
+        """Return deprecated v2 composite counts for Python compatibility."""
+        states: tuple[AssessmentState, ...] = (
+            "malicious/high-confidence-chain",
+            "risky-but-legitimate/review",
+            "dynamic-analysis-required/unknown",
+            "clean/no-evidence",
+        )
+        counts: dict[AssessmentState, int] = {state: 0 for state in states}
+        for outcome in self.package_outcomes:
+            counts[_legacy_assessment_state(outcome.evidence_verdict, outcome.coverage_status)] += 1
+        return counts
+
+    @property
+    def workspace_assessment(self) -> WorkspaceAssessment:
+        """Return the deprecated v2 workspace state for Python compatibility."""
+        counts = self.assessment_counts
+        if counts["malicious/high-confidence-chain"] > 0:
+            return "contains-high-confidence-malicious"
+        if counts["dynamic-analysis-required/unknown"] > 0:
+            return "incomplete"
+        if counts["risky-but-legitimate/review"] > 0:
+            return "review-required"
+        return "clean"
+
+
+def _legacy_assessment_state(verdict: EvidenceVerdict, coverage: CoverageStatus) -> AssessmentState:
+    """Map independent v3 axes to the deprecated lossy v2 state."""
+    if verdict == "high-confidence-malicious-evidence":
+        return "malicious/high-confidence-chain"
+    if coverage == "incomplete":
+        return "dynamic-analysis-required/unknown"
+    if verdict == "review-required":
+        return "risky-but-legitimate/review"
+    return "clean/no-evidence"

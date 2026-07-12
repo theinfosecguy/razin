@@ -24,7 +24,7 @@ For each discovered `SKILL.md` file, Razin:
 1. Applies suppression rules to reduce duplicate/overlapping signals.
 1. Converts candidates to stable finding IDs and final severity.
 
-## Review priority, assessment, and severity
+## Review priority, evidence, coverage, and severity
 
 - Rule-level weights are in `0..100`; they order review work and are not probabilities.
 - Severity thresholds are profile-dependent.
@@ -32,11 +32,12 @@ For each discovered `SKILL.md` file, Razin:
   - `balanced`: high >= 80, medium >= 50
   - `audit`: high >= 70, medium >= 40
 - Package review priority is the highest actionable weight. Correlated detector weights are not combined.
-- Capability-only findings are informational, capped low, excluded from review priority, remain `clean/no-evidence`, and cannot independently fail CI.
-- Review and analysis-gap signals are capped medium. A dangerous behavior such as download-to-shell can remain high priority without claiming malicious intent. Malicious assessment requires a known malicious IOC, a proven integrity violation, or a composed exfiltration chain to a suspicious collector.
+- Capability-only findings are informational, capped low, excluded from review priority, produce the `capability-only` evidence verdict, and cannot independently fail CI.
+- Review and analysis-gap signals are capped medium. A dangerous behavior such as download-to-shell can remain high priority without claiming malicious intent. High-confidence malicious evidence requires a known malicious IOC, a proven integrity violation, or a composed exfiltration chain to a suspicious collector.
 - Unknown rule IDs default to `analysis_gap` until their evidence contract is reviewed.
-- Package assessment is one of `malicious/high-confidence-chain`, `risky-but-legitimate/review`, `dynamic-analysis-required/unknown`, or `clean/no-evidence`.
-- Workspace reports preserve counts for all four package states and separately report `contains-high-confidence-malicious`, `incomplete`, `review-required`, or `clean`.
+- Package evidence is one of `high-confidence-malicious-evidence`, `review-required`, `capability-only`, or `no-actionable-malicious-evidence`.
+- Coverage is reported independently as `complete`, `incomplete`, or `not-evaluated`; disabling a gap finding cannot upgrade structural coverage.
+- Workspace reports preserve counts for both axes, so strong evidence and incomplete coverage can coexist.
 
 ## Rule classification
 

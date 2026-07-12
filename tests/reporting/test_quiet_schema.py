@@ -94,8 +94,10 @@ def test_summary_record_validates(tmp_path: Path) -> None:
     assert len(summary_lines) == 1
     record = json.loads(summary_lines[0])
     jsonschema.validate(record, schema)
-    assert record["data"]["workspace_assessment"] == "incomplete"
-    assert record["data"]["assessment_counts"]["dynamic-analysis-required/unknown"] == 1
+    assert record["data"]["workspace_evidence_verdict"] == "review-required"
+    assert record["data"]["workspace_coverage_status"] == "not-evaluated"
+    assert record["data"]["evidence_verdict_counts"]["review-required"] == 1
+    assert record["data"]["coverage_counts"]["not-evaluated"] == 1
 
 
 def test_legacy_summary_aliases_match_computed_review_priority(tmp_path: Path) -> None:
@@ -195,5 +197,16 @@ def test_schema_rejects_mismatched_type_and_data(record_type: str, bad_data: dic
         "timestamp": "2026-03-16T00:00:00+00:00",
         "data": bad_data,
     }
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(record, schema)
+
+
+def test_schema_rejects_mixed_summary_schema_version(tmp_path: Path) -> None:
+    schema = _load_schema()
+    out = tmp_path / "out.jsonl"
+    write_quiet_output(out_path=out, result=_dummy_result(), include_warnings=False)
+    record = json.loads(out.read_text(encoding="utf-8").splitlines()[-1])
+    record["data"]["schema_version"] = "2.0.0"
+
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.validate(record, schema)

@@ -19,10 +19,12 @@ from razin.config import load_config
 from razin.model import Finding
 from razin.parsers import parse_skill_markdown_file
 from razin.scanner import scan_workspace
-from razin.scanner.assessment import assess_package
+from razin.scanner.assessment import evidence_verdict_for_package
 from razin.scanner.discovery import assign_unique_skill_names, discover_skill_files
 
-SCHEMA_VERSION = "2.0"
+MANIFEST_SCHEMA_VERSION = "2.0"
+GATE_SCHEMA_VERSION = "3.0"
+REPORT_SCHEMA_VERSION = "3.0"
 LABELS = frozenset({"benign", "malicious"})
 OUTCOMES = ("block", "review")
 METRIC_GATE_KEYS = frozenset(
@@ -35,7 +37,7 @@ METRIC_GATE_KEYS = frozenset(
         "min_f1",
         "min_specificity",
         "max_false_positive_rate",
-        "max_incomplete_rate",
+        "max_coverage_failure_rate",
     }
 )
 
@@ -70,8 +72,8 @@ def _string_list(value: object, *, field: str) -> list[str]:
 
 def _resolve_manifest(manifest_path: Path) -> tuple[dict[str, Any], Path, list[dict[str, Any]]]:
     manifest = _load_json_object(manifest_path, kind="manifest")
-    if manifest.get("schema_version") != SCHEMA_VERSION:
-        raise BenchmarkError(f"manifest.schema_version must be {SCHEMA_VERSION!r}")
+    if manifest.get("schema_version") != MANIFEST_SCHEMA_VERSION:
+        raise BenchmarkError(f"manifest.schema_version must be {MANIFEST_SCHEMA_VERSION!r}")
 
     root_value = _require_string(manifest.get("corpus_root", "."), field="manifest.corpus_root")
     corpus_root = Path(root_value)
@@ -201,22 +203,35 @@ def _ratio(numerator: int, denominator: int) -> float | None:
 
 
 def compute_metrics(outcomes: list[dict[str, Any]], prediction_key: str = "block_positive") -> dict[str, Any]:
-    """Compute a complete confusion matrix while penalizing incomplete scans."""
+    """Compute a complete confusion matrix while penalizing coverage failures."""
+    coverage_statuses = [
+        item.get("coverage_status", "incomplete" if item.get("incomplete", False) else "complete") for item in outcomes
+    ]
+    coverage_failures = [status != "complete" for status in coverage_statuses]
     tp = sum(
-        item["label"] == "malicious" and item[prediction_key] and not item.get("incomplete", False) for item in outcomes
+        item["label"] == "malicious" and item[prediction_key] and not failed
+        for item, failed in zip(outcomes, coverage_failures, strict=True)
     )
-    fp = sum(item["label"] == "benign" and (item[prediction_key] or item.get("incomplete", False)) for item in outcomes)
+    fp = sum(
+        item["label"] == "benign" and (item[prediction_key] or failed)
+        for item, failed in zip(outcomes, coverage_failures, strict=True)
+    )
     fn = sum(
-        item["label"] == "malicious" and (not item[prediction_key] or item.get("incomplete", False))
-        for item in outcomes
+        item["label"] == "malicious" and (not item[prediction_key] or failed)
+        for item, failed in zip(outcomes, coverage_failures, strict=True)
     )
     tn = sum(
-        item["label"] == "benign" and not item[prediction_key] and not item.get("incomplete", False)
-        for item in outcomes
+        item["label"] == "benign" and not item[prediction_key] and not failed
+        for item, failed in zip(outcomes, coverage_failures, strict=True)
     )
-    incomplete = sum(bool(item.get("incomplete", False)) for item in outcomes)
+    incomplete = sum(status == "incomplete" for status in coverage_statuses)
+    not_evaluated = sum(status == "not-evaluated" for status in coverage_statuses)
+    coverage_failure = sum(coverage_failures)
     precision = _ratio(tp, tp + fp)
     recall = _ratio(tp, tp + fn)
+    f1 = None
+    if precision is not None and recall is not None:
+        f1 = 0.0 if precision + recall == 0 else 2 * precision * recall / (precision + recall)
     return {
         "samples": len(outcomes),
         "positive": tp + fn,
@@ -227,9 +242,13 @@ def compute_metrics(outcomes: list[dict[str, Any]], prediction_key: str = "block
         "true_negative": tn,
         "incomplete": incomplete,
         "incomplete_rate": _ratio(incomplete, len(outcomes)),
+        "not_evaluated": not_evaluated,
+        "not_evaluated_rate": _ratio(not_evaluated, len(outcomes)),
+        "coverage_failure": coverage_failure,
+        "coverage_failure_rate": _ratio(coverage_failure, len(outcomes)),
         "precision": precision,
         "recall": recall,
-        "f1": 2 * precision * recall / (precision + recall) if precision and recall else None,
+        "f1": f1,
         "specificity": _ratio(tn, tn + fp),
         "false_positive_rate": _ratio(fp, fp + tn),
     }
@@ -244,7 +263,7 @@ def _validate_enforced_gates(gates: dict[str, Any], *, authoritative_families: b
         "min_negative",
         "min_precision",
         "min_recall",
-        "max_incomplete_rate",
+        "max_coverage_failure_rate",
     }
 
     def validate_scope(scope_name: str, scope: object) -> None:
@@ -272,11 +291,11 @@ def _validate_enforced_gates(gates: dict[str, Any], *, authoritative_families: b
         ):
             raise BenchmarkError(f"enforced {scope_name}.min_recall must be at least 0.1")
         if (
-            not isinstance(scope["max_incomplete_rate"], (int, float))
-            or isinstance(scope["max_incomplete_rate"], bool)
-            or not 0 <= scope["max_incomplete_rate"] < 0.25
+            not isinstance(scope["max_coverage_failure_rate"], (int, float))
+            or isinstance(scope["max_coverage_failure_rate"], bool)
+            or not 0 <= scope["max_coverage_failure_rate"] < 0.25
         ):
-            raise BenchmarkError(f"enforced {scope_name}.max_incomplete_rate must be in [0, 0.25)")
+            raise BenchmarkError(f"enforced {scope_name}.max_coverage_failure_rate must be in [0, 0.25)")
         if "max_false_positive_rate" in scope and (
             not isinstance(scope["max_false_positive_rate"], (int, float))
             or not 0 <= scope["max_false_positive_rate"] < 0.5
@@ -311,8 +330,8 @@ def _evaluate_gates(
     if gates_path is None:
         return None, []
     gates = _load_json_object(gates_path, kind="gates")
-    if gates.get("schema_version") != SCHEMA_VERSION:
-        raise BenchmarkError(f"gates.schema_version must be {SCHEMA_VERSION!r}")
+    if gates.get("schema_version") != GATE_SCHEMA_VERSION:
+        raise BenchmarkError(f"gates.schema_version must be {GATE_SCHEMA_VERSION!r}")
     _validate_enforced_gates(gates, authoritative_families=authoritative_families)
     if gates.get("status") != "enforced":
         return gates, ["gates.status: thresholds are not reviewed and enforced"]
@@ -327,7 +346,7 @@ def _evaluate_gates(
         "min_f1": "f1",
         "min_specificity": "specificity",
         "max_false_positive_rate": "false_positive_rate",
-        "max_incomplete_rate": "incomplete_rate",
+        "max_coverage_failure_rate": "coverage_failure_rate",
     }
 
     def check(scope: str, actual: dict[str, Any], configured: object) -> None:
@@ -440,6 +459,7 @@ def evaluate(manifest_path: Path, gates_path: Path | None = None) -> dict[str, A
     findings_by_skill: dict[str, list[Finding]] = defaultdict(list)
     for finding in result.findings:
         findings_by_skill[finding.skill].append(finding)
+    package_outcomes = {outcome.skill: outcome for outcome in result.package_outcomes}
 
     outcomes: list[dict[str, Any]] = []
     expectation_failures: list[str] = []
@@ -447,10 +467,14 @@ def evaluate(manifest_path: Path, gates_path: Path | None = None) -> dict[str, A
         path = (corpus_root / sample["path"]).resolve()
         skill = skill_names.get(path)
         findings = findings_by_skill[skill] if skill is not None else []
-        assessment = assess_package(findings)
-        block_positive = assessment == "malicious/high-confidence-chain"
-        review_positive = assessment in {"malicious/high-confidence-chain", "risky-but-legitimate/review"}
-        incomplete_reasons: list[str] = []
+        evidence_verdict = evidence_verdict_for_package(findings)
+        package_outcome = package_outcomes.get(skill) if skill is not None else None
+        coverage_status = package_outcome.coverage_status if package_outcome is not None else "incomplete"
+        evidence_block_positive = evidence_verdict == "high-confidence-malicious-evidence"
+        evidence_review_positive = evidence_verdict in {"high-confidence-malicious-evidence", "review-required"}
+        block_positive = evidence_block_positive and coverage_status == "complete"
+        review_positive = evidence_review_positive and coverage_status == "complete"
+        incomplete_reasons: list[str] = list(package_outcome.coverage_reasons if package_outcome is not None else ())
         if path in missing_paths:
             incomplete_reasons.append("not_discovered")
         if path in parse_errors:
@@ -459,6 +483,10 @@ def evaluate(manifest_path: Path, gates_path: Path | None = None) -> dict[str, A
             incomplete_reasons.append("scanner_reported_incomplete")
         if any(finding.rule_id == "DYNAMIC_ANALYSIS_REQUIRED" for finding in findings):
             incomplete_reasons.append("dynamic_analysis_required")
+        if coverage_status == "incomplete" and not incomplete_reasons:
+            incomplete_reasons.append("scanner_coverage_incomplete")
+        if coverage_status == "not-evaluated" and not incomplete_reasons:
+            incomplete_reasons.append("coverage-not-evaluated")
         matched = sorted({finding.rule_id for finding in findings})
         missing_expected = sorted(set(sample["expected_rule_ids"]) - set(matched))
         if missing_expected:
@@ -475,11 +503,17 @@ def evaluate(manifest_path: Path, gates_path: Path | None = None) -> dict[str, A
                 "family": sample["family"],
                 "diagnostic_group": sample["diagnostic_group"],
                 "skill": skill,
-                "assessment": assessment,
+                "evidence_verdict": evidence_verdict,
+                "coverage_status": coverage_status,
+                "coverage_reasons": sorted(set(incomplete_reasons)),
+                "evidence_block_positive": evidence_block_positive,
+                "evidence_review_positive": evidence_review_positive,
                 "block_positive": block_positive,
                 "review_positive": review_positive,
-                "incomplete": bool(incomplete_reasons),
-                "incomplete_reasons": incomplete_reasons,
+                "incomplete": coverage_status == "incomplete",
+                "not_evaluated": coverage_status == "not-evaluated",
+                "coverage_failed": coverage_status != "complete",
+                "incomplete_reasons": sorted(set(incomplete_reasons)),
                 "finding_count": len(findings),
                 "matched_rule_ids": matched,
                 "missing_expected_rule_ids": missing_expected,
@@ -522,7 +556,7 @@ def evaluate(manifest_path: Path, gates_path: Path | None = None) -> dict[str, A
     gate_status = "not-evaluated" if resolved_gates is None else ("passed" if not gate_failures else "failed")
 
     return {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": REPORT_SCHEMA_VERSION,
         "benchmark": _require_string(manifest.get("name", manifest_path.stem), field="manifest.name"),
         "source": manifest.get("source"),
         "metrics": metrics,

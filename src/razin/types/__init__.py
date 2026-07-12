@@ -5,6 +5,8 @@ from .common import (
     AssessmentState,
     Classification,
     Confidence,
+    CoverageStatus,
+    EvidenceVerdict,
     JsonObject,
     JsonScalar,
     JsonValue,
@@ -12,6 +14,7 @@ from .common import (
     Severity,
     SignalKind,
     WorkspaceAssessment,
+    WorkspaceEvidenceVerdict,
 )
 from .config import (
     DataSensitivityConfig,
@@ -30,9 +33,11 @@ __all__ = [
     "AssessmentState",
     "Classification",
     "Confidence",
+    "CoverageStatus",
     "DataSensitivityConfig",
     "DetectorConfig",
     "DomainCount",
+    "EvidenceVerdict",
     "InitConfigDraft",
     "InitFromScanAnalysis",
     "IocConfig",
@@ -45,5 +50,6 @@ __all__ = [
     "SignalKind",
     "PackageAnalysisConfig",
     "ToolTierConfig",
+    "WorkspaceEvidenceVerdict",
     "WorkspaceAssessment",
 ]

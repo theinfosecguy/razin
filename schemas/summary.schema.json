@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/theinfosecguy/razin/schemas/v2/summary.schema.json",
+  "$id": "https://github.com/theinfosecguy/razin/schemas/v3/summary.schema.json",
   "title": "Razin Summary",
   "description": "Per-skill summary report produced by a Razin scan.",
   "type": "object",
@@ -15,13 +15,15 @@
     "top_risks",
     "review_priority",
     "review_priority_level",
-    "assessment"
+    "evidence_verdict",
+    "coverage_status",
+    "coverage_reasons"
   ],
   "properties": {
     "schema_version": {
       "type": "string",
       "description": "Schema version identifier.",
-      "const": "2.0.0"
+      "const": "3.0.0"
     },
     "skill": {
       "type": "string",
@@ -45,8 +47,17 @@
     "review_priority_level": {
       "$ref": "#/$defs/Severity"
     },
-    "assessment": {
-      "$ref": "#/$defs/Assessment"
+    "evidence_verdict": {
+      "$ref": "#/$defs/EvidenceVerdict"
+    },
+    "coverage_status": {
+      "$ref": "#/$defs/CoverageStatus"
+    },
+    "coverage_reasons": {
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true,
+      "description": "Machine-readable reasons for incomplete or unevaluated structural coverage."
     },
     "finding_count": {
       "type": "integer",
@@ -197,14 +208,18 @@
       "type": "string",
       "enum": ["low", "medium", "high"]
     },
-    "Assessment": {
+    "EvidenceVerdict": {
       "type": "string",
       "enum": [
-        "malicious/high-confidence-chain",
-        "risky-but-legitimate/review",
-        "dynamic-analysis-required/unknown",
-        "clean/no-evidence"
+        "high-confidence-malicious-evidence",
+        "review-required",
+        "capability-only",
+        "no-actionable-malicious-evidence"
       ]
+    },
+    "CoverageStatus": {
+      "type": "string",
+      "enum": ["complete", "incomplete", "not-evaluated"]
     },
     "SignalKind": {
       "type": "string",

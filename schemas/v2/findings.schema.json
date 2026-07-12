@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/theinfosecguy/razin/schemas/v2/findings.schema.json",
+  "title": "Razin Findings",
+  "description": "Array of findings produced by a Razin scan for a single skill.",
+  "type": "array",
+  "items": {
+    "$ref": "#/$defs/Finding"
+  },
+  "$defs": {
+    "Finding": {
+      "type": "object",
+      "required": [
+        "id",
+        "severity",
+        "score",
+        "confidence",
+        "title",
+        "description",
+        "evidence",
+        "skill",
+        "rule_id",
+        "recommendation",
+        "classification",
+        "signal_kind"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique finding identifier."
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity"
+        },
+        "score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Rule-local review weight on a 0-100 scale; not a probability of maliciousness."
+        },
+        "confidence": {
+          "$ref": "#/$defs/Confidence"
+        },
+        "title": {
+          "type": "string",
+          "description": "Short human-readable title."
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed finding description."
+        },
+        "evidence": {
+          "$ref": "#/$defs/Evidence"
+        },
+        "skill": {
+          "type": "string",
+          "description": "Skill name this finding belongs to."
+        },
+        "rule_id": {
+          "type": "string",
+          "description": "Detector rule that produced this finding."
+        },
+        "recommendation": {
+          "type": "string",
+          "description": "Suggested remediation action."
+        },
+        "classification": {
+          "$ref": "#/$defs/Classification"
+        },
+        "signal_kind": {
+          "$ref": "#/$defs/SignalKind"
+        },
+        "severity_override": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/SeverityOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Override metadata when severity is capped by policy."
+        }
+      },
+      "additionalProperties": false
+    },
+    "Evidence": {
+      "type": "object",
+      "required": ["path", "line", "snippet"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "File path relative to scan root."
+        },
+        "line": {
+          "type": ["integer", "null"],
+          "description": "Line number (1-based) or null if unavailable."
+        },
+        "snippet": {
+          "type": "string",
+          "description": "Relevant source snippet."
+        }
+      },
+      "additionalProperties": false
+    },
+    "Severity": {
+      "type": "string",
+      "enum": ["low", "medium", "high"],
+      "description": "Severity level."
+    },
+    "Confidence": {
+      "type": "string",
+      "enum": ["low", "medium", "high"],
+      "description": "Confidence level."
+    },
+    "Classification": {
+      "type": "string",
+      "enum": ["security", "informational"],
+      "description": "Rule classification."
+    },
+    "SignalKind": {
+      "type": "string",
+      "enum": [
+        "capability",
+        "review",
+        "dangerous_behavior",
+        "known_malicious_ioc",
+        "integrity_violation",
+        "attack_chain",
+        "analysis_gap"
+      ],
+      "description": "Evidence contract that limits the finding's severity claim."
+    },
+    "SeverityOverride": {
+      "type": "object",
+      "required": ["original", "applied", "reason"],
+      "properties": {
+        "original": {
+          "$ref": "#/$defs/Severity"
+        },
+        "applied": {
+          "$ref": "#/$defs/Severity"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
