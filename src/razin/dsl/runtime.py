@@ -15,6 +15,7 @@ from typing import Any
 import yaml
 
 from razin.config import RazinConfig
+from razin.constants.package_analysis import PACKAGE_RULE_IDS
 from razin.dsl.compiler import CompiledRule, compile_rule
 from razin.dsl.registry import OP_REGISTRY
 from razin.exceptions import ConfigError
@@ -73,6 +74,14 @@ class DslEngine:
                         "Custom DSL rules default to analysis-gap semantics and cannot claim trusted IOC, "
                         "integrity, or attack-chain identities."
                     )
+                native_ids = claimed_ids & set(PACKAGE_RULE_IDS)
+                if native_ids:
+                    rendered = ", ".join(sorted(native_ids))
+                    raise ConfigError(
+                        f"Custom rule {yaml_path} uses reserved native package rule ID(s): {rendered}. "
+                        "Native package rule identities are owned by the whole-package analyzer."
+                    )
+
             if rule_ids is not None and internal_rule_id not in rule_ids and public_rule_id not in rule_ids:
                 continue
 

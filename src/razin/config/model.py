@@ -21,6 +21,7 @@ from razin.constants.profiles import (
 from razin.types.config import (
     DataSensitivityConfig,
     DetectorConfig,
+    PackageAnalysisConfig,
     QuietModeConfig,
     RuleOverrideConfig,
     ToolTierConfig,
@@ -55,10 +56,11 @@ class RazinConfig:
     skill_globs: tuple[str, ...] = DEFAULT_SKILL_GLOBS
     max_file_mb: int = DEFAULT_MAX_FILE_MB
     quiet_mode: QuietModeConfig = QuietModeConfig()
+    package_analysis: PackageAnalysisConfig = PackageAnalysisConfig()
 
     @property
     def aggregate_min_rule_score(self) -> int:
-        """Minimum per-rule score to contribute to the aggregate."""
+        """Return the deprecated aggregate threshold compatibility value."""
         return PROFILE_AGGREGATE_MIN_SCORE.get(self.profile, PROFILE_AGGREGATE_MIN_SCORE[DEFAULT_PROFILE])
 
     @property
@@ -75,10 +77,10 @@ class RazinConfig:
 
     @property
     def high_severity_min(self) -> int:
-        """Minimum aggregate score for high severity under this profile."""
+        """Minimum rule weight or review priority for a high label."""
         return PROFILE_HIGH_SEVERITY_MIN.get(self.profile, 70)
 
     @property
     def medium_severity_min(self) -> int:
-        """Minimum aggregate score for medium severity under this profile."""
+        """Minimum rule weight or review priority for a medium label."""
         return PROFILE_MEDIUM_SEVERITY_MIN.get(self.profile, 40)

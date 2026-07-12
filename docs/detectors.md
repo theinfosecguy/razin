@@ -1,9 +1,10 @@
 # Detectors
 
-Razin produces findings from two detector engines:
+Razin produces findings from three static-analysis surfaces:
 
 - DSL rules in `src/razin/dsl/rules/`
 - MCP remote endpoint checks in `src/razin/scanner/mcp_remote.py`
+- bounded whole-package analysis in `src/razin/scanner/package_analysis.py`
 
 Run and group findings by rule:
 
@@ -15,20 +16,27 @@ razin scan -r . --group-by rule
 
 For each discovered `SKILL.md` file, Razin:
 
+1. Discovers `SKILL.md` files and records oversized or unreadable matches as analysis gaps.
+1. Hashes the package and analyzes supported helper scripts without executing them.
 1. Parses frontmatter, body text, fields, and keys.
 1. Runs all loaded DSL rules and emits `FindingCandidate` objects.
 1. Runs MCP remote endpoint checks only for servers referenced by `requires.mcp`.
 1. Applies suppression rules to reduce duplicate/overlapping signals.
 1. Converts candidates to stable finding IDs and final severity.
 
-## Scoring and severity
+## Review priority, assessment, and severity
 
-- Rule-level scores are in `0..100`.
+- Rule-level weights are in `0..100`; they order review work and are not probabilities.
 - Severity thresholds are profile-dependent.
   - `strict`: high >= 70, medium >= 40
   - `balanced`: high >= 80, medium >= 50
-  - `audit`: high >= 70, medium >= 40 (aggregate is informational)
-- Aggregate scoring keeps the highest finding per `rule_id`; different rules still contribute even when they share the same score.
+  - `audit`: high >= 70, medium >= 40
+- Package review priority is the highest actionable weight. Correlated detector weights are not combined.
+- Capability-only findings are informational, capped low, excluded from review priority, remain `clean/no-evidence`, and cannot independently fail CI.
+- Review and analysis-gap signals are capped medium. A dangerous behavior such as download-to-shell can remain high priority without claiming malicious intent. Malicious assessment requires a known malicious IOC, a proven integrity violation, or a composed exfiltration chain to a suspicious collector.
+- Unknown rule IDs default to `analysis_gap` until their evidence contract is reviewed.
+- Package assessment is one of `malicious/high-confidence-chain`, `risky-but-legitimate/review`, `dynamic-analysis-required/unknown`, or `clean/no-evidence`.
+- Workspace reports preserve counts for all four package states and separately report `contains-high-confidence-malicious`, `incomplete`, `review-required`, or `clean`.
 
 ## Rule classification
 
@@ -42,38 +50,53 @@ CLI filtering options:
 - `--security-only` filters output to `security` findings
 - `--min-severity` filters by severity level
 
-Classification is additive metadata and does not change rule execution.
+Classification does not change rule execution. It does change review-priority and CI-gate eligibility.
 
 ## Bundled public rule IDs
 
-Razin currently ships **24** public rule IDs.
+Razin currently ships **34** public rule IDs: 24 document/MCP rules and 10 whole-package analysis rules.
 
 | Rule ID | Classification | Score behavior | Confidence | Input surface | Matching logic |
 | --- | --- | --- | --- | --- | --- |
-| `NET_RAW_IP` | security | 82 public IP, 50 non-public IP | high | extracted fields | Detects raw IPv4/IPv6 literals (`ip_address_scan`). |
-| `NET_UNKNOWN_DOMAIN` | security | 55 default, 35 when no allowlist configured, 80 if denylisted | medium/high | code/config fields | URL domain filter, skips IP literals, checks non-allowlisted domains. |
-| `NET_DOC_DOMAIN` | security | 15 default, 80 if denylisted | low/high | prose fields | URL domain filter for documentation prose domains only. |
+| `NET_RAW_IP` | security (review; max medium) | 82 public IP, 50 non-public IP | high | extracted fields | Detects raw IPv4/IPv6 literals (`ip_address_scan`). |
+| `NET_UNKNOWN_DOMAIN` | informational (capability; max low) | 55 default, 35 when no allowlist configured, 80 if denylisted | medium/high | code/config fields | URL domain filter, skips IP literals, checks non-allowlisted domains. |
+| `NET_DOC_DOMAIN` | informational (capability; max low) | 15 default, 80 if denylisted | low/high | prose fields | URL domain filter for documentation prose domains only. |
 | `MCP_REQUIRED` | informational | 28 | high | frontmatter | Flags `requires.mcp` declaration presence. |
-| `MCP_ENDPOINT` | security | 70 | high | extracted fields | Matches MCP-like endpoint paths (`/mcp`) not in MCP allowlist. |
-| `MCP_DENYLIST` | security | 90 | high | extracted fields | MCP endpoint domains matching denylist. |
-| `MCP_REMOTE_NON_HTTPS` | security | 52 | high | `.mcp.json` for referenced servers | Remote MCP URL uses HTTP (except localhost loopback exceptions). |
-| `MCP_REMOTE_RAW_IP` | security | 82 | high | `.mcp.json` for referenced servers | Remote MCP URL host is a public raw IP. |
-| `MCP_REMOTE_DENYLIST` | security | 90 | high | `.mcp.json` for referenced servers | Remote MCP URL host matches MCP denylist. |
-| `SECRET_REF` | security | 74 key-based branch, 60 env-ref branch | high/medium | keys and fields | Public rule backed by two internal rules: secret-like key names and env secret references. |
-| `EXEC_FIELDS` | security | 72 | high | keys | Exact key match on execution terms (`command`, `script`, `exec`, `shell`, `run`). |
+| `MCP_ENDPOINT` | informational (capability; max low) | 70 | high | extracted fields | Matches MCP-like endpoint paths (`/mcp`) not in MCP allowlist. |
+| `MCP_DENYLIST` | security (policy review; max medium) | 90 | high | extracted fields | MCP endpoint domains matching a user policy denylist. |
+| `MCP_REMOTE_NON_HTTPS` | security (review; max medium) | 52 | high | `.mcp.json` for referenced servers | Remote MCP URL uses HTTP (except localhost loopback exceptions). |
+| `MCP_REMOTE_RAW_IP` | security (review; max medium) | 82 | high | `.mcp.json` for referenced servers | Remote MCP URL host is a public raw IP. |
+| `MCP_REMOTE_DENYLIST` | security (policy review; max medium) | 90 | high | `.mcp.json` for referenced servers | Remote MCP URL host matches a user policy denylist. |
+| `SECRET_REF` | informational (capability; max low) | 74 key-based branch, 60 env-ref branch | high/medium | keys and fields | Public rule backed by two internal rules: secret-like key names and env secret references. |
+| `EXEC_FIELDS` | informational (capability; max low) | 72 | high | keys | Exact key match on execution terms (`command`, `script`, `exec`, `shell`, `run`). |
 | `OPAQUE_BLOB` | security | 54 | medium | fields | Flags long high-entropy or base64-like blobs (`min_length: 80`, `min_entropy: 4.5`). |
-| `BUNDLED_SCRIPTS` | security | 58 | medium | filesystem near `SKILL.md` | Presence-only check for executable script extensions (no script content parsing). |
+| `BUNDLED_SCRIPTS` | informational (capability; max low) | 58 | medium | filesystem near `SKILL.md` | Presence-only check for executable script extensions (no script content parsing). |
 | `TOOL_INVOCATION` | informational | starts at 20, increases with token count/tier, capped at 90 | medium | fields | Consolidated token scan with destructive/write/read tiering. |
 | `DYNAMIC_SCHEMA` | informational | 15 | low | raw text | Keyword phrases implying runtime schema/tool discovery. |
 | `AUTH_CONNECTION` | informational | 45 | medium | raw text | Strong+weak hint counting with `min_hint_count: 2`, requires strong hint, negation-aware. |
-| `PROMPT_INJECTION` | security | 80 | medium | raw text | Prompt-injection phrase detection with strong+weak hint logic, negation-aware. |
-| `HIDDEN_INSTRUCTION` | security | 90 | high | raw text | Hidden instruction scan across invisible chars, HTML comments, embedded BOM, and homoglyphs. |
-| `DATA_SENSITIVITY` | security | tiered (`high:65`, `medium:40`, `low:15`) + keyword bonus | medium | raw text + parsed fields | Service/keyword-based sensitivity classifier with category inference. |
-| `TYPOSQUAT` | security | 76 | medium | frontmatter + derived names | Levenshtein-based similarity check against baseline (`max_distance: 2`, `min_name_length: 5`). |
-| `UNICODE_BIDI_CONTROL` | security | 85 base, +7 in code fences, +5 for unpaired overrides | high | raw text | Detects Unicode bidi override/isolate controls (U+202A–U+202E, U+2066–U+2069) indicating Trojan Source risk. |
+| `PROMPT_INJECTION` | security (review; max medium) | 80 | medium | raw text | Prompt-injection phrase detection with strong+weak hint logic, negation-aware. |
+| `HIDDEN_INSTRUCTION` | security (review; max medium) | 90 | high | raw text | Hidden instruction scan across invisible chars, HTML comments, embedded BOM, and homoglyphs. |
+| `DATA_SENSITIVITY` | informational (capability; max low) | tiered (`high:65`, `medium:40`, `low:15`) + keyword bonus | medium | raw text + parsed fields | Service/keyword-based sensitivity classifier with category inference. |
+| `TYPOSQUAT` | security (review; max medium) | 76 | medium | frontmatter + derived names | Levenshtein-based similarity check against baseline (`max_distance: 2`, `min_name_length: 5`). |
+| `UNICODE_BIDI_CONTROL` | security (review; max medium) | 85 base, +7 in code fences, +5 for unpaired overrides | high | raw text | Detects Unicode bidi override/isolate controls (U+202A–U+202E, U+2066–U+2069) indicating Trojan Source risk. |
 | `INSTR_OBFUSCATED_PAYLOAD` | security | 78 | high | raw text | Decodes base64 (including URL-safe), hex, and unicode-escape blocks with strong/weak hint matching (`min_hint_matches: 2`, `require_strong: true`). |
-| `CONFUSABLE_IDENTIFIER_EXTENDED` | security | 72 base, +5 if frontmatter signal | high | raw text + frontmatter | Mixed-script confusable identifier detection across frontmatter values, body identifiers, and URL hostnames. Deduplicates tokens across surfaces. |
-| `REMOTE_REFERENCE_RISK` | security | 62 base, +8 insecure http, 72 unsafe scheme, 68 shortener, 74 fetch-apply | medium | raw text | Detects insecure `http://` URLs, unsafe URI schemes (`data:`, `javascript:`, `ftp:`, etc.), known URL shortener domains, and fetch-and-apply instruction patterns. |
+| `CONFUSABLE_IDENTIFIER_EXTENDED` | security (review; max medium) | 72 base, +5 if frontmatter signal | high | raw text + frontmatter | Mixed-script confusable identifier detection across frontmatter values, body identifiers, and URL hostnames. Deduplicates tokens across surfaces. |
+| `REMOTE_REFERENCE_RISK` | security (review; max medium) | 62 base, +8 insecure http, 72 unsafe scheme, 68 shortener, 74 fetch-apply | medium | raw text | Detects insecure `http://` URLs, unsafe URI schemes (`data:`, `javascript:`, `ftp:`, etc.), known URL shortener domains, and fetch-and-apply instruction patterns. |
+
+Whole-package analysis adds these public rule IDs:
+
+| Rule ID | Signal kind | Meaning |
+| --- | --- | --- |
+| `PACKAGE_DATA_EXFILTRATION` | attack chain | Composed sensitive-source to network-sink behavior. |
+| `PACKAGE_REMOTE_CODE_EXECUTION` | dangerous behavior | Composed remote-fetch to execution behavior; high priority but not proof of malicious intent. |
+| `PACKAGE_INVENTORY` | capability | Informational package inventory. |
+| `INCOMPLETE_SCAN` | analysis gap | A scan limit, read failure, archive, or unsupported file prevented full analysis. |
+| `DYNAMIC_ANALYSIS_REQUIRED` | analysis gap | Static analysis cannot resolve behavior safely. |
+| `MUTABLE_REMOTE_REFERENCE` | review | A remote reference is mutable or not integrity-pinned. |
+| `KNOWN_BAD_DOMAIN` | review | A configured domain indicator matched and requires context review. |
+| `KNOWN_BAD_FILE_HASH` | known malicious IOC | A configured known-bad file hash matched. |
+| `KNOWN_BAD_INDICATOR` | review | A configured literal indicator matched and requires context review. |
+| `PACKAGE_SENSITIVE_NETWORK_FLOW` | review | A generic sensitive-source to network-sink flow lacks enough evidence to prove unauthorized exfiltration. |
 
 ## Detector behavior details
 
@@ -81,7 +104,7 @@ Razin currently ships **24** public rule IDs.
 
 - `NET_UNKNOWN_DOMAIN` and `NET_DOC_DOMAIN` apply local-host suppression in `balanced`/`audit` profiles.
 - `strict_subdomains: true` requires exact domain matches for allowlist checks.
-- Denylist matches elevate domain findings to high-risk score behavior.
+- User policy denylist matches remain review findings; only separately configured known-bad IOC rules can make a maliciousness claim.
 
 ### MCP precedence and suppression
 
@@ -107,7 +130,8 @@ Razin currently ships **24** public rule IDs.
 
 ### Typosquat baseline behavior
 
-- If `typosquat.baseline` is absent and at least two skills are discovered, baseline is auto-derived.
+- If `typosquat.baseline` is absent and 2-1,000 skills are discovered, baseline is auto-derived.
+- Above 1,000 discovered skills, implicit derivation is skipped to avoid quadratic work and a warning requests an explicit baseline.
 - Explicit `typosquat.baseline` disables auto-derivation.
 
 ## Tuning detector coverage

@@ -65,7 +65,7 @@ razin scan -r . -o output/ --security-only --min-severity medium
 # Fail if any high-severity finding exists
 razin scan -r . --fail-on high --no-stdout
 
-# Fail if aggregate score is 70+
+# Fail if review priority is 70+
 razin scan -r . --fail-on-score 70 --no-stdout
 
 # Use summary-only output with fail gate

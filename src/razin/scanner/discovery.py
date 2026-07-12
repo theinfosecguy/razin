@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
@@ -14,24 +15,71 @@ from razin.utils import sanitize_output_name
 logger = logging.getLogger(__name__)
 
 
+@dataclass(frozen=True)
+class SkillDiscoveryIssue:
+    """A matching SKILL.md that could not enter normal parsing."""
+
+    path: Path
+    reason: str
+
+
 def discover_skill_files(root: Path, skill_globs: tuple[str, ...], max_file_mb: int) -> list[Path]:
     """Discover SKILL.md files by configured glob patterns."""
+    files, _ = discover_skill_files_with_issues(root, skill_globs, max_file_mb)
+    return files
+
+
+def discover_skill_files_with_issues(
+    root: Path,
+    skill_globs: tuple[str, ...],
+    max_file_mb: int,
+) -> tuple[list[Path], list[SkillDiscoveryIssue]]:
+    """Discover eligible skills and retain explicit reasons for skipped matches."""
     discovered: set[Path] = set()
+    issues: dict[Path, SkillDiscoveryIssue] = {}
     size_limit_bytes = max_file_mb * 1024 * 1024
     resolved_root = root.resolve()
 
     for pattern in skill_globs:
         for path in root.glob(pattern):
-            if not path.is_file() or path.name != SKILL_MARKDOWN_FILENAME:
+            if path.name != SKILL_MARKDOWN_FILENAME:
+                continue
+            lexical_path = path.absolute()
+            if path.is_symlink():
+                issues[lexical_path] = SkillDiscoveryIssue(
+                    path=lexical_path,
+                    reason="Symbolic-link SKILL.md entries are not followed.",
+                )
+                continue
+            if not path.is_file():
+                continue
+            resolved = path.resolve()
+            try:
+                resolved.relative_to(resolved_root)
+            except ValueError:
+                issues[lexical_path] = SkillDiscoveryIssue(
+                    path=lexical_path,
+                    reason="SKILL.md resolves outside the scan root and was not followed.",
+                )
                 continue
             try:
                 if path.stat().st_size > size_limit_bytes:
+                    issues[resolved] = SkillDiscoveryIssue(
+                        path=resolved,
+                        reason=(f"SKILL.md exceeds the configured {max_file_mb} MiB parsing limit and was not parsed."),
+                    )
                     continue
-            except OSError:
+            except OSError as exc:
+                issues[resolved] = SkillDiscoveryIssue(
+                    path=resolved,
+                    reason=f"SKILL.md metadata could not be read: {exc}",
+                )
                 continue
             discovered.add(path.resolve())
 
-    return sorted(discovered, key=lambda path: _stable_path_key(path, resolved_root))
+    files = sorted(discovered, key=lambda path: _stable_path_key(path, resolved_root))
+    skipped = sorted(issues.values(), key=lambda issue: _stable_path_key(issue.path, resolved_root))
+    return files, skipped
 
 
 def derive_skill_name(file_path: Path, root: Path, *, declared_name: str | None = None) -> str:

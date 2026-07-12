@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import difflib
+import re
 from pathlib import Path
 from typing import Any
 
@@ -14,12 +15,15 @@ from razin.constants.config import (
     CONFIG_FILENAME,
     RULE_OVERRIDE_ALLOWED_SEVERITIES,
 )
+from razin.constants.package_analysis import MAX_IOC_ENTRIES_PER_KIND, MAX_IOC_INDICATOR_LENGTH
 from razin.constants.profiles import VALID_PROFILES
 from razin.constants.scoring import SEVERITY_RANK
 from razin.constants.validation import (
     ALLOWED_CONFIG_KEYS,
     ALLOWED_DATA_SENSITIVITY_KEYS,
     ALLOWED_DETECTOR_KEYS,
+    ALLOWED_KNOWN_BAD_KEYS,
+    ALLOWED_PACKAGE_ANALYSIS_KEYS,
     ALLOWED_QUIET_MODE_KEYS,
     ALLOWED_RULE_OVERRIDE_KEYS,
     ALLOWED_TOOL_TIER_KEYS,
@@ -37,6 +41,7 @@ from razin.constants.validation import (
     LIST_OF_STRINGS_KEYS,
 )
 from razin.exceptions.validation import ValidationError
+from razin.scanner.assessment import max_allowed_severity, signal_kind_for_rule
 
 
 def validate_config_file(
@@ -188,8 +193,159 @@ def validate_config_file(
     _validate_data_sensitivity_block(raw, path_str, errors)
     _validate_rule_overrides_block(raw, path_str, errors)
     _validate_quiet_mode_block(raw, path_str, errors)
+    _validate_package_analysis_block(raw, path_str, errors)
 
     return errors
+
+
+def _validate_package_analysis_block(
+    raw: dict[str, Any],
+    path_str: str,
+    errors: list[ValidationError],
+) -> None:
+    """Validate bounded package-analysis settings and configured IOC lists."""
+    if "package_analysis" not in raw:
+        return
+    package = raw["package_analysis"]
+    if package is None:
+        return
+    if not isinstance(package, dict):
+        errors.append(
+            ValidationError(
+                code=CFG009,
+                path=path_str,
+                field="package_analysis",
+                message="`package_analysis` must be a mapping",
+            )
+        )
+        return
+
+    for key in sorted(package):
+        if key not in ALLOWED_PACKAGE_ANALYSIS_KEYS:
+            errors.append(
+                ValidationError(
+                    code=CFG004,
+                    path=path_str,
+                    field=f"package_analysis.{key}",
+                    message=f"unknown key `{key}` in `package_analysis`",
+                    hint=_suggest_key(key, ALLOWED_PACKAGE_ANALYSIS_KEYS),
+                )
+            )
+    for key in ("enabled", "emit_inventory"):
+        if key in package and not isinstance(package[key], bool):
+            errors.append(
+                ValidationError(
+                    code=CFG005,
+                    path=path_str,
+                    field=f"package_analysis.{key}",
+                    message=f"invalid type for `package_analysis.{key}`",
+                    hint="expected a boolean",
+                )
+            )
+    for key in ("max_files", "max_directories", "max_total_mb", "max_file_mb", "max_findings_per_rule"):
+        if key not in package:
+            continue
+        value = package[key]
+        if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+            errors.append(
+                ValidationError(
+                    code=CFG007,
+                    path=path_str,
+                    field=f"package_analysis.{key}",
+                    message=f"`package_analysis.{key}` must be a positive integer",
+                )
+            )
+
+    known_bad = package.get("known_bad")
+    if known_bad is None:
+        return
+    if not isinstance(known_bad, dict):
+        errors.append(
+            ValidationError(
+                code=CFG009,
+                path=path_str,
+                field="package_analysis.known_bad",
+                message="`package_analysis.known_bad` must be a mapping",
+            )
+        )
+        return
+    for key in sorted(known_bad):
+        if key not in ALLOWED_KNOWN_BAD_KEYS:
+            errors.append(
+                ValidationError(
+                    code=CFG004,
+                    path=path_str,
+                    field=f"package_analysis.known_bad.{key}",
+                    message=f"unknown key `{key}` in `package_analysis.known_bad`",
+                    hint=_suggest_key(key, ALLOWED_KNOWN_BAD_KEYS),
+                )
+            )
+    for key in ALLOWED_KNOWN_BAD_KEYS:
+        if key not in known_bad:
+            continue
+        value = known_bad[key]
+        if not isinstance(value, (list, tuple)) or not all(isinstance(item, str) for item in value):
+            errors.append(
+                ValidationError(
+                    code=CFG005,
+                    path=path_str,
+                    field=f"package_analysis.known_bad.{key}",
+                    message=f"invalid type for `package_analysis.known_bad.{key}`",
+                    hint="expected a list of strings",
+                )
+            )
+            continue
+        if len(value) > MAX_IOC_ENTRIES_PER_KIND:
+            errors.append(
+                ValidationError(
+                    code=CFG007,
+                    path=path_str,
+                    field=f"package_analysis.known_bad.{key}",
+                    message=f"at most {MAX_IOC_ENTRIES_PER_KIND} entries are allowed",
+                )
+            )
+        if key == "sha256" and any(
+            len(item.strip()) != 64 or any(char not in "0123456789abcdefABCDEF" for char in item.strip())
+            for item in value
+        ):
+            errors.append(
+                ValidationError(
+                    code=CFG006,
+                    path=path_str,
+                    field="package_analysis.known_bad.sha256",
+                    message="SHA-256 entries must contain exactly 64 hexadecimal characters",
+                )
+            )
+        if key == "indicators" and any(
+            len(item.strip()) < 4 or len(item.strip()) > MAX_IOC_INDICATOR_LENGTH for item in value
+        ):
+            errors.append(
+                ValidationError(
+                    code=CFG006,
+                    path=path_str,
+                    field="package_analysis.known_bad.indicators",
+                    message=("indicator entries must be between 4 and " f"{MAX_IOC_INDICATOR_LENGTH} characters"),
+                )
+            )
+        if key == "domains" and any(not _is_domain_name(item) for item in value):
+            errors.append(
+                ValidationError(
+                    code=CFG006,
+                    path=path_str,
+                    field="package_analysis.known_bad.domains",
+                    message="domain entries must be plain DNS domain names",
+                )
+            )
+
+
+def _is_domain_name(value: str) -> bool:
+    domain = value.strip().lower().rstrip(".")
+    if len(domain) > 253 or "." not in domain:
+        return False
+    return (
+        re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+", domain)
+        is not None
+    )
 
 
 def _validate_detectors_block(
@@ -516,6 +672,21 @@ def _validate_rule_overrides_block(
                     hint="set min_severity <= max_severity",
                 )
             )
+        if min_severity is not None:
+            signal_maximum = max_allowed_severity(signal_kind_for_rule(rule_id))
+            if SEVERITY_RANK[min_severity] > SEVERITY_RANK[signal_maximum]:
+                errors.append(
+                    ValidationError(
+                        code=CFG008,
+                        path=path_str,
+                        field=f"rule_overrides.{rule_id}.min_severity",
+                        message=(
+                            f"min_severity {min_severity!r} exceeds the {signal_maximum!r} maximum "
+                            "supported by this rule's evidence kind"
+                        ),
+                        hint=f"set min_severity <= {signal_maximum}",
+                    )
+                )
 
 
 def _suggest_key(unknown: str, allowed: frozenset[str]) -> str:

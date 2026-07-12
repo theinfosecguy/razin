@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any, cast
 
@@ -31,16 +32,28 @@ from razin.constants.docs import (
     TOOL_TIER_DESTRUCTIVE_KEYWORDS,
     TOOL_TIER_WRITE_KEYWORDS,
 )
+from razin.constants.package_analysis import (
+    DEFAULT_PACKAGE_MAX_DIRECTORIES,
+    DEFAULT_PACKAGE_MAX_FILE_MB,
+    DEFAULT_PACKAGE_MAX_FILES,
+    DEFAULT_PACKAGE_MAX_FINDINGS_PER_RULE,
+    DEFAULT_PACKAGE_MAX_TOTAL_MB,
+    MAX_IOC_ENTRIES_PER_KIND,
+    MAX_IOC_INDICATOR_LENGTH,
+)
 from razin.constants.profiles import (
     DEFAULT_PROFILE,
     VALID_PROFILES,
 )
 from razin.constants.scoring import SEVERITY_RANK
 from razin.exceptions import ConfigError
+from razin.scanner.assessment import max_allowed_severity, signal_kind_for_rule
 from razin.types import Severity
 from razin.types.config import (
     DataSensitivityConfig,
     DetectorConfig,
+    IocConfig,
+    PackageAnalysisConfig,
     QuietModeConfig,
     RuleOverrideConfig,
     ToolTierConfig,
@@ -128,6 +141,7 @@ def load_config(root: Path, config_path: Path | None = None) -> RazinConfig:
     rule_overrides = _parse_rule_overrides(raw.get("rule_overrides"))
 
     quiet_mode = _build_quiet_mode_config(raw.get("quiet_mode", {}))
+    package_analysis = _build_package_analysis_config(raw.get("package_analysis", {}))
 
     return RazinConfig(
         profile=profile_raw,  # type: ignore[arg-type]
@@ -162,7 +176,95 @@ def load_config(root: Path, config_path: Path | None = None) -> RazinConfig:
         skill_globs=tuple(_ensure_string_list(raw.get("skill_globs", DEFAULT_SKILL_GLOBS), "skill_globs")),
         max_file_mb=max_file_mb,
         quiet_mode=quiet_mode,
+        package_analysis=package_analysis,
     )
+
+
+def _build_package_analysis_config(raw: Any) -> PackageAnalysisConfig:
+    """Build deterministic package-analysis limits and operator IOC inputs."""
+    if raw is None:
+        return PackageAnalysisConfig()
+    if not isinstance(raw, dict):
+        raise ConfigError("package_analysis must be a mapping")
+
+    enabled = raw.get("enabled", True)
+    emit_inventory = raw.get("emit_inventory", False)
+    if not isinstance(enabled, bool):
+        raise ConfigError("package_analysis.enabled must be a boolean")
+    if not isinstance(emit_inventory, bool):
+        raise ConfigError("package_analysis.emit_inventory must be a boolean")
+
+    known_bad_raw = raw.get("known_bad", {})
+    if known_bad_raw is None:
+        known_bad_raw = {}
+    if not isinstance(known_bad_raw, dict):
+        raise ConfigError("package_analysis.known_bad must be a mapping")
+
+    sha256_values = tuple(
+        sorted(
+            {
+                value.strip().lower()
+                for value in _ensure_string_list(known_bad_raw.get("sha256", []), "package_analysis.known_bad.sha256")
+                if value.strip()
+            }
+        )
+    )
+    invalid_hashes = [
+        value for value in sha256_values if len(value) != 64 or any(c not in "0123456789abcdef" for c in value)
+    ]
+    if invalid_hashes:
+        raise ConfigError("package_analysis.known_bad.sha256 entries must be 64-character hexadecimal SHA-256 values")
+
+    raw_domains = _ensure_string_list(known_bad_raw.get("domains", []), "package_analysis.known_bad.domains")
+    invalid_domains = [domain for domain in raw_domains if not _is_domain_name(domain)]
+    if invalid_domains:
+        raise ConfigError("package_analysis.known_bad.domains entries must be plain DNS domain names")
+    raw_indicators = _ensure_string_list(
+        known_bad_raw.get("indicators", []),
+        "package_analysis.known_bad.indicators",
+    )
+    for key, values in (("domains", raw_domains), ("sha256", list(sha256_values)), ("indicators", raw_indicators)):
+        if len(values) > MAX_IOC_ENTRIES_PER_KIND:
+            raise ConfigError(f"package_analysis.known_bad.{key} accepts at most {MAX_IOC_ENTRIES_PER_KIND} entries")
+    invalid_indicators = [
+        value for value in raw_indicators if len(value.strip()) < 4 or len(value.strip()) > MAX_IOC_INDICATOR_LENGTH
+    ]
+    if invalid_indicators:
+        raise ConfigError(
+            "package_analysis.known_bad.indicators entries must be between 4 and "
+            f"{MAX_IOC_INDICATOR_LENGTH} characters"
+        )
+
+    return PackageAnalysisConfig(
+        enabled=enabled,
+        max_files=_positive_int(raw.get("max_files", DEFAULT_PACKAGE_MAX_FILES), "package_analysis.max_files"),
+        max_directories=_positive_int(
+            raw.get("max_directories", DEFAULT_PACKAGE_MAX_DIRECTORIES),
+            "package_analysis.max_directories",
+        ),
+        max_total_mb=_positive_int(
+            raw.get("max_total_mb", DEFAULT_PACKAGE_MAX_TOTAL_MB),
+            "package_analysis.max_total_mb",
+        ),
+        max_file_mb=_positive_int(raw.get("max_file_mb", DEFAULT_PACKAGE_MAX_FILE_MB), "package_analysis.max_file_mb"),
+        max_findings_per_rule=_positive_int(
+            raw.get("max_findings_per_rule", DEFAULT_PACKAGE_MAX_FINDINGS_PER_RULE),
+            "package_analysis.max_findings_per_rule",
+        ),
+        emit_inventory=emit_inventory,
+        known_bad=IocConfig(
+            domains=_normalize_domains(raw_domains),
+            sha256=sha256_values,
+            indicators=tuple(sorted({value.strip() for value in raw_indicators if value.strip()})),
+        ),
+    )
+
+
+def _positive_int(value: Any, key_name: str) -> int:
+    """Validate a positive integer without accepting booleans."""
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise ConfigError(f"{key_name} must be a positive integer")
+    return value
 
 
 def _ensure_string_list(value: Any, key_name: str) -> list[str]:
@@ -178,6 +280,16 @@ def _normalize_domains(domains: list[str]) -> tuple[str, ...]:
     """Lowercase, strip, deduplicate and sort a list of domain strings."""
     normalized = [domain.strip().lower() for domain in domains if domain.strip()]
     return tuple(sorted(set(normalized)))
+
+
+def _is_domain_name(value: str) -> bool:
+    domain = value.strip().lower().rstrip(".")
+    if len(domain) > 253 or "." not in domain:
+        return False
+    return (
+        re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+", domain)
+        is not None
+    )
 
 
 def _build_data_sensitivity_config(raw: dict[str, Any]) -> DataSensitivityConfig:
@@ -284,6 +396,13 @@ def _parse_rule_overrides(raw: Any) -> dict[str, RuleOverrideConfig]:
                 f"rule_overrides.{rule_id} is contradictory: min_severity {min_severity!r} "
                 f"is higher than max_severity {max_severity!r}"
             )
+        if min_severity is not None:
+            signal_maximum = max_allowed_severity(signal_kind_for_rule(rule_id))
+            if SEVERITY_RANK[min_severity] > SEVERITY_RANK[signal_maximum]:
+                raise ConfigError(
+                    f"rule_overrides.{rule_id}.min_severity {min_severity!r} exceeds the "
+                    f"{signal_maximum!r} maximum supported by this rule's evidence kind"
+                )
 
         overrides[rule_id] = RuleOverrideConfig(enabled=enabled, max_severity=max_severity, min_severity=min_severity)
 

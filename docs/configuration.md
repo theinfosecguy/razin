@@ -27,6 +27,7 @@ Top-level keys currently accepted:
 - `skill_globs`
 - `max_file_mb`
 - `quiet_mode`
+- `package_analysis`
 
 Default: `max_file_mb` is `2` when omitted.
 
@@ -73,6 +74,16 @@ detectors:
     - INSTR_OBFUSCATED_PAYLOAD
     - CONFUSABLE_IDENTIFIER_EXTENDED
     - REMOTE_REFERENCE_RISK
+    - PACKAGE_SENSITIVE_NETWORK_FLOW
+    - PACKAGE_DATA_EXFILTRATION
+    - PACKAGE_REMOTE_CODE_EXECUTION
+    - PACKAGE_INVENTORY
+    - INCOMPLETE_SCAN
+    - DYNAMIC_ANALYSIS_REQUIRED
+    - MUTABLE_REMOTE_REFERENCE
+    - KNOWN_BAD_DOMAIN
+    - KNOWN_BAD_FILE_HASH
+    - KNOWN_BAD_INDICATOR
   disabled: []
 typosquat:
   baseline:
@@ -101,12 +112,44 @@ rule_overrides:
     max_severity: low
   AUTH_CONNECTION:
     max_severity: low
-  SECRET_REF:
+  KNOWN_BAD_FILE_HASH:
     min_severity: high
 skill_globs:
   - "**/SKILL.md"
 max_file_mb: 2
+package_analysis:
+  enabled: true
+  max_files: 256
+  max_directories: 128
+  max_total_mb: 16
+  max_file_mb: 2
+  max_findings_per_rule: 20
+  emit_inventory: false
+  known_bad:
+    domains: []
+    sha256: []
+    indicators: []
 ```
+
+## `package_analysis`
+
+`package_analysis` controls safe, non-executing analysis of files beside each
+`SKILL.md`:
+
+- `enabled`: enable whole-package hashing and helper analysis (default: `true`).
+- `max_files`: maximum enumerated files per package (default: `256`).
+- `max_directories`: maximum traversed directories per package (default: `128`).
+- `max_total_mb`: maximum aggregate bytes read per package (default: `16`).
+- `max_file_mb`: maximum bytes read from one package member (default: `2`).
+- `max_findings_per_rule`: per-package output cap for each package rule (default: `20`).
+- `emit_inventory`: emit a capability finding containing the package digest (default: `false`).
+- `known_bad.domains`: reviewed malicious domains, with subdomain matching.
+- `known_bad.sha256`: full SHA-256 file indicators.
+- `known_bad.indicators`: case-insensitive literal indicators.
+
+Limits and unsupported content produce explicit analysis-gap findings. See
+[Whole-package analysis](package-analysis.md) for supported languages and
+source-to-sink semantics.
 
 ## `quiet_mode`
 
@@ -164,6 +207,7 @@ Behavior details:
 - Severity override is applied after profile severity resolution for executed rules.
 - If a finding exceeds `max_severity`, severity is capped.
 - If a finding is below `min_severity`, severity is raised.
+- `min_severity` cannot exceed the rule signal kind's maximum claim: capability rules max at low, review and analysis-gap rules max at medium, and only trusted IOC/integrity/attack-chain rules may reach high. Invalid combinations are rejected.
 - Capped findings include `severity_override` metadata in output.
 - Unknown rule IDs are ignored with warnings at scan time.
 - Overrides affect CI gating (`--fail-on`, `--fail-on-score`) because they change final severity/score used by evaluation.
@@ -180,17 +224,17 @@ rule_overrides:
     max_severity: low
   TOOL_INVOCATION:
     max_severity: low
-  SECRET_REF:
+  KNOWN_BAD_FILE_HASH:
     min_severity: high
 ```
 
 ## Profile behavior
 
-| Profile | Aggregate min rule score | High threshold | Medium threshold | Local host suppression |
+| Profile | Legacy aggregate threshold | High threshold | Medium threshold | Local host suppression |
 | --- | --- | --- | --- | --- |
 | `strict` | 20 | 70 | 40 | off |
 | `balanced` (default) | 40 | 80 | 50 | on |
-| `audit` | 101 (informational aggregate) | 70 | 40 | on |
+| `audit` | 101 (non-blocking compatibility sentinel) | 70 | 40 | on |
 
 ## CLI override precedence
 

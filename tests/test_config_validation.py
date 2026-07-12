@@ -268,10 +268,19 @@ def test_rule_overrides_valid_config_returns_no_errors(tmp_path: Path) -> None:
         "  MCP_REQUIRED:\n"
         "    enabled: false\n"
         "    max_severity: low\n"
-        "  SECRET_REF:\n"
+        "  KNOWN_BAD_FILE_HASH:\n"
         "    min_severity: high\n",
     )
     assert validate_config_file(tmp_path) == []
+
+
+def test_rule_overrides_rejects_min_severity_above_signal_contract(tmp_path: Path) -> None:
+    _write_config(
+        tmp_path,
+        "rule_overrides:\n  SECRET_REF:\n    min_severity: medium\n",
+    )
+    errors = validate_config_file(tmp_path)
+    assert any(error.code == CFG008 and error.field == "rule_overrides.SECRET_REF.min_severity" for error in errors)
 
 
 def test_rule_overrides_invalid_type_returns_cfg009(tmp_path: Path) -> None:
@@ -441,6 +450,22 @@ def test_valid_rule_returns_no_errors(tmp_path: Path) -> None:
 def test_preflight_valid_returns_empty(tmp_path: Path) -> None:
     _write_config(tmp_path, "profile: balanced\n")
     assert preflight_validate(root=tmp_path) == []
+
+
+def test_preflight_rejects_ambiguous_one_character_ioc(tmp_path: Path) -> None:
+    _write_config(tmp_path, "package_analysis:\n  known_bad:\n    indicators: [x]\n")
+
+    errors = preflight_validate(root=tmp_path)
+
+    assert any(error.field == "package_analysis.known_bad.indicators" for error in errors)
+
+
+def test_preflight_rejects_url_in_known_bad_domains(tmp_path: Path) -> None:
+    _write_config(tmp_path, "package_analysis:\n  known_bad:\n    domains: ['https://bad.example/path']\n")
+
+    errors = preflight_validate(root=tmp_path)
+
+    assert any(error.field == "package_analysis.known_bad.domains" for error in errors)
 
 
 def test_preflight_nonexistent_root_returns_cfg010(tmp_path: Path) -> None:

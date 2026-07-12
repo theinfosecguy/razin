@@ -193,6 +193,37 @@ def test_quiet_mode_writes_output_file(tmp_path: Path) -> None:
     assert out_file.exists()
 
 
+def test_quiet_output_inside_package_is_excluded_from_analysis(tmp_path: Path) -> None:
+    skill_dir = tmp_path / "skills" / "s"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text("---\nname: s\n---\n# Safe skill\n", encoding="utf-8")
+    out_file = skill_dir / "quiet.jsonl"
+    out_file.write_text('{"old":"marker-123"}\n', encoding="utf-8")
+    config = _write_config(
+        tmp_path,
+        "package_analysis:\n  known_bad:\n    indicators: [marker-123]\n",
+    )
+
+    exit_code = main(
+        [
+            "scan",
+            "--root",
+            str(tmp_path),
+            "--config",
+            str(config),
+            "--quiet-mode",
+            "--quiet-output",
+            str(out_file),
+            "--only-rule",
+            "KNOWN_BAD_INDICATOR",
+        ]
+    )
+
+    assert exit_code == 0
+    records = [json.loads(line) for line in out_file.read_text(encoding="utf-8").splitlines()]
+    assert all(record["type"] != "finding" for record in records)
+
+
 def test_writer_finding_records(tmp_path: Path) -> None:
     """Writer emits finding records as JSONL lines."""
     out = tmp_path / "out.jsonl"

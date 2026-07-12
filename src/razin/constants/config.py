@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from razin.constants.docs import DEFAULT_TOOL_PREFIXES
 from razin.constants.mcp import MCP_REMOTE_RULE_IDS
+from razin.constants.package_analysis import PACKAGE_RULE_IDS
 
 CONFIG_FILENAME: str = "razin.yaml"
 DEFAULT_MAX_FILE_MB: int = 2
@@ -40,6 +41,7 @@ DEFAULT_DETECTORS: tuple[str, ...] = (
     "REMOTE_REFERENCE_RISK",
     "DATA_SENSITIVITY",
     *MCP_REMOTE_RULE_IDS,
+    *PACKAGE_RULE_IDS,
 )
 
 DEFAULT_TOOL_PREFIXES_CONFIG: tuple[str, ...] = DEFAULT_TOOL_PREFIXES

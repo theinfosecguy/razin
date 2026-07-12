@@ -11,6 +11,7 @@ from razin.scanner.discovery import (
     collect_all_skill_names,
     derive_skill_name,
     discover_skill_files,
+    discover_skill_files_with_issues,
     sanitize_skill_name,
 )
 
@@ -201,7 +202,7 @@ def test_collect_names_alt_delimiter_frontmatter(tmp_path: Path) -> None:
 
 
 def test_discover_symlink_outside_root(tmp_path: Path) -> None:
-    """Symlinked SKILL.md resolving outside root does not crash discovery."""
+    """Symlinked SKILL.md resolving outside root is not followed."""
     external = tmp_path / "external"
     external.mkdir()
     real_skill = external / "SKILL.md"
@@ -213,9 +214,11 @@ def test_discover_symlink_outside_root(tmp_path: Path) -> None:
     link_path = skill_dir / "SKILL.md"
     os.symlink(real_skill, link_path)
 
-    files = discover_skill_files(root, ("**/SKILL.md",), max_file_mb=10)
+    files, issues = discover_skill_files_with_issues(root, ("**/SKILL.md",), max_file_mb=10)
 
-    assert len(files) == 1
+    assert files == []
+    assert len(issues) == 1
+    assert "Symbolic-link SKILL.md" in issues[0].reason
 
 
 def test_discover_symlink_inside_root(tmp_path: Path) -> None:
@@ -229,9 +232,24 @@ def test_discover_symlink_inside_root(tmp_path: Path) -> None:
     link_dir.mkdir(parents=True)
     os.symlink(real_dir / "SKILL.md", link_dir / "SKILL.md")
 
-    files = discover_skill_files(root, ("**/SKILL.md",), max_file_mb=10)
+    files, issues = discover_skill_files_with_issues(root, ("**/SKILL.md",), max_file_mb=10)
 
-    assert len(files) >= 1
+    assert files == [real_dir / "SKILL.md"]
+    assert len(issues) == 1
+    assert "Symbolic-link SKILL.md" in issues[0].reason
+
+
+def test_discover_broken_skill_symlink_reports_issue(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    link_dir = root / "broken"
+    link_dir.mkdir(parents=True)
+    os.symlink(root / "missing" / "SKILL.md", link_dir / "SKILL.md")
+
+    files, issues = discover_skill_files_with_issues(root, ("**/SKILL.md",), max_file_mb=10)
+
+    assert files == []
+    assert len(issues) == 1
+    assert "Symbolic-link SKILL.md" in issues[0].reason
 
 
 def test_discover_symlink_deterministic_order(tmp_path: Path) -> None:
