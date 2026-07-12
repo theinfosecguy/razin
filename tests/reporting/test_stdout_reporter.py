@@ -91,12 +91,13 @@ def test_header_contains_summary_title() -> None:
     assert "Scan summary" in output
 
 
-def test_header_shows_risk_score() -> None:
+def test_header_shows_review_priority() -> None:
     result = _make_result(aggregate_score=94, aggregate_severity="high")
     output = StdoutReporter(result, color=False).render()
-    assert "Risk Score" in output
-    assert "94" in output
-    assert "high" in output
+    assert "Review" in output
+    assert "priority" in output
+    assert "Workspace" in output
+    assert "Packages" in output
 
 
 def test_header_shows_file_count() -> None:
@@ -335,9 +336,9 @@ def test_golden_snapshot_no_color() -> None:
     assert "// static analysis for LLM skills" in output
     assert "Scan summary" in output
     assert "─" in output  # separator line
-    assert "Risk Score" in output
-    assert "94" in output
-    assert "high" in output
+    assert "Review" in output
+    assert "69" in output
+    assert "medium" in output
     assert "3" in output  # Files
     assert "6" in output  # Findings
     assert "0.500s" in output
@@ -426,16 +427,16 @@ def test_grouped_by_skill_no_color() -> None:
     assert "\033[" not in output
 
 
-def test_grouped_by_skill_shows_per_group_score() -> None:
-    """Group header contains score=, severity=, and findings=N."""
+def test_grouped_by_skill_shows_per_group_priority() -> None:
+    """Group header contains priority, level, and findings=N."""
     findings = [
         _make_finding(skill="s1", rule_id="NET_RAW_IP", score=80, finding_id="a1"),
         _make_finding(skill="s1", rule_id="SECRET_REF", score=50, severity="medium", finding_id="a2"),
     ]
     result = _make_result(findings=findings)
     output = StdoutReporter(result, color=False, group_by="skill").render()
-    assert "score=" in output
-    assert "severity=" in output
+    assert "priority=" in output
+    assert "level=" in output
     assert "findings=2" in output
 
 
@@ -492,7 +493,7 @@ def test_grouped_severity_uses_profile_thresholds() -> None:
     findings = [
         _make_finding(skill="s1", rule_id="MCP_ENDPOINT", score=70, severity="medium", finding_id="m1"),
     ]
-    # Balanced profile thresholds (high>=80) label score 70 as medium.
+    # Capability-only evidence does not contribute to group review priority.
     result = _make_result(
         findings=findings,
         high_severity_min=80,
@@ -503,5 +504,5 @@ def test_grouped_severity_uses_profile_thresholds() -> None:
         color=False,
         group_by="skill",
     ).render()
-    assert "severity=medium" in output
-    assert "severity=high" not in output
+    assert "level=low" in output
+    assert "level=high" not in output

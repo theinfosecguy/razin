@@ -4,13 +4,9 @@ from __future__ import annotations
 
 from collections import Counter
 
-from razin.constants.scoring import (
-    AGGREGATE_MIN_RULE_SCORE,
-    HIGH_SEVERITY_MIN_SCORE,
-    MEDIUM_SEVERITY_MIN_SCORE,
-    TOP_RISKS_DEFAULT_LIMIT,
-)
+from razin.constants.scoring import HIGH_SEVERITY_MIN_SCORE, MEDIUM_SEVERITY_MIN_SCORE, TOP_RISKS_DEFAULT_LIMIT
 from razin.model import Finding
+from razin.scanner.assessment import review_priority_score, signal_kind_for_rule
 from razin.types import Severity
 
 
@@ -44,55 +40,16 @@ def aggregate_severity(
 def aggregate_overall_score(
     findings: list[Finding],
     *,
-    min_rule_score: int = AGGREGATE_MIN_RULE_SCORE,
+    min_rule_score: int | None = None,
 ) -> int:
-    """Aggregate finding scores into a single 0-100 overall score.
+    """Compatibility alias for the non-probabilistic review-priority score.
 
-    Uses two-level dampening to prevent score saturation:
-
-    1. Per-rule dampening: for each rule_id, only the highest score is kept.
-       This prevents N findings from the same detector from saturating the
-       aggregate.
-    2. Significance threshold: only rules whose max score reaches
-       *min_rule_score* contribute to the probabilistic-OR aggregate.
-
-    The probabilistic-OR combination is then applied across the deduplicated
-    representative scores.
-
-    Parameters
-
-    findings:
-        List of findings to aggregate.
-    min_rule_score:
-        Per-rule max must reach this threshold to contribute.  Defaults to
-        ``AGGREGATE_MIN_RULE_SCORE`` but can be overridden per policy profile.
+    ``min_rule_score`` remains accepted for API compatibility but no longer
+    changes the result. Correlated detector values are never combined as if
+    they were independent probabilities.
     """
-    if not findings:
-        return 0
-
-    # Level 1: Per-rule dampening — take max score per rule_id.
-    rule_max: dict[str, int] = {}
-    for finding in findings:
-        current = rule_max.get(finding.rule_id, 0)
-        if finding.score > current:
-            rule_max[finding.rule_id] = finding.score
-
-    # Level 2: Significance threshold — only rules whose max score reaches
-    # min_rule_score contribute to the probabilistic-OR aggregate.
-    # Lower-scoring rules are informational context signals that are still
-    # reported as findings but don't inflate the aggregate.
-    significant_scores = [score for score in rule_max.values() if score >= min_rule_score]
-
-    if not significant_scores:
-        return 0
-
-    probabilities = [max(0.0, min(1.0, score / 100.0)) for score in significant_scores]
-    # Probabilistic OR across independent risk signals: 1 - Π(1 - p_i).
-    residual = 1.0
-    for probability in probabilities:
-        residual *= 1.0 - probability
-    combined = 1.0 - residual
-    return int(round(combined * 100))
+    del min_rule_score
+    return review_priority_score(findings)
 
 
 def severity_counts(findings: list[Finding]) -> dict[Severity, int]:
@@ -115,5 +72,10 @@ def sorted_top_risks(
     findings: list[Finding],
     limit: int = TOP_RISKS_DEFAULT_LIMIT,
 ) -> list[Finding]:
-    """Return highest-risk findings sorted deterministically."""
-    return sorted(findings, key=lambda finding: (-finding.score, finding.id))[:limit]
+    """Return actionable evidence first, then context, sorted deterministically."""
+
+    def sort_key(finding: Finding) -> tuple[int, int, str]:
+        is_actionable = finding.classification == "security" and signal_kind_for_rule(finding.rule_id) != "capability"
+        return (0 if is_actionable else 1, -finding.score, finding.id)
+
+    return sorted(findings, key=sort_key)[:limit]

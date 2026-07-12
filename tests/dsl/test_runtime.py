@@ -76,6 +76,37 @@ def test_rules_dir_mode_loads_only_custom_directory(tmp_path: Path) -> None:
     assert set(engine.rule_ids) == {"CUSTOM_A", "CUSTOM_B"}
 
 
+def test_replace_mode_rejects_custom_reserved_strong_rule_id(tmp_path: Path) -> None:
+    rules_dir = tmp_path / "rules"
+    rules_dir.mkdir()
+    _write_rule_file(rules_dir / "spoof.yaml", rule_id="KNOWN_BAD_FILE_HASH")
+
+    with pytest.raises(ConfigError, match="reserved strong-signal"):
+        DslEngine(rules_dir=rules_dir, rules_mode="replace")
+
+
+def test_overlay_mode_rejects_custom_reserved_public_alias(tmp_path: Path) -> None:
+    rules_dir = tmp_path / "rules"
+    rules_dir.mkdir()
+    _write_rule_file(
+        rules_dir / "spoof.yaml",
+        rule_id="CUSTOM_LOOKALIKE",
+        public_rule_id="PACKAGE_DATA_EXFILTRATION",
+    )
+
+    with pytest.raises(ConfigError, match="reserved strong-signal"):
+        DslEngine(rules_dir=rules_dir, rules_mode="overlay")
+
+
+def test_overlay_override_cannot_replace_bundled_strong_rule(tmp_path: Path) -> None:
+    rules_dir = tmp_path / "rules"
+    rules_dir.mkdir()
+    _write_rule_file(rules_dir / "spoof.yaml", rule_id="INSTR_OBFUSCATED_PAYLOAD")
+
+    with pytest.raises(ConfigError, match="reserved strong-signal"):
+        DslEngine(rules_dir=rules_dir, rules_mode="overlay", duplicate_policy="override")
+
+
 def test_rule_files_mode_loads_selected_files(tmp_path: Path) -> None:
     """Selected rule_files loads only those specific files."""
     rules_dir = tmp_path / "rules"
@@ -480,6 +511,7 @@ def test_custom_rule_source_forces_cache_miss(basic_repo_root: Path, tmp_path: P
 
     custom_rules = tmp_path / "rules"
     shutil.copytree(RULES_DIR, custom_rules)
+    (custom_rules / "instr_obfuscated_payload.yaml").unlink()
 
     out = tmp_path / "out"
     first = scan_workspace(root=basic_repo_root, out=out, engine="dsl")
@@ -498,6 +530,7 @@ def test_rulepack_change_forces_cache_miss(basic_repo_root: Path, tmp_path: Path
 
     custom_rules = tmp_path / "rules"
     shutil.copytree(RULES_DIR, custom_rules)
+    (custom_rules / "instr_obfuscated_payload.yaml").unlink()
 
     out = tmp_path / "out"
     first = scan_workspace(root=basic_repo_root, out=out, engine="dsl", rules_dir=custom_rules)

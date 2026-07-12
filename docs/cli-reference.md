@@ -47,7 +47,7 @@ razin scan -r . -o output/ --profile balanced
 | `--security-only` | Output filter: show only findings where classification is `security`. |
 | `--summary-only` | Stdout-only mode: show summary block, no finding rows. |
 | `--fail-on {high,medium,low}` | Exit 1 if any finding meets or exceeds this severity. |
-| `--fail-on-score N` | Exit 1 if aggregate score meets or exceeds `N` (0-100). |
+| `--fail-on-score N` | Exit 1 if non-probabilistic review priority meets or exceeds `N` (0-100). |
 | `--quiet-mode` | Enable quiet mode: write to file only, no stdout output. |
 | `--quiet-output PATH` | Quiet mode output file path. Implies `--quiet-mode` when provided. |
 

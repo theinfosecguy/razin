@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/theinfosecguy/razin/schemas/findings.schema.json",
+  "$id": "https://github.com/theinfosecguy/razin/schemas/v2/findings.schema.json",
   "title": "Razin Findings",
   "description": "Array of findings produced by a Razin scan for a single skill.",
   "type": "array",
@@ -21,7 +21,8 @@
         "skill",
         "rule_id",
         "recommendation",
-        "classification"
+        "classification",
+        "signal_kind"
       ],
       "properties": {
         "id": {
@@ -35,7 +36,7 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 100,
-          "description": "Risk score on a 0-100 scale."
+          "description": "Rule-local review weight on a 0-100 scale; not a probability of maliciousness."
         },
         "confidence": {
           "$ref": "#/$defs/Confidence"
@@ -65,6 +66,9 @@
         },
         "classification": {
           "$ref": "#/$defs/Classification"
+        },
+        "signal_kind": {
+          "$ref": "#/$defs/SignalKind"
         },
         "severity_override": {
           "oneOf": [
@@ -113,6 +117,19 @@
       "type": "string",
       "enum": ["security", "informational"],
       "description": "Rule classification."
+    },
+    "SignalKind": {
+      "type": "string",
+      "enum": [
+        "capability",
+        "review",
+        "dangerous_behavior",
+        "known_malicious_ioc",
+        "integrity_violation",
+        "attack_chain",
+        "analysis_gap"
+      ],
+      "description": "Evidence contract that limits the finding's severity claim."
     },
     "SeverityOverride": {
       "type": "object",

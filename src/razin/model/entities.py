@@ -6,7 +6,15 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-from razin.types import Classification, Confidence, RuleDisableSource, Severity
+from razin.types import (
+    AssessmentState,
+    Classification,
+    Confidence,
+    RuleDisableSource,
+    Severity,
+    SignalKind,
+    WorkspaceAssessment,
+)
 
 type FrontmatterData = dict[str, Any] | None
 
@@ -60,6 +68,7 @@ class Finding:
     recommendation: str
     classification: Classification = "security"
     severity_override: SeverityOverride | None = None
+    signal_kind: SignalKind = "analysis_gap"
 
     def to_dict(self) -> dict[str, Any]:
         """Convert finding to a JSON-serializable dictionary."""
@@ -78,6 +87,9 @@ class Summary:
     counts_by_severity: dict[Severity, int]
     counts_by_rule: dict[str, int]
     top_risks: tuple[dict[str, object], ...]
+    review_priority: int
+    review_priority_level: Severity
+    assessment: AssessmentState
     shown_finding_count: int | None = None
     output_filter: dict[str, object] | None = None
     rule_overrides: dict[str, dict[str, Severity]] | None = None
@@ -152,3 +164,7 @@ class ScanResult:
     rules_executed: tuple[str, ...] = field(default_factory=tuple)
     rules_disabled: tuple[str, ...] = field(default_factory=tuple)
     disable_sources: dict[str, RuleDisableSource] = field(default_factory=dict)
+    review_priority: int | None = None
+    review_priority_level: Severity | None = None
+    workspace_assessment: WorkspaceAssessment | None = None
+    assessment_counts: dict[AssessmentState, int] = field(default_factory=dict)

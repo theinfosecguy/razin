@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import shutil
 from collections import Counter
+from collections.abc import Mapping
 
 from rich import box
 from rich.console import Console
@@ -21,8 +22,13 @@ from razin.constants.reporting import (
 from razin.constants.scoring import SEVERITY_RANK
 from razin.model import Finding, ScanResult
 from razin.reporting.filters import OutputFilters, count_filtered_reasons, filter_findings
+from razin.scanner.assessment import (
+    assess_workspace,
+    package_assessment_counts_from_findings,
+    review_priority_score,
+)
 from razin.scanner.score import aggregate_overall_score, aggregate_severity, rule_counts
-from razin.types import RuleDisableSource, Severity
+from razin.types import AssessmentState, RuleDisableSource, Severity
 
 
 def _colorize(text: str, color: str) -> str:
@@ -93,8 +99,19 @@ class StdoutReporter:
         r = self._result
         sep = "  " + "─" * 38
 
-        score_str = _color_score(r.aggregate_score) if self._color else str(r.aggregate_score)
-        sev_str = _color_severity(r.aggregate_severity) if self._color else r.aggregate_severity
+        priority = r.review_priority if r.review_priority is not None else review_priority_score(r.findings)
+        priority_level = r.review_priority_level or aggregate_severity(
+            priority,
+            high_min=r.high_severity_min,
+            medium_min=r.medium_severity_min,
+        )
+        score_str = _color_score(priority) if self._color else str(priority)
+        sev_str = _color_severity(priority_level) if self._color else priority_level
+        assessment_counts = r.assessment_counts or package_assessment_counts_from_findings(
+            r.findings,
+            total_packages=r.scanned_files,
+        )
+        workspace_assessment = r.workspace_assessment or assess_workspace(assessment_counts)
 
         skills_with_findings = len({finding.skill for finding in r.findings})
         clean_files = max(0, r.scanned_files - skills_with_findings)
@@ -108,7 +125,9 @@ class StdoutReporter:
             f"  {SCAN_SUMMARY_TITLE}",
             sep,
             "",
-            f"  Risk Score  {score_str} ({sev_str})",
+            f"  Review      {score_str} priority ({sev_str})",
+            f"  Workspace   {workspace_assessment}",
+            f"  Packages    {self._format_assessment_counts(assessment_counts)}",
             (f"  Files       {r.scanned_files} scanned / {skills_with_findings} with findings / {clean_files} clean"),
         ]
 
@@ -210,7 +229,7 @@ class StdoutReporter:
 
             score_str = _color_score(score) if self._color else str(score)
             sev_str = _color_severity(severity) if self._color else severity
-            lines.append(f"  [{group_key}]  score={score_str}  severity={sev_str}  findings={len(group)}")
+            lines.append(f"  [{group_key}]  priority={score_str}  level={sev_str}  findings={len(group)}")
 
             detail_key = "rule_id" if self._group_by == "skill" else "skill"
             detail_width = self._compute_grouped_detail_width(group, detail_key)
@@ -309,6 +328,17 @@ class StdoutReporter:
             parts.append(f"{count} {label}")
         return " · ".join(parts)
 
+    @staticmethod
+    def _format_assessment_counts(counts: Mapping[AssessmentState, int]) -> str:
+        """Render per-package assessment counts in a stable compact order."""
+        ordered: tuple[tuple[AssessmentState, str], ...] = (
+            ("malicious/high-confidence-chain", "malicious"),
+            ("risky-but-legitimate/review", "review"),
+            ("dynamic-analysis-required/unknown", "incomplete"),
+            ("clean/no-evidence", "clean"),
+        )
+        return " · ".join(f"{counts.get(state, 0)} {label}" for state, label in ordered)
+
     def _format_filtered_summary(self, total_findings: int, shown_findings: int) -> str:
         """Render deterministic filtered-count details for header output."""
         filtered_count = max(0, total_findings - shown_findings)
@@ -363,12 +393,16 @@ class StdoutReporter:
         """Render CI threshold verdict when fail flags are configured."""
         if self._fail_on is None and self._fail_on_score is None:
             return None
+        if self._result.aggregate_min_rule_score > 100:
+            return "PASS (audit profile is non-blocking)"
 
         clauses: list[str] = []
         if self._fail_on is not None:
             threshold = SEVERITY_RANK[self._fail_on]
             matched = [
-                finding for finding in self._result.findings if SEVERITY_RANK.get(finding.severity, 0) >= threshold
+                finding
+                for finding in self._result.findings
+                if finding.classification == "security" and SEVERITY_RANK.get(finding.severity, 0) >= threshold
             ]
             if matched:
                 clauses.append(f"{len(matched)} finding(s) >= {self._fail_on}")
@@ -376,11 +410,15 @@ class StdoutReporter:
                 clauses.append(f"no findings >= {self._fail_on}")
 
         if self._fail_on_score is not None:
-            score = self._result.aggregate_score
+            score = (
+                self._result.review_priority
+                if self._result.review_priority is not None
+                else review_priority_score(self._result.findings)
+            )
             if score >= self._fail_on_score:
-                clauses.append(f"aggregate score {score} >= {self._fail_on_score}")
+                clauses.append(f"review priority {score} >= {self._fail_on_score}")
             else:
-                clauses.append(f"aggregate score {score} < {self._fail_on_score}")
+                clauses.append(f"review priority {score} < {self._fail_on_score}")
 
         state = "FAIL" if self._exit_code == 1 else "PASS"
         return f"{state} ({'; '.join(clauses)})"

@@ -5,6 +5,7 @@ metadata:
   description_template: "Documentation references MCP endpoint '{url}'."
   recommendation: "Constrain MCP endpoints with allowlists and verify endpoint ownership."
   confidence: high
+  classification: informational
 scoring:
   base_score: 70
 match:

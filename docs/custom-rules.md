@@ -144,6 +144,9 @@ Notes:
 
 - `public_rule_id` lets multiple internal rules report under one public rule ID.
 - `profiles.<name>.score_override` supports `strict`, `balanced`, and `audit` with values in `0..100`.
+- Custom DSL rules are treated as `analysis_gap` evidence and cannot independently make a high-severity or maliciousness claim.
+- Trusted IOC, integrity, and attack-chain rule IDs are reserved. Custom `rule_id` values, public aliases, and overlay overrides that use a reserved strong-signal ID are rejected.
+- Use a distinct custom rule ID and treat its result as review evidence until the detector producer and evidence contract are added to the trusted registry.
 
 ## Validate-first workflow
 
@@ -160,7 +163,7 @@ razin validate-config -r . -R ./rules
 Then run scans with your rulepack:
 
 ```bash
-# Use only custom rules
+# Replace bundled DSL rules with custom DSL rules; native package and MCP rules remain available
 razin scan -r . -R ./rules --rules-mode replace
 
 # Merge custom + bundled rules, fail on duplicate rule IDs

@@ -127,6 +127,45 @@ def test_evaluate_fail_on_low_catches_any_finding() -> None:
     assert evaluate_fail_thresholds(result, fail_on="low", fail_on_score=None) == 1
 
 
+def test_informational_capability_cannot_fail_gate() -> None:
+    """Capability inventory remains visible but cannot independently block CI."""
+    capability = _make_finding(severity="low", score=39, rule_id="BUNDLED_SCRIPTS")
+    capability = Finding(
+        **{
+            **capability.__dict__,
+            "classification": "informational",
+            "signal_kind": "capability",
+        }
+    )
+    result = _empty_result(
+        total_findings=1,
+        aggregate_score=39,
+        findings=(capability,),
+    )
+
+    assert evaluate_fail_thresholds(result, fail_on="low", fail_on_score=1) == 0
+
+
+def test_security_labeled_capability_cannot_fail_either_gate() -> None:
+    """Signal kind remains authoritative when classification and cached priority disagree."""
+    capability = _make_finding(severity="high", score=100, rule_id="SECRET_REF")
+    capability = Finding(
+        **{
+            **capability.__dict__,
+            "classification": "security",
+            "signal_kind": "capability",
+        }
+    )
+    result = _empty_result(
+        total_findings=1,
+        aggregate_score=100,
+        review_priority=100,
+        findings=(capability,),
+    )
+
+    assert evaluate_fail_thresholds(result, fail_on="low", fail_on_score=1) == 0
+
+
 def test_evaluate_fail_on_score_returns_1_above_threshold() -> None:
     """Exit 1 when aggregate score meets the threshold."""
     result = _empty_result(aggregate_score=75)
@@ -146,6 +185,18 @@ def test_evaluate_no_fail_flags_returns_0() -> None:
         findings=(_make_finding(severity="high"),),
     )
     assert evaluate_fail_thresholds(result, fail_on=None, fail_on_score=None) == 0
+
+
+def test_audit_profile_is_non_blocking() -> None:
+    result = _empty_result(
+        total_findings=1,
+        aggregate_score=100,
+        review_priority=100,
+        aggregate_min_rule_score=101,
+        findings=(_make_finding(severity="high", rule_id="PACKAGE_DATA_EXFILTRATION"),),
+    )
+
+    assert evaluate_fail_thresholds(result, fail_on="low", fail_on_score=1) == 0
 
 
 def test_evaluate_both_flags_either_triggers() -> None:

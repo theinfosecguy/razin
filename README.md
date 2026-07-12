@@ -74,7 +74,7 @@ razin validate-config -r .
 # Fail if any high-severity finding exists
 razin scan -r . --fail-on high --no-stdout
 
-# Fail if aggregate score is 70 or above
+# Fail if non-probabilistic review priority is 70 or above
 razin scan -r . --fail-on-score 70 --no-stdout
 ```
 

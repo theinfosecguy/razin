@@ -100,6 +100,7 @@ class TestCsvWriter:
             "title",
             "description",
             "recommendation",
+            "signal_kind",
         ]
 
     def test_csv_row_count(self, sample_findings: list[Finding]) -> None:
@@ -202,6 +203,7 @@ class TestSarifWriter:
         envelope = build_sarif_envelope(sample_findings)
         result = envelope["runs"][0]["results"][0]
         assert result["properties"]["classification"] == "security"
+        assert result["properties"]["signal_kind"] == "analysis_gap"
 
     def test_sarif_rules_derived_from_findings(self, sample_findings: list[Finding]) -> None:
         envelope = build_sarif_envelope(sample_findings)

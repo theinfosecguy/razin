@@ -10,6 +10,7 @@ import pytest
 from razin.cli.main import build_parser, main
 from razin.config import load_config
 from razin.config.validator import validate_config_file
+from razin.constants.reporting import QUIET_STREAM_VERSION
 from razin.constants.validation import CFG004, CFG005, CFG006, CFG009, CFG011
 from razin.exceptions import ConfigError
 from razin.model import Evidence, Finding, ScanResult
@@ -203,7 +204,7 @@ def test_writer_finding_records(tmp_path: Path) -> None:
     assert len(lines) == 1
     record = json.loads(lines[0])
     assert record["type"] == "finding"
-    assert record["version"] == "1.0.0"
+    assert record["version"] == QUIET_STREAM_VERSION
     assert record["data"]["rule_id"] == "TEST_RULE"
     assert record["data"]["score"] == 55
 

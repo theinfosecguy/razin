@@ -5,6 +5,7 @@ metadata:
   description: "Skill integrates with a service that handles sensitive data categories."
   recommendation: "Review the data sensitivity tier and ensure access controls, audit logging, and data handling policies are in place for the service category."
   confidence: medium
+  classification: informational
 scoring:
   base_score: 55
 match:

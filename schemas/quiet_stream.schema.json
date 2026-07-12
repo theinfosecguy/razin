@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/theinfosecguy/razin/schemas/quiet_stream.schema.json",
+  "$id": "https://github.com/theinfosecguy/razin/schemas/v2/quiet_stream.schema.json",
   "title": "Razin Quiet Stream",
   "description": "JSONL record envelope for quiet-mode output. Each line in the output file is one record matching this schema.",
   "type": "object",
@@ -13,6 +13,7 @@
     },
     "version": {
       "type": "string",
+      "const": "2.0.0",
       "description": "Quiet stream schema version (semver)."
     },
     "timestamp": {
@@ -54,7 +55,8 @@
         "skill",
         "rule_id",
         "recommendation",
-        "classification"
+        "classification",
+        "signal_kind"
       ],
       "properties": {
         "id": { "type": "string" },
@@ -68,6 +70,7 @@
         "rule_id": { "type": "string" },
         "recommendation": { "type": "string" },
         "classification": { "$ref": "#/$defs/Classification" },
+        "signal_kind": { "$ref": "#/$defs/SignalKind" },
         "severity_override": {
           "oneOf": [
             { "$ref": "#/$defs/SeverityOverride" },
@@ -95,6 +98,10 @@
         "filtered_out_findings",
         "aggregate_score",
         "aggregate_severity",
+        "review_priority",
+        "review_priority_level",
+        "workspace_assessment",
+        "assessment_counts",
         "counts_by_severity",
         "gate_scope",
         "gate_failed",
@@ -108,6 +115,10 @@
         "filtered_out_findings": { "type": "integer", "minimum": 0 },
         "aggregate_score": { "type": "integer", "minimum": 0, "maximum": 100 },
         "aggregate_severity": { "$ref": "#/$defs/Severity" },
+        "review_priority": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "review_priority_level": { "$ref": "#/$defs/Severity" },
+        "workspace_assessment": { "$ref": "#/$defs/WorkspaceAssessment" },
+        "assessment_counts": { "$ref": "#/$defs/AssessmentCounts" },
         "counts_by_severity": {
           "type": "object",
           "properties": {
@@ -148,6 +159,52 @@
     "Classification": {
       "type": "string",
       "enum": ["security", "informational"]
+    },
+    "Assessment": {
+      "type": "string",
+      "enum": [
+        "malicious/high-confidence-chain",
+        "risky-but-legitimate/review",
+        "dynamic-analysis-required/unknown",
+        "clean/no-evidence"
+      ]
+    },
+    "WorkspaceAssessment": {
+      "type": "string",
+      "enum": [
+        "contains-high-confidence-malicious",
+        "review-required",
+        "incomplete",
+        "clean"
+      ]
+    },
+    "AssessmentCounts": {
+      "type": "object",
+      "required": [
+        "malicious/high-confidence-chain",
+        "risky-but-legitimate/review",
+        "dynamic-analysis-required/unknown",
+        "clean/no-evidence"
+      ],
+      "properties": {
+        "malicious/high-confidence-chain": { "type": "integer", "minimum": 0 },
+        "risky-but-legitimate/review": { "type": "integer", "minimum": 0 },
+        "dynamic-analysis-required/unknown": { "type": "integer", "minimum": 0 },
+        "clean/no-evidence": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "SignalKind": {
+      "type": "string",
+      "enum": [
+        "capability",
+        "review",
+        "dangerous_behavior",
+        "known_malicious_ioc",
+        "integrity_violation",
+        "attack_chain",
+        "analysis_gap"
+      ]
     },
     "SeverityOverride": {
       "type": "object",

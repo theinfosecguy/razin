@@ -1,6 +1,6 @@
 # CI and exit codes
 
-Razin supports CI gating by severity threshold and aggregate score.
+Razin supports CI gating by actionable severity and non-probabilistic review priority.
 
 ## Exit code controls
 
@@ -8,7 +8,7 @@ Razin supports CI gating by severity threshold and aggregate score.
 # Fail if any high-severity finding exists
 razin scan -r . --fail-on high --no-stdout
 
-# Fail if aggregate score is 70 or above
+# Fail if review priority is 70 or above
 razin scan -r . --fail-on-score 70 --no-stdout
 
 # Either condition can fail the job
@@ -25,13 +25,14 @@ Display filters do not alter scanner execution:
 
 Gating behavior:
 
-- `--fail-on` evaluates against full scan findings (after rule overrides).
-- `--fail-on-score` evaluates the aggregate score from full findings (after rule overrides).
+- `--fail-on` evaluates security findings from the full scan (after rule overrides). Informational capability inventory cannot fail this gate.
+- `--fail-on-score` evaluates review priority from full findings. Priority is the strongest actionable signal, not a maliciousness probability, and does not combine correlated detector weights.
+- The `audit` profile is always non-blocking, even when fail flags are supplied.
 
 Example:
 
 ```bash
-# Output only medium/high rows, but still fail if any low finding exists
+# Output only medium/high rows, but still fail if any low security finding exists
 razin scan -r . --min-severity medium --fail-on low --no-stdout
 ```
 

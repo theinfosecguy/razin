@@ -5,6 +5,7 @@ metadata:
   description_template: "Configuration references external domain '{domain}'."
   recommendation: "Restrict outbound domains with allowlists and verify ownership."
   confidence: medium
+  classification: informational
 scoring:
   base_score: 55
 match:

@@ -5,6 +5,7 @@ metadata:
   description: "Skill package includes executable script files alongside SKILL.md. Review for hidden execution or data access risks."
   recommendation: "Audit bundled scripts before use; avoid running unreviewed code."
   confidence: medium
+  classification: informational
 scoring:
   base_score: 58
 match:

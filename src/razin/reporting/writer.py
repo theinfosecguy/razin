@@ -13,6 +13,7 @@ from razin.constants.reporting import (
 )
 from razin.io import write_json_atomic
 from razin.model import Finding, Summary
+from razin.scanner.assessment import assess_package
 from razin.scanner.score import (
     aggregate_overall_score,
     aggregate_severity,
@@ -115,6 +116,7 @@ def build_summary(
             "title": finding.title,
             "severity": finding.severity,
             "score": finding.score,
+            "signal_kind": finding.signal_kind,
             "evidence": {
                 "path": finding.evidence.path,
                 "line": finding.evidence.line,
@@ -133,6 +135,9 @@ def build_summary(
         counts_by_severity=counts,
         counts_by_rule=by_rule,
         top_risks=tuple(top_risks),
+        review_priority=overall_score,
+        review_priority_level=overall_severity,
+        assessment=assess_package(source_findings),
         shown_finding_count=(len(findings) if all_findings is not None else None),
         output_filter=output_filter,
         rule_overrides=rule_overrides,

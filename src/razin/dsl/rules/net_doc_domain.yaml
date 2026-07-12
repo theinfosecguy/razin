@@ -5,6 +5,7 @@ metadata:
   description_template: "Documentation references external domain '{domain}'."
   recommendation: "Review documentation URLs and add trusted domains to the allowlist if appropriate."
   confidence: low
+  classification: informational
 scoring:
   base_score: 15
 match:
