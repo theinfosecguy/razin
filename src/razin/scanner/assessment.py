@@ -10,14 +10,23 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 
 from razin.model import Finding
-from razin.types import AssessmentState, Severity, SignalKind, WorkspaceAssessment
-
-ASSESSMENT_STATES: tuple[AssessmentState, ...] = (
-    "malicious/high-confidence-chain",
-    "risky-but-legitimate/review",
-    "dynamic-analysis-required/unknown",
-    "clean/no-evidence",
+from razin.types import (
+    AssessmentState,
+    CoverageStatus,
+    EvidenceVerdict,
+    Severity,
+    SignalKind,
+    WorkspaceAssessment,
+    WorkspaceEvidenceVerdict,
 )
+
+EVIDENCE_VERDICTS: tuple[EvidenceVerdict, ...] = (
+    "high-confidence-malicious-evidence",
+    "review-required",
+    "capability-only",
+    "no-actionable-malicious-evidence",
+)
+COVERAGE_STATUSES: tuple[CoverageStatus, ...] = ("complete", "incomplete", "not-evaluated")
 
 STRONG_SIGNAL_KINDS: frozenset[SignalKind] = frozenset({"known_malicious_ioc", "integrity_violation", "attack_chain"})
 HIGH_PRIORITY_SIGNAL_KINDS: frozenset[SignalKind] = STRONG_SIGNAL_KINDS | {"dangerous_behavior"}
@@ -86,12 +95,101 @@ def max_allowed_severity(signal_kind: SignalKind) -> Severity:
     return "medium"
 
 
-def assess_package(findings: Iterable[Finding]) -> AssessmentState:
-    """Classify a package from evidence without claiming capabilities are attacks."""
+def evidence_verdict_for_package(findings: Iterable[Finding]) -> EvidenceVerdict:
+    """Describe the strongest observed evidence without classifying package intent."""
     observed = tuple(findings)
-    if not observed:
-        return "clean/no-evidence"
+    if any(signal_kind_for_rule(finding.rule_id) in STRONG_SIGNAL_KINDS for finding in observed):
+        return "high-confidence-malicious-evidence"
+    if any(
+        finding.classification == "security" and signal_kind_for_rule(finding.rule_id) != "capability"
+        for finding in observed
+    ):
+        return "review-required"
+    if any(signal_kind_for_rule(finding.rule_id) == "capability" for finding in observed):
+        return "capability-only"
+    return "no-actionable-malicious-evidence"
 
+
+def coverage_status_for_package(findings: Iterable[Finding]) -> CoverageStatus:
+    """Infer only known gaps when structured package coverage is unavailable."""
+    if any(finding.rule_id in {"INCOMPLETE_SCAN", "DYNAMIC_ANALYSIS_REQUIRED"} for finding in findings):
+        return "incomplete"
+    return "not-evaluated"
+
+
+def package_evidence_verdict_counts(
+    findings_by_package: Mapping[str, Iterable[Finding]],
+    *,
+    total_packages: int | None = None,
+) -> dict[EvidenceVerdict, int]:
+    """Count evidence verdicts without flattening package boundaries."""
+    counts: dict[EvidenceVerdict, int] = {verdict: 0 for verdict in EVIDENCE_VERDICTS}
+    for findings in findings_by_package.values():
+        counts[evidence_verdict_for_package(findings)] += 1
+
+    if total_packages is not None:
+        unrepresented = max(0, total_packages - len(findings_by_package))
+        counts["no-actionable-malicious-evidence"] += unrepresented
+    return counts
+
+
+def package_coverage_counts(
+    coverage_by_package: Mapping[str, CoverageStatus],
+    *,
+    total_packages: int | None = None,
+) -> dict[CoverageStatus, int]:
+    """Count package coverage independently from evidence verdicts."""
+    counts: dict[CoverageStatus, int] = {status: 0 for status in COVERAGE_STATUSES}
+    for status in coverage_by_package.values():
+        counts[status] += 1
+
+    if total_packages is not None:
+        unrepresented = max(0, total_packages - len(coverage_by_package))
+        counts["not-evaluated"] += unrepresented
+    return counts
+
+
+def package_state_counts_from_findings(
+    findings: Iterable[Finding],
+    *,
+    total_packages: int,
+) -> tuple[dict[EvidenceVerdict, int], dict[CoverageStatus, int]]:
+    """Reconstruct both package-state axes for reporting compatibility paths."""
+    grouped: dict[str, list[Finding]] = {}
+    for finding in findings:
+        grouped.setdefault(finding.skill, []).append(finding)
+    coverage_by_package = {package: coverage_status_for_package(items) for package, items in grouped.items()}
+    return (
+        package_evidence_verdict_counts(grouped, total_packages=total_packages),
+        package_coverage_counts(coverage_by_package, total_packages=total_packages),
+    )
+
+
+def workspace_evidence_verdict(counts: Mapping[EvidenceVerdict, int]) -> WorkspaceEvidenceVerdict:
+    """Aggregate evidence without allowing incomplete coverage to erase it."""
+    if counts.get("high-confidence-malicious-evidence", 0) > 0:
+        return "contains-high-confidence-malicious-evidence"
+    if counts.get("review-required", 0) > 0:
+        return "review-required"
+    if counts.get("capability-only", 0) > 0:
+        return "capability-only"
+    return "no-actionable-malicious-evidence"
+
+
+def workspace_coverage_status(counts: Mapping[CoverageStatus, int]) -> CoverageStatus:
+    """Aggregate coverage independently from the workspace evidence verdict."""
+    if sum(counts.values()) == 0:
+        return "not-evaluated"
+    if counts.get("incomplete", 0) > 0:
+        return "incomplete"
+    if counts.get("not-evaluated", 0) > 0:
+        return "not-evaluated"
+    return "complete"
+
+
+def assess_package(findings: Iterable[Finding]) -> AssessmentState:
+    """Return the deprecated v2 composite assessment for Python callers."""
+    observed = tuple(findings)
     if any(signal_kind_for_rule(finding.rule_id) in STRONG_SIGNAL_KINDS for finding in observed):
         return "malicious/high-confidence-chain"
     if any(signal_kind_for_rule(finding.rule_id) == "analysis_gap" for finding in observed):
@@ -106,31 +204,23 @@ def package_assessment_counts(
     *,
     total_packages: int | None = None,
 ) -> dict[AssessmentState, int]:
-    """Count per-package assessment states without flattening package boundaries."""
-    counts: dict[AssessmentState, int] = {state: 0 for state in ASSESSMENT_STATES}
+    """Return deprecated v2 composite counts for Python callers."""
+    states: tuple[AssessmentState, ...] = (
+        "malicious/high-confidence-chain",
+        "risky-but-legitimate/review",
+        "dynamic-analysis-required/unknown",
+        "clean/no-evidence",
+    )
+    counts: dict[AssessmentState, int] = {state: 0 for state in states}
     for findings in findings_by_package.values():
         counts[assess_package(findings)] += 1
-
     if total_packages is not None:
-        unrepresented = max(0, total_packages - len(findings_by_package))
-        counts["clean/no-evidence"] += unrepresented
+        counts["clean/no-evidence"] += max(0, total_packages - len(findings_by_package))
     return counts
 
 
-def package_assessment_counts_from_findings(
-    findings: Iterable[Finding],
-    *,
-    total_packages: int,
-) -> dict[AssessmentState, int]:
-    """Reconstruct package-state counts for reporting compatibility paths."""
-    grouped: dict[str, list[Finding]] = {}
-    for finding in findings:
-        grouped.setdefault(finding.skill, []).append(finding)
-    return package_assessment_counts(grouped, total_packages=total_packages)
-
-
 def assess_workspace(counts: Mapping[AssessmentState, int]) -> WorkspaceAssessment:
-    """Return a workspace verdict while preserving package-state counts separately."""
+    """Return the deprecated v2 workspace assessment for Python callers."""
     if counts.get("malicious/high-confidence-chain", 0) > 0:
         return "contains-high-confidence-malicious"
     if counts.get("dynamic-analysis-required/unknown", 0) > 0:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import NotRequired, TypedDict
 
-from razin.types.common import JsonObject
+from razin.types.common import CoverageStatus, JsonObject
 
 
 class CacheFileEntry(TypedDict):
@@ -18,6 +18,8 @@ class CacheFileEntry(TypedDict):
     mcp_json_mtime_ns: NotRequired[int]
     mcp_json_sha256: NotRequired[str]
     package_sha256: NotRequired[str]
+    coverage_status: NotRequired[CoverageStatus]
+    coverage_reasons: NotRequired[list[str]]
 
 
 class CacheNamespace(TypedDict):

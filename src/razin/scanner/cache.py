@@ -125,6 +125,8 @@ def _normalize_files(raw_files: object) -> dict[str, CacheFileEntry]:
         mcp_json_mtime_ns = value.get("mcp_json_mtime_ns")
         mcp_json_sha256 = value.get("mcp_json_sha256")
         package_sha256 = value.get("package_sha256")
+        coverage_status = value.get("coverage_status")
+        coverage_reasons = value.get("coverage_reasons")
 
         if not isinstance(mtime_ns, int):
             continue
@@ -149,6 +151,10 @@ def _normalize_files(raw_files: object) -> dict[str, CacheFileEntry]:
             entry["mcp_json_sha256"] = mcp_json_sha256
         if isinstance(package_sha256, str):
             entry["package_sha256"] = package_sha256
+        if coverage_status in {"complete", "incomplete", "not-evaluated"}:
+            entry["coverage_status"] = coverage_status  # type: ignore[typeddict-item]
+        if isinstance(coverage_reasons, list) and all(isinstance(reason, str) for reason in coverage_reasons):
+            entry["coverage_reasons"] = sorted(set(coverage_reasons))
 
         files[key] = entry
     return files

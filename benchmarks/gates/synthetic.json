@@ -3,7 +3,7 @@
     "families": {},
     "overall": {
       "max_false_positive_rate": 0.0,
-      "max_incomplete_rate": 0.0,
+      "max_coverage_failure_rate": 0.0,
       "min_negative": 3,
       "min_positive": 3,
       "min_precision": 1.0,
@@ -16,7 +16,7 @@
     "families": {},
     "overall": {
       "max_false_positive_rate": 0.34,
-      "max_incomplete_rate": 0.0,
+      "max_coverage_failure_rate": 0.0,
       "min_negative": 3,
       "min_positive": 3,
       "min_precision": 0.75,
@@ -24,6 +24,6 @@
       "min_samples": 6
     }
   },
-  "schema_version": "2.0",
+  "schema_version": "3.0",
   "status": "enforced"
 }

@@ -96,7 +96,8 @@ def test_header_shows_review_priority() -> None:
     output = StdoutReporter(result, color=False).render()
     assert "Review" in output
     assert "priority" in output
-    assert "Workspace" in output
+    assert "Evidence" in output
+    assert "Coverage" in output
     assert "Packages" in output
 
 

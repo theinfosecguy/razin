@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import logging
+from collections import Counter
+from collections.abc import Collection
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -133,6 +135,29 @@ def assign_unique_skill_names(
             names_by_file[path] = f"{base_name}-{_stable_path_hash(path, resolved_root)}"
 
     return names_by_file, collisions
+
+
+def assign_unique_issue_names(
+    issue_paths: Collection[Path],
+    root: Path,
+    *,
+    occupied_names: Collection[str] = (),
+) -> dict[Path, str]:
+    """Assign non-colliding names to discovery issues without reading or following them."""
+    bases = {path: sanitize_skill_name(path.parent.name or path.stem) for path in issue_paths}
+    counts = Counter(bases.values())
+    occupied = set(occupied_names)
+    names: dict[Path, str] = {}
+    for path in sorted(issue_paths, key=lambda item: _stable_path_key(item, root)):
+        base = bases[path]
+        candidate = base
+        if counts[base] > 1 or candidate in occupied:
+            candidate = f"{base}-{_stable_path_hash(path, root)}"
+        while candidate in occupied:
+            candidate = f"{candidate}-issue"
+        names[path] = candidate
+        occupied.add(candidate)
+    return names
 
 
 def _nearest_skill_folder_name(file_path: Path) -> str | None:

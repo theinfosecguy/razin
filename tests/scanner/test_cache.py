@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from razin.constants.cache import CACHE_VERSION
 from razin.scanner.cache import build_scan_fingerprint, load_cache, new_cache, save_cache
 
 
@@ -73,5 +74,5 @@ def test_cache_invalidates_v2_payload(tmp_path: Path) -> None:
 
     loaded = load_cache(cache_path)
 
-    assert loaded["version"] == 4
+    assert loaded["version"] == CACHE_VERSION
     assert loaded["namespaces"] == {}

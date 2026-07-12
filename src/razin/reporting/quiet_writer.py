@@ -14,9 +14,10 @@ from razin.constants.reporting import QUIET_STREAM_VERSION, SCHEMA_VERSION
 from razin.constants.scoring import SEVERITY_RANK
 from razin.model import Finding, ScanResult
 from razin.scanner.assessment import (
-    assess_workspace,
-    package_assessment_counts_from_findings,
+    package_state_counts_from_findings,
     review_priority_score,
+    workspace_coverage_status,
+    workspace_evidence_verdict,
 )
 from razin.scanner.score import aggregate_severity
 from razin.types.common import Severity
@@ -177,11 +178,13 @@ def _build_summary_data(
             high_min=result.high_severity_min,
             medium_min=result.medium_severity_min,
         )
-    assessment_counts = result.assessment_counts or package_assessment_counts_from_findings(
-        result.findings,
-        total_packages=result.scanned_files,
+    fallback_verdict_counts, fallback_coverage_counts = package_state_counts_from_findings(
+        result.findings, total_packages=result.scanned_files
     )
-    workspace_assessment = result.workspace_assessment or assess_workspace(assessment_counts)
+    evidence_verdict_counts = result.evidence_verdict_counts or fallback_verdict_counts
+    coverage_counts = result.coverage_counts or fallback_coverage_counts
+    workspace_verdict = result.workspace_evidence_verdict or workspace_evidence_verdict(evidence_verdict_counts)
+    workspace_coverage = result.workspace_coverage_status or workspace_coverage_status(coverage_counts)
 
     return {
         "schema_version": SCHEMA_VERSION,
@@ -193,8 +196,10 @@ def _build_summary_data(
         "aggregate_severity": priority_level,
         "review_priority": priority,
         "review_priority_level": priority_level,
-        "workspace_assessment": workspace_assessment,
-        "assessment_counts": assessment_counts,
+        "workspace_evidence_verdict": workspace_verdict,
+        "workspace_coverage_status": workspace_coverage,
+        "evidence_verdict_counts": evidence_verdict_counts,
+        "coverage_counts": coverage_counts,
         "counts_by_severity": result.counts_by_severity,
         "gate_scope": "all_findings",
         "gate_failed": gate_failed,

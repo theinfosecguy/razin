@@ -37,7 +37,8 @@ def collect_mcp_remote_candidates(
 
     mcp_json_path = resolve_associated_mcp_json(parsed.file_path, root)
     if mcp_json_path is None:
-        return [], []
+        rendered = ", ".join(required_servers)
+        return [], [f"Required MCP configuration was not found for server(s): {rendered}"]
 
     try:
         endpoints = parse_referenced_mcp_endpoints(mcp_json_path, required_servers)
@@ -108,6 +109,9 @@ def parse_referenced_mcp_endpoints(
     raw_servers = payload.get("mcpServers")
     if not isinstance(raw_servers, dict):
         raise ValueError("`mcpServers` must be an object")
+    missing_servers = [name for name in required_servers if not isinstance(raw_servers.get(name), dict)]
+    if missing_servers:
+        raise ValueError(f"referenced server(s) missing or invalid: {', '.join(missing_servers)}")
 
     lines = raw_text.splitlines()
     endpoints: list[McpRemoteEndpoint] = []

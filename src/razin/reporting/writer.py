@@ -13,7 +13,7 @@ from razin.constants.reporting import (
 )
 from razin.io import write_json_atomic
 from razin.model import Finding, Summary
-from razin.scanner.assessment import assess_package
+from razin.scanner.assessment import evidence_verdict_for_package
 from razin.scanner.score import (
     aggregate_overall_score,
     aggregate_severity,
@@ -22,7 +22,7 @@ from razin.scanner.score import (
     severity_from_score,
     sorted_top_risks,
 )
-from razin.types import RuleDisableSource, Severity
+from razin.types import CoverageStatus, RuleDisableSource, Severity
 
 
 def write_skill_reports(
@@ -39,6 +39,8 @@ def write_skill_reports(
     rules_executed: tuple[str, ...] | None = None,
     rules_disabled: tuple[str, ...] | None = None,
     disable_sources: dict[str, RuleDisableSource] | None = None,
+    coverage_status: CoverageStatus = "not-evaluated",
+    coverage_reasons: tuple[str, ...] = (),
 ) -> Summary:
     """Write findings and summary JSON for a skill and return the summary."""
     skill_dir = out_root / skill_name
@@ -65,6 +67,8 @@ def write_skill_reports(
         rules_executed=rules_executed,
         rules_disabled=rules_disabled,
         disable_sources=disable_sources,
+        coverage_status=coverage_status,
+        coverage_reasons=coverage_reasons,
     )
     write_json_atomic(
         path=skill_dir / SUMMARY_FILENAME,
@@ -89,6 +93,8 @@ def build_summary(
     rules_executed: tuple[str, ...] | None = None,
     rules_disabled: tuple[str, ...] | None = None,
     disable_sources: dict[str, RuleDisableSource] | None = None,
+    coverage_status: CoverageStatus = "not-evaluated",
+    coverage_reasons: tuple[str, ...] = (),
 ) -> Summary:
     """Build a deterministic per-skill summary from findings."""
     source_findings = all_findings if all_findings is not None else findings
@@ -137,7 +143,9 @@ def build_summary(
         top_risks=tuple(top_risks),
         review_priority=overall_score,
         review_priority_level=overall_severity,
-        assessment=assess_package(source_findings),
+        evidence_verdict=evidence_verdict_for_package(source_findings),
+        coverage_status=coverage_status,
+        coverage_reasons=coverage_reasons,
         shown_finding_count=(len(findings) if all_findings is not None else None),
         output_filter=output_filter,
         rule_overrides=rule_overrides,

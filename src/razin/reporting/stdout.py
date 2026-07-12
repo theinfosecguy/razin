@@ -23,12 +23,13 @@ from razin.constants.scoring import SEVERITY_RANK
 from razin.model import Finding, ScanResult
 from razin.reporting.filters import OutputFilters, count_filtered_reasons, filter_findings
 from razin.scanner.assessment import (
-    assess_workspace,
-    package_assessment_counts_from_findings,
+    package_state_counts_from_findings,
     review_priority_score,
+    workspace_coverage_status,
+    workspace_evidence_verdict,
 )
 from razin.scanner.score import aggregate_overall_score, aggregate_severity, rule_counts
-from razin.types import AssessmentState, RuleDisableSource, Severity
+from razin.types import CoverageStatus, EvidenceVerdict, RuleDisableSource, Severity
 
 
 def _colorize(text: str, color: str) -> str:
@@ -107,14 +108,16 @@ class StdoutReporter:
         )
         score_str = _color_score(priority) if self._color else str(priority)
         sev_str = _color_severity(priority_level) if self._color else priority_level
-        assessment_counts = r.assessment_counts or package_assessment_counts_from_findings(
-            r.findings,
-            total_packages=r.scanned_files,
+        fallback_verdict_counts, fallback_coverage_counts = package_state_counts_from_findings(
+            r.findings, total_packages=r.scanned_files
         )
-        workspace_assessment = r.workspace_assessment or assess_workspace(assessment_counts)
+        evidence_verdict_counts = r.evidence_verdict_counts or fallback_verdict_counts
+        coverage_counts = r.coverage_counts or fallback_coverage_counts
+        workspace_verdict = r.workspace_evidence_verdict or workspace_evidence_verdict(evidence_verdict_counts)
+        workspace_coverage = r.workspace_coverage_status or workspace_coverage_status(coverage_counts)
 
         skills_with_findings = len({finding.skill for finding in r.findings})
-        clean_files = max(0, r.scanned_files - skills_with_findings)
+        files_without_findings = max(0, r.scanned_files - skills_with_findings)
         total_findings = r.total_findings
         shown_findings = len(self._shown_findings)
 
@@ -126,9 +129,13 @@ class StdoutReporter:
             sep,
             "",
             f"  Review      {score_str} priority ({sev_str})",
-            f"  Workspace   {workspace_assessment}",
-            f"  Packages    {self._format_assessment_counts(assessment_counts)}",
-            (f"  Files       {r.scanned_files} scanned / {skills_with_findings} with findings / {clean_files} clean"),
+            f"  Evidence    {workspace_verdict}",
+            f"  Coverage    {workspace_coverage} ({self._format_coverage_counts(coverage_counts)})",
+            f"  Packages    {self._format_evidence_verdict_counts(evidence_verdict_counts)}",
+            (
+                f"  Files       {r.scanned_files} scanned / {skills_with_findings} with findings / "
+                f"{files_without_findings} without findings"
+            ),
         ]
 
         if self._filters.active():
@@ -329,15 +336,21 @@ class StdoutReporter:
         return " · ".join(parts)
 
     @staticmethod
-    def _format_assessment_counts(counts: Mapping[AssessmentState, int]) -> str:
-        """Render per-package assessment counts in a stable compact order."""
-        ordered: tuple[tuple[AssessmentState, str], ...] = (
-            ("malicious/high-confidence-chain", "malicious"),
-            ("risky-but-legitimate/review", "review"),
-            ("dynamic-analysis-required/unknown", "incomplete"),
-            ("clean/no-evidence", "clean"),
+    def _format_evidence_verdict_counts(counts: Mapping[EvidenceVerdict, int]) -> str:
+        """Render per-package evidence verdict counts in a stable compact order."""
+        ordered: tuple[tuple[EvidenceVerdict, str], ...] = (
+            ("high-confidence-malicious-evidence", "high-confidence"),
+            ("review-required", "review"),
+            ("capability-only", "capability-only"),
+            ("no-actionable-malicious-evidence", "no-actionable"),
         )
-        return " · ".join(f"{counts.get(state, 0)} {label}" for state, label in ordered)
+        return " · ".join(f"{counts.get(verdict, 0)} {label}" for verdict, label in ordered)
+
+    @staticmethod
+    def _format_coverage_counts(counts: Mapping[CoverageStatus, int]) -> str:
+        """Render coverage counts without combining them with evidence verdicts."""
+        ordered: tuple[CoverageStatus, ...] = ("complete", "incomplete", "not-evaluated")
+        return " · ".join(f"{counts.get(status, 0)} {status}" for status in ordered)
 
     def _format_filtered_summary(self, total_findings: int, shown_findings: int) -> str:
         """Render deterministic filtered-count details for header output."""

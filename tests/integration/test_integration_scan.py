@@ -451,6 +451,25 @@ def test_mcp_remote_rules_skip_when_mcp_json_missing(tmp_path: Path) -> None:
     assert "MCP_REMOTE_NON_HTTPS" not in rule_ids
     assert "MCP_REMOTE_RAW_IP" not in rule_ids
     assert "MCP_REMOTE_DENYLIST" not in rule_ids
+    assert result.workspace_coverage_status == "incomplete"
+    assert result.package_outcomes[0].coverage_reasons == ("mcp-analysis-error",)
+
+
+def test_invalid_required_mcp_json_marks_structural_coverage_incomplete(tmp_path: Path) -> None:
+    root = _write_mcp_skill_repo(
+        tmp_path,
+        requires_mcp="broken",
+        mcp_json_text="{broken",
+    )
+    out = tmp_path / "output"
+
+    first = scan_workspace(root=root, out=out)
+    second = scan_workspace(root=root, out=out)
+
+    assert first.workspace_coverage_status == "incomplete"
+    assert first.package_outcomes[0].coverage_reasons == ("mcp-analysis-error",)
+    assert second.cache_hits == 1
+    assert second.workspace_coverage_status == "incomplete"
 
 
 def test_mcp_remote_rules_skip_referenced_command_only_server(tmp_path: Path) -> None:

@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from razin.config import RazinConfig
+from razin.constants.package_analysis import PACKAGE_COVERAGE_DIGEST_VERSION
 from razin.scanner import scan_workspace
 from razin.scanner.package_analysis import analyze_skill_package, manifest_to_json
 from razin.types import IocConfig, PackageAnalysisConfig
@@ -627,6 +628,8 @@ def test_manifest_digest_is_deterministic_and_changes_with_helper(tmp_path: Path
     second = analyze_skill_package(skill_path=skill, skill_text=skill.read_text(), config=RazinConfig())
 
     assert first.package_sha256 == second.package_sha256
+    assert PACKAGE_COVERAGE_DIGEST_VERSION == 3
+    assert '"coverage_digest_version":3' in manifest_to_json(first)
     assert manifest_to_json(first) == manifest_to_json(second)
 
     (skill.parent / "helper.py").write_text("print('b')\n", encoding="utf-8")
@@ -700,6 +703,43 @@ def test_referenced_helper_under_ignored_directory_is_an_analysis_gap(tmp_path: 
     assert "INCOMPLETE_SCAN" in [candidate.rule_id for candidate in result.candidates]
 
 
+def test_helper_import_from_ignored_directory_is_structurally_incomplete(tmp_path: Path) -> None:
+    skill = _package(
+        tmp_path,
+        "Run `helper.js`.",
+        {
+            "helper.js": "const payload = require('hidden');\n",
+            "node_modules/hidden/index.js": "console.log('not scanned');\n",
+        },
+    )
+
+    result = analyze_skill_package(
+        skill_path=skill,
+        skill_text=skill.read_text(),
+        config=RazinConfig(),
+        active_rule_ids=frozenset(),
+    )
+
+    assert result.candidates == ()
+    assert result.coverage_complete is False
+    assert "ignored-directory:node_modules" in result.coverage_markers
+
+
+def test_python_parse_gap_is_structural_when_gap_rule_is_disabled(tmp_path: Path) -> None:
+    skill = _package(tmp_path, "Run `broken.py`.", {"broken.py": "def broken(:\n"})
+
+    result = analyze_skill_package(
+        skill_path=skill,
+        skill_text=skill.read_text(),
+        config=RazinConfig(),
+        active_rule_ids=frozenset(),
+    )
+
+    assert result.candidates == ()
+    assert result.coverage_complete is False
+    assert result.coverage_markers == ("python-parse:broken.py",)
+
+
 def test_inventory_is_opt_in(tmp_path: Path) -> None:
     skill = _package(tmp_path, "A clean package.", {})
 
@@ -716,8 +756,45 @@ def test_parse_failure_becomes_analysis_gap(tmp_path: Path) -> None:
 
     assert result.scanned_files == 1
     assert [finding.rule_id for finding in result.findings] == ["INCOMPLETE_SCAN"]
-    assert result.workspace_assessment == "incomplete"
-    assert result.assessment_counts["dynamic-analysis-required/unknown"] == 1
+    assert result.workspace_evidence_verdict == "no-actionable-malicious-evidence"
+    assert result.workspace_coverage_status == "incomplete"
+    assert result.evidence_verdict_counts["no-actionable-malicious-evidence"] == 1
+    assert result.coverage_counts["incomplete"] == 1
+
+
+def test_disabling_gap_findings_does_not_hide_incomplete_coverage(tmp_path: Path) -> None:
+    skill = _package(tmp_path, "body", {})
+    skill.write_text("---\n: malformed: [[\n---\nbody\n", encoding="utf-8")
+
+    result = scan_workspace(root=tmp_path, only_rules=("PACKAGE_INVENTORY",), no_cache=True)
+
+    assert all(finding.rule_id != "INCOMPLETE_SCAN" for finding in result.findings)
+    assert result.workspace_evidence_verdict == "no-actionable-malicious-evidence"
+    assert result.workspace_coverage_status == "incomplete"
+
+
+def test_cached_parse_failure_preserves_structural_coverage(tmp_path: Path) -> None:
+    skill = _package(tmp_path, "body", {})
+    skill.write_text("---\n: malformed: [[\n---\nbody\n", encoding="utf-8")
+    out = tmp_path / "out"
+
+    first = scan_workspace(root=tmp_path, out=out)
+    second = scan_workspace(root=tmp_path, out=out)
+
+    assert first.workspace_coverage_status == "incomplete"
+    assert second.cache_hits == 1
+    assert second.workspace_coverage_status == "incomplete"
+
+
+def test_disabled_package_analysis_is_not_evaluated(tmp_path: Path) -> None:
+    _package(tmp_path, "Safe body", {})
+    config = tmp_path / "razin.yaml"
+    config.write_text("package_analysis:\n  enabled: false\n", encoding="utf-8")
+
+    result = scan_workspace(root=tmp_path, config_path=config, no_cache=True)
+
+    assert result.workspace_coverage_status == "not-evaluated"
+    assert result.coverage_counts == {"complete": 0, "incomplete": 0, "not-evaluated": 1}
 
 
 def test_oversized_skill_becomes_analysis_gap(tmp_path: Path) -> None:
@@ -733,6 +810,22 @@ def test_oversized_skill_becomes_analysis_gap(tmp_path: Path) -> None:
     assert result.scanned_files == 1
     assert [finding.rule_id for finding in result.findings] == ["INCOMPLETE_SCAN"]
     assert "exceeds" in result.findings[0].description
+
+
+def test_discovery_issue_name_collision_preserves_both_package_outcomes(tmp_path: Path) -> None:
+    valid = tmp_path / "foo-bar" / "SKILL.md"
+    valid.parent.mkdir()
+    valid.write_text("---\nname: foo-bar\n---\nSafe body\n", encoding="utf-8")
+    oversized = tmp_path / "foo bar" / "SKILL.md"
+    oversized.parent.mkdir()
+    oversized.write_text("x" * (1024 * 1024 + 100), encoding="utf-8")
+
+    result = scan_workspace(root=tmp_path, max_file_mb=1, only_rules=("INCOMPLETE_SCAN",), no_cache=True)
+
+    assert result.scanned_files == 2
+    assert len(result.package_outcomes) == 2
+    assert len({outcome.skill for outcome in result.package_outcomes}) == 2
+    assert result.coverage_counts == {"complete": 1, "incomplete": 1, "not-evaluated": 0}
 
 
 def test_helper_change_invalidates_scan_cache(tmp_path: Path) -> None:

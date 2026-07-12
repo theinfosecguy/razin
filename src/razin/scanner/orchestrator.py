@@ -16,7 +16,7 @@ from razin.constants.config import CONFIG_FILENAME
 from razin.constants.discovery import AUTO_TYPOSQUAT_BASELINE_MAX_SKILLS
 from razin.constants.engines import ENGINE_DSL
 from razin.constants.mcp import MCP_REMOTE_RULE_IDS
-from razin.constants.package_analysis import PACKAGE_RULE_IDS
+from razin.constants.package_analysis import PACKAGE_COVERAGE_DIGEST_VERSION, PACKAGE_RULE_IDS
 from razin.constants.profiles import VALID_PROFILES
 from razin.constants.reporting import (
     CSV_FINDINGS_FILENAME,
@@ -29,15 +29,21 @@ from razin.dsl import DslEngine
 from razin.exceptions import ConfigError, SkillParseError
 from razin.exceptions.dsl import DslError
 from razin.io import file_sha256
-from razin.model import ScanResult
+from razin.model import PackageOutcome, ScanResult
 from razin.parsers import parse_skill_markdown_file
 from razin.reporting.filters import OutputFilters, build_filter_metadata, filter_findings
-from razin.scanner.assessment import assess_workspace, package_assessment_counts
+from razin.scanner.assessment import (
+    evidence_verdict_for_package,
+    package_coverage_counts,
+    package_evidence_verdict_counts,
+    workspace_coverage_status,
+    workspace_evidence_verdict,
+)
 from razin.scanner.cache import build_scan_fingerprint, load_cache, new_cache, save_cache
 from razin.scanner.discovery import (
+    assign_unique_issue_names,
     assign_unique_skill_names,
     collect_all_skill_names,
-    derive_skill_name,
     discover_skill_files_with_issues,
 )
 from razin.scanner.mcp_remote import collect_mcp_remote_candidates
@@ -66,7 +72,7 @@ from razin.scanner.pipeline.rule_selection import (
     resolve_effective_rule_selection,
 )
 from razin.scanner.score import aggregate_overall_score, aggregate_severity, rule_counts, severity_counts
-from razin.types import CacheFileEntry, RuleDisableSource, RuleOverrideConfig, Severity
+from razin.types import CacheFileEntry, CoverageStatus, RuleDisableSource, RuleOverrideConfig, Severity
 
 logger = logging.getLogger(__name__)
 
@@ -187,6 +193,9 @@ def scan_workspace(
         warnings.append(warning)
         logger.warning(warning)
     skill_names_by_file, duplicate_name_groups = assign_unique_skill_names(skill_files, root)
+    issue_names_by_path = assign_unique_issue_names(
+        [issue.path for issue in discovery_issues], root, occupied_names=skill_names_by_file.values()
+    )
     for base_name, paths in sorted(duplicate_name_groups.items()):
         rendered_paths = ", ".join(_path_for_warning(path, root) for path in paths)
         warning = (
@@ -263,11 +272,18 @@ def scan_workspace(
     disable_sources = selection.disable_sources
 
     findings_by_skill: dict[str, list] = {}
-    if "INCOMPLETE_SCAN" in executed_package_rule_ids:
-        for issue in discovery_issues:
-            skill_name = derive_skill_name(issue.path, root)
+    coverage_by_skill: dict[str, CoverageStatus] = {}
+    coverage_reasons_by_skill: dict[str, tuple[str, ...]] = {}
+    package_analysis_digest_by_skill: dict[str, str | None] = {}
+    for issue in discovery_issues:
+        skill_name = issue_names_by_path[issue.path]
+        findings_by_skill.setdefault(skill_name, [])
+        coverage_by_skill[skill_name] = "incomplete"
+        coverage_reasons_by_skill[skill_name] = (_discovery_coverage_reason(issue.reason),)
+        package_analysis_digest_by_skill[skill_name] = None
+        if "INCOMPLETE_SCAN" in executed_package_rule_ids:
             candidate = incomplete_skill_candidate(issue.path, issue.reason)
-            findings_by_skill.setdefault(skill_name, []).append(
+            findings_by_skill[skill_name].append(
                 candidate_to_finding(
                     skill_name,
                     candidate,
@@ -276,9 +292,9 @@ def scan_workspace(
                     medium_severity_min=config.medium_severity_min,
                 )
             )
-            warning = f"Incomplete scan for {issue.path}: {issue.reason}"
-            warnings.append(warning)
-            logger.warning(warning)
+        warning = f"Incomplete scan for {issue.path}: {issue.reason}"
+        warnings.append(warning)
+        logger.warning(warning)
 
     cache_path = (out / CACHE_FILENAME) if out is not None else None
     cache_payload = new_cache() if (no_cache or out is None) else load_cache(cache_path)  # type: ignore[arg-type]
@@ -305,6 +321,10 @@ def scan_workspace(
         cache_key = str(path)
         discovered_keys.add(cache_key)
         skill_name = skill_names_by_file[path]
+        findings_by_skill.setdefault(skill_name, [])
+        coverage_by_skill.setdefault(skill_name, "complete")
+        coverage_reasons_by_skill.setdefault(skill_name, ())
+        package_analysis_digest_by_skill.setdefault(skill_name, None)
         mcp_dependency = resolve_mcp_dependency_signature(path=path, root=root, warnings=warnings)
 
         try:
@@ -312,6 +332,8 @@ def scan_workspace(
             mtime_ns = int(stat.st_mtime_ns)
             sha256 = file_sha256(path)
         except OSError as exc:
+            coverage_by_skill[skill_name] = "incomplete"
+            coverage_reasons_by_skill[skill_name] = ("skill-metadata-error",)
             warning = f"Failed to read file metadata: {path} ({exc})"
             warnings.append(warning)
             logger.warning(warning)
@@ -336,7 +358,18 @@ def scan_workspace(
                 ),
             ),
         )
+        if not config.package_analysis.enabled:
+            coverage_by_skill[skill_name] = "not-evaluated"
+        else:
+            coverage_by_skill[skill_name] = "complete" if package_result.coverage_complete else "incomplete"
+        coverage_reasons_by_skill[skill_name] = package_result.coverage_markers
         package_sha256 = package_result.package_sha256 if config.package_analysis.enabled else None
+        package_analysis_digest_by_skill[skill_name] = package_sha256
+        if mcp_dependency is not None and mcp_dependency[1] < 0:
+            coverage_by_skill[skill_name] = "incomplete"
+            coverage_reasons_by_skill[skill_name] = _merge_coverage_reasons(
+                coverage_reasons_by_skill[skill_name], ("mcp-metadata-error",)
+            )
 
         entry = cache_files.get(cache_key)
         if (
@@ -352,6 +385,14 @@ def scan_workspace(
         ):
             assert isinstance(entry, dict)
             cache_hits += 1
+            cached_coverage = entry.get("coverage_status")
+            if cached_coverage in {"complete", "incomplete", "not-evaluated"}:
+                coverage_by_skill[skill_name] = _merge_coverage_status(coverage_by_skill[skill_name], cached_coverage)
+            cached_reasons = entry.get("coverage_reasons")
+            if isinstance(cached_reasons, list) and all(isinstance(reason, str) for reason in cached_reasons):
+                coverage_reasons_by_skill[skill_name] = _merge_coverage_reasons(
+                    coverage_reasons_by_skill[skill_name], tuple(cached_reasons)
+                )
             cached_findings = deserialize_findings(entry["findings"])
             findings_by_skill.setdefault(skill_name, []).extend(cached_findings)
             continue
@@ -361,6 +402,10 @@ def scan_workspace(
         try:
             parsed = parse_skill_markdown_file(path)
         except SkillParseError as exc:
+            coverage_by_skill[skill_name] = "incomplete"
+            coverage_reasons_by_skill[skill_name] = _merge_coverage_reasons(
+                coverage_reasons_by_skill[skill_name], ("skill-parse-error",)
+            )
             warning = f"Parse error in {path}: {exc}"
             warnings.append(warning)
             logger.warning(warning)
@@ -382,13 +427,13 @@ def scan_workspace(
                 "sha256": sha256,
                 "skill_name": skill_name,
                 "findings": [finding.to_dict() for finding in findings],
+                "coverage_status": "incomplete",
+                "coverage_reasons": list(coverage_reasons_by_skill[skill_name]),
             }
             if package_sha256 is not None:
                 parse_error_cache_entry["package_sha256"] = package_sha256
             cache_files[cache_key] = parse_error_cache_entry
             continue
-        findings_by_skill.setdefault(skill_name, [])
-
         candidates.extend(dsl_engine.run_all(skill_name=skill_name, parsed=parsed, config=config))
         mcp_candidates, mcp_warnings = collect_mcp_remote_candidates(
             parsed=parsed,
@@ -398,6 +443,10 @@ def scan_workspace(
         mcp_candidates = [candidate for candidate in mcp_candidates if candidate.rule_id in executed_remote_rule_ids]
         candidates.extend(mcp_candidates)
         for warning in mcp_warnings:
+            coverage_by_skill[skill_name] = "incomplete"
+            coverage_reasons_by_skill[skill_name] = _merge_coverage_reasons(
+                coverage_reasons_by_skill[skill_name], ("mcp-analysis-error",)
+            )
             warnings.append(warning)
             logger.warning(warning)
         candidates = suppress_redundant_candidates(candidates)
@@ -423,6 +472,8 @@ def scan_workspace(
             "sha256": sha256,
             "skill_name": skill_name,
             "findings": [finding.to_dict() for finding in findings],
+            "coverage_status": coverage_by_skill[skill_name],
+            "coverage_reasons": list(coverage_reasons_by_skill[skill_name]),
         }
         if mcp_dependency is not None:
             cache_entry["mcp_json_path"] = mcp_dependency[0]
@@ -463,6 +514,8 @@ def scan_workspace(
                 rules_executed=rules_executed,
                 rules_disabled=rules_disabled,
                 disable_sources=_serialize_disable_sources(disable_sources),
+                coverage_status=coverage_by_skill.get(skill_name, "incomplete"),
+                coverage_reasons=coverage_reasons_by_skill.get(skill_name, ("outcome-missing",)),
             )
         all_findings.extend(skill_findings)
 
@@ -509,8 +562,24 @@ def scan_workspace(
         high_min=config.high_severity_min,
         medium_min=config.medium_severity_min,
     )
-    assessment_counts = package_assessment_counts(findings_by_skill)
-    workspace_assessment = assess_workspace(assessment_counts)
+    total_packages = len(skill_files) + len(discovery_issues)
+    evidence_verdict_counts = package_evidence_verdict_counts(findings_by_skill, total_packages=total_packages)
+    coverage_counts = package_coverage_counts(coverage_by_skill, total_packages=total_packages)
+    package_outcomes = tuple(
+        PackageOutcome(
+            skill=skill_name,
+            evidence_verdict=evidence_verdict_for_package(findings_by_skill[skill_name]),
+            coverage_status=coverage_by_skill.get(skill_name, "not-evaluated"),
+            coverage_reasons=coverage_reasons_by_skill.get(skill_name, ()),
+            package_analysis_digest=package_analysis_digest_by_skill.get(skill_name),
+            package_analysis_digest_version=(
+                PACKAGE_COVERAGE_DIGEST_VERSION
+                if package_analysis_digest_by_skill.get(skill_name) is not None
+                else None
+            ),
+        )
+        for skill_name in sorted(findings_by_skill)
+    )
 
     sorted_findings = sorted(all_findings, key=lambda f: (-f.score, f.id))
 
@@ -535,9 +604,39 @@ def scan_workspace(
         disable_sources=_serialize_disable_sources(disable_sources),
         review_priority=agg_score,
         review_priority_level=agg_severity,
-        workspace_assessment=workspace_assessment,
-        assessment_counts=assessment_counts,
+        workspace_evidence_verdict=workspace_evidence_verdict(evidence_verdict_counts),
+        workspace_coverage_status=workspace_coverage_status(coverage_counts),
+        evidence_verdict_counts=evidence_verdict_counts,
+        coverage_counts=coverage_counts,
+        package_outcomes=package_outcomes,
     )
+
+
+_COVERAGE_PRECEDENCE: dict[CoverageStatus, int] = {"complete": 0, "not-evaluated": 1, "incomplete": 2}
+
+
+def _merge_coverage_status(left: CoverageStatus, right: CoverageStatus) -> CoverageStatus:
+    """Return the more restrictive coverage state."""
+    return left if _COVERAGE_PRECEDENCE[left] >= _COVERAGE_PRECEDENCE[right] else right
+
+
+def _merge_coverage_reasons(left: tuple[str, ...], right: tuple[str, ...]) -> tuple[str, ...]:
+    """Merge structural coverage reasons deterministically."""
+    return tuple(sorted({*left, *right}))
+
+
+def _discovery_coverage_reason(reason: str) -> str:
+    """Map a human discovery explanation to a stable machine-readable reason."""
+    lowered = reason.lower()
+    if "symbolic-link" in lowered or "symbolic link" in lowered:
+        return "skill-symlink-not-followed"
+    if "outside" in lowered:
+        return "skill-outside-root"
+    if "exceeds" in lowered:
+        return "skill-file-limit"
+    if "metadata" in lowered:
+        return "skill-metadata-error"
+    return "skill-discovery-error"
 
 
 def _serialize_rule_overrides(

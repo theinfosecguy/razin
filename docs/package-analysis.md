@@ -36,13 +36,18 @@ package_analysis:
 
 The defaults prevent a package from forcing unbounded filesystem work or
 unbounded output. Reaching a limit produces `INCOMPLETE_SCAN`; it does not make
-the package appear clean. Archives, binary executables, and unsupported source
+the package appear fully covered. Archives, binary executables, and unsupported source
 languages produce `DYNAMIC_ANALYSIS_REQUIRED`.
 
-`emit_inventory` is off by default so a clean package can remain
-`clean/no-evidence`. API callers can use the package analyzer's deterministic
+`emit_inventory` is off by default so inventory alone does not change a package
+from `no-actionable-malicious-evidence` to `capability-only`. API callers can use the package analyzer's deterministic
 manifest and versioned coverage digest directly; enabling this setting also emits a
 `PACKAGE_INVENTORY` capability finding.
+
+The v3 package-analysis digest binds the bounded static inventory and its
+package-level coverage markers. It is not an execution-approval or sandbox
+snapshot digest: outer parsing and MCP failures are reported separately in
+`coverage_reasons`.
 
 ## Known-bad indicators
 

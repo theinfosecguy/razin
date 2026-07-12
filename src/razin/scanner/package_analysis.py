@@ -84,6 +84,7 @@ class PackageAnalysisResult:
     manifest: tuple[PackageManifestEntry, ...]
     analyzed_helpers: int
     coverage_complete: bool
+    coverage_markers: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -116,7 +117,12 @@ def analyze_skill_package(
     analysis = config.package_analysis
     if not analysis.enabled:
         return PackageAnalysisResult(
-            candidates=(), package_sha256="", manifest=(), analyzed_helpers=0, coverage_complete=True
+            candidates=(),
+            package_sha256="",
+            manifest=(),
+            analyzed_helpers=0,
+            coverage_complete=False,
+            coverage_markers=("package-analysis-disabled",),
         )
 
     allowed = active_rule_ids
@@ -131,7 +137,7 @@ def analyze_skill_package(
     max_total_bytes = analysis.max_total_mb * 1024 * 1024
     max_file_bytes = analysis.max_file_mb * 1024 * 1024
 
-    paths, enumeration_truncated, truncated_directories = _bounded_package_paths(
+    paths, enumeration_truncated, truncated_directories, ignored_directories = _bounded_package_paths(
         package_root,
         analysis.max_files,
         analysis.max_directories,
@@ -293,7 +299,14 @@ def analyze_skill_package(
             analysis.max_findings_per_rule,
         )
 
-    ignored_references = _ignored_package_references(skill_text)
+    ignored_references = tuple(
+        sorted(
+            {
+                *_ignored_package_references(skill_text),
+                *(reference for text_file in text_files for reference in _ignored_package_references(text_file.text)),
+            }
+        )
+    )
     dynamic_members.update(
         text_file.relative_path
         for text_file in text_files
@@ -306,7 +319,8 @@ def analyze_skill_package(
             _gap_candidate(
                 skill_path,
                 ignored_reference,
-                "SKILL.md references a helper under an excluded dependency or environment directory.",
+                "Instructions or analyzed helpers reference executable content under an excluded dependency "
+                "or environment directory.",
             ),
             allowed,
             analysis.max_findings_per_rule,
@@ -314,6 +328,7 @@ def analyze_skill_package(
 
     referenced = _referenced_helper_lines(skill_text, text_files)
     analyzed_helpers = 0
+    helper_coverage_markers: list[str] = []
     for text_file in text_files:
         _match_known_text_iocs(candidates, text_file, config, allowed)
         _match_mutable_references(candidates, text_file, config, allowed)
@@ -321,7 +336,7 @@ def analyze_skill_package(
             continue
         analyzed_helpers += 1
         declaration_line = referenced.get(text_file.relative_path) or referenced.get(text_file.path.name)
-        _analyze_helper(candidates, text_file, declaration_line, config, allowed)
+        helper_coverage_markers.extend(_analyze_helper(candidates, text_file, declaration_line, config, allowed))
 
     coverage_markers = tuple(
         marker
@@ -332,8 +347,12 @@ def analyze_skill_package(
         )
         if present
     ) + tuple(f"ignored-reference:{reference}" for reference in ignored_references)
+    coverage_markers += tuple(f"ignored-directory:{path}" for path in ignored_directories)
     coverage_markers += tuple(f"dynamic-analysis:{path}" for path in sorted(dynamic_members))
-    coverage_complete = not coverage_markers and all(entry.sha256 is not None for entry in manifest)
+    coverage_markers += tuple(sorted(helper_coverage_markers))
+    coverage_markers += tuple(f"unhashed-member:{entry.path}" for entry in manifest if entry.sha256 is None)
+    coverage_markers = tuple(sorted(set(coverage_markers)))
+    coverage_complete = not coverage_markers
     package_sha256 = _manifest_digest(manifest, coverage_complete, coverage_markers)
     if analysis.emit_inventory and _is_allowed("PACKAGE_INVENTORY", allowed):
         manifests = sorted(entry.path for entry in manifest if Path(entry.path).name.lower() in MANIFEST_FILENAMES)
@@ -363,6 +382,7 @@ def analyze_skill_package(
         manifest=tuple(manifest),
         analyzed_helpers=analyzed_helpers,
         coverage_complete=coverage_complete,
+        coverage_markers=coverage_markers,
     )
 
 
@@ -387,10 +407,11 @@ def _bounded_package_paths(
     max_files: int,
     max_directories: int,
     excluded_paths: tuple[Path, ...],
-) -> tuple[list[Path], bool, bool]:
+) -> tuple[list[Path], bool, bool, tuple[str, ...]]:
     paths: list[Path] = []
     truncated = False
     directory_count = 0
+    ignored_directories: set[str] = set()
     excluded = tuple(
         path.resolve() for path in excluded_paths if path.resolve() != root.resolve() and _is_within(path, root)
     )
@@ -401,11 +422,16 @@ def _bounded_package_paths(
             continue
         directory_count += 1
         if directory_count > max_directories:
-            return paths, truncated, True
+            return paths, truncated, True, tuple(sorted(ignored_directories))
         symlinked_dirs = sorted(name for name in dirnames if (current_path / name).is_symlink())
         paths.extend(current_path / name for name in symlinked_dirs)
         if len(paths) > max_files:
-            return paths[:max_files], True, False
+            return paths[:max_files], True, False, tuple(sorted(ignored_directories))
+        ignored_directories.update(
+            (current_path / name).relative_to(root).as_posix()
+            for name in dirnames
+            if name in IGNORED_PACKAGE_DIRECTORIES
+        )
         dirnames[:] = sorted(
             name
             for name in dirnames
@@ -424,8 +450,8 @@ def _bounded_package_paths(
             paths.append(file_path)
             if len(paths) > max_files:
                 truncated = True
-                return paths[:max_files], truncated, False
-    return paths, truncated, False
+                return paths[:max_files], truncated, False, tuple(sorted(ignored_directories))
+    return paths, truncated, False, tuple(sorted(ignored_directories))
 
 
 def _is_within(path: Path, parent: Path) -> bool:
@@ -496,7 +522,7 @@ def _analyze_helper(
     declaration_line: int | None,
     config: RazinConfig,
     allowed: frozenset[str] | None,
-) -> None:
+) -> tuple[str, ...]:
     suffix = text_file.path.suffix.lower()
     if suffix == ".py":
         try:
@@ -519,7 +545,7 @@ def _analyze_helper(
                 allowed,
                 config.package_analysis.max_findings_per_rule,
             )
-            return
+            return (f"python-parse:{text_file.relative_path}",)
     elif suffix in {".sh", ".bash", ".zsh"}:
         sensitive, remote, network, execution = _lexical_signals(text_file.text, shell=True)
     else:
@@ -534,7 +560,7 @@ def _analyze_helper(
                 allowed,
                 config.package_analysis.max_findings_per_rule,
             )
-            return
+            return (f"dynamic-analysis:{text_file.relative_path}",)
         sensitive, remote, network, execution = _lexical_signals(text_file.text, shell=False)
 
     _emit_flow_correlations(
@@ -551,6 +577,7 @@ def _analyze_helper(
     _match_remote_pipe(candidates, text_file, declaration_line, config, allowed)
     if suffix in {".sh", ".bash", ".zsh"}:
         _match_shell_download_then_execute(candidates, text_file, declaration_line, config, allowed)
+    return ()
 
 
 def _python_signals(
@@ -1538,6 +1565,7 @@ def manifest_to_json(result: PackageAnalysisResult) -> str:
         "coverage_digest_version": PACKAGE_COVERAGE_DIGEST_VERSION,
         "coverage_sha256": result.package_sha256,
         "coverage_complete": result.coverage_complete,
+        "coverage_markers": list(result.coverage_markers),
         "analyzed_helpers": result.analyzed_helpers,
         "files": [
             {"path": entry.path, "size": entry.size, "sha256": entry.sha256, "mode": entry.mode}
