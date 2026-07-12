@@ -1,0 +1,64 @@
+{
+  "allow_unlisted_skills": false,
+  "corpus_root": "corpus",
+  "name": "razin-synthetic-regression",
+  "samples": [
+    {
+      "expected_block": true,
+      "expected_review": true,
+      "expected_rule_ids": ["PACKAGE_DATA_EXFILTRATION"],
+      "family": "data-exfiltration",
+      "id": "malicious-data-exfiltration",
+      "label": "malicious",
+      "path": "malicious/data-exfiltration/SKILL.md"
+    },
+    {
+      "expected_block": false,
+      "expected_review": true,
+      "expected_rule_ids": ["PACKAGE_REMOTE_CODE_EXECUTION"],
+      "family": "remote-code-execution",
+      "id": "malicious-remote-code-execution",
+      "label": "malicious",
+      "path": "malicious/remote-code-execution/SKILL.md"
+    },
+    {
+      "expected_block": false,
+      "expected_review": true,
+      "expected_rule_ids": ["PROMPT_INJECTION"],
+      "family": "prompt-injection",
+      "id": "malicious-prompt-injection",
+      "label": "malicious",
+      "path": "malicious/prompt-injection/SKILL.md"
+    },
+    {
+      "expected_block": false,
+      "expected_review": false,
+      "family": "benign-control",
+      "id": "benign-formatting-helper",
+      "label": "benign",
+      "path": "benign/formatting-helper/SKILL.md"
+    },
+    {
+      "expected_block": false,
+      "expected_review": false,
+      "family": "benign-control",
+      "id": "benign-release-notes",
+      "label": "benign",
+      "path": "benign/release-notes/SKILL.md"
+    },
+    {
+      "expected_block": false,
+      "expected_review": true,
+      "expected_rule_ids": ["PACKAGE_SENSITIVE_NETWORK_FLOW"],
+      "family": "benign-near-miss",
+      "id": "benign-oauth-client",
+      "label": "benign",
+      "path": "benign/oauth-client/SKILL.md"
+    }
+  ],
+  "scanner": {
+    "max_file_mb": 4,
+    "profile": "balanced"
+  },
+  "schema_version": "2.0"
+}

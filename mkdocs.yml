@@ -14,6 +14,7 @@ nav:
   - Configuration: configuration.md
   - Detectors: detectors.md
   - Whole-package Analysis: package-analysis.md
+  - Benchmarking: benchmarking.md
   - Output Formats: output-formats.md
   - Docker: docker.md
   - CI and Exit Codes: ci-and-exit-codes.md
