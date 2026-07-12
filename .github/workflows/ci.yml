@@ -39,16 +39,16 @@ jobs:
         run: uv sync --dev
 
       - name: Check import order (isort)
-        run: uv run isort --check-only src tests
+        run: uv run isort --check-only src tests scripts
 
       - name: Check formatting (black)
-        run: uv run black --check src tests
+        run: uv run black --check src tests scripts
 
       - name: Lint (ruff)
-        run: uv run ruff check src tests
+        run: uv run ruff check src tests scripts
 
       - name: Type-check (mypy)
-        run: uv run mypy src
+        run: uv run mypy src tests scripts
 
   tests:
     name: Tests (py${{ matrix.python-version }})

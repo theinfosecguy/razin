@@ -51,7 +51,7 @@ target-version = ["py312"]
 profile = "black"
 line_length = 120
 py_version = 312
-src_paths = ["src", "tests"]
+src_paths = ["src", "tests", "scripts"]
 
 [tool.ruff]
 line-length = 120
@@ -62,6 +62,7 @@ select = ["E", "F", "B", "UP", "SIM"]
 
 [tool.pytest.ini_options]
 addopts = "--import-mode=importlib"
+pythonpath = ["."]
 testpaths = ["tests"]
 
 [tool.mypy]

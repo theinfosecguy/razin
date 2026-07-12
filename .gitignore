@@ -39,6 +39,11 @@ extential.md
 plan_extension.md
 kb/
 scripts/
+!scripts/
+scripts/*
+!scripts/__init__.py
+!scripts/build_malskillbench_manifest.py
+!scripts/evaluate_corpus.py
 .claude/
 tmp/
 sprints/

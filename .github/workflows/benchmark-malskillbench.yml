@@ -1,0 +1,78 @@
+name: Pinned MalSkillBench evaluation
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_academic_license:
+        description: Confirm this run complies with the MalSkillBench academic-research-only license
+        required: true
+        type: boolean
+
+permissions:
+  contents: read
+
+env:
+  UV_VERSION: "0.7.19"
+  MALSKILLBENCH_COMMIT: "06e083125d5ec5dd7a189dfedadfe587a70635b9"
+  MALSKILLBENCH_REPOSITORY: "https://github.com/lxyeternal/MalSkillBench.git"
+
+jobs:
+  benchmark:
+    if: ${{ inputs.confirm_academic_license }}
+    name: Real-corpus quality gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout Razin
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Install Razin dependencies
+        run: uv sync --frozen --dev
+
+      - name: Fetch pinned research corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          CORPUS_REPO="${RUNNER_TEMP}/MalSkillBench"
+          git init "${CORPUS_REPO}"
+          git -C "${CORPUS_REPO}" remote add origin "${MALSKILLBENCH_REPOSITORY}"
+          git -C "${CORPUS_REPO}" sparse-checkout init --cone
+          git -C "${CORPUS_REPO}" sparse-checkout set Dataset/Skills
+          git -C "${CORPUS_REPO}" fetch --filter=blob:none --depth=1 origin "${MALSKILLBENCH_COMMIT}"
+          test "$(git -C "${CORPUS_REPO}" rev-parse FETCH_HEAD)" = "${MALSKILLBENCH_COMMIT}"
+          git -C "${CORPUS_REPO}" -c core.hooksPath=/dev/null checkout --detach FETCH_HEAD
+
+      - name: Materialize package labels without executing corpus code
+        run: >-
+          uv run python scripts/build_malskillbench_manifest.py
+          --skills-root "${RUNNER_TEMP}/MalSkillBench/Dataset/Skills"
+          --commit "${MALSKILLBENCH_COMMIT}"
+          --output "${RUNNER_TEMP}/malskillbench-manifest.json"
+
+      - name: Apply overall and per-family quality gates
+        run: >-
+          uv run python scripts/evaluate_corpus.py
+          --manifest "${RUNNER_TEMP}/malskillbench-manifest.json"
+          --gates benchmarks/gates/malskillbench.json
+          --output benchmark-results/malskillbench.json
+
+      - name: Upload benchmark report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: malskillbench-report-${{ github.run_id }}
+          path: benchmark-results/malskillbench.json
+          if-no-files-found: warn

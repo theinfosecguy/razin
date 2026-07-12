@@ -13,14 +13,14 @@ install: ## Install project with dev dependencies
 install-docs: ## Install docs dependencies
 	uv sync --group docs
 
-# Run ruff linter on src and tests
+# Run ruff linter on source, tests, and repository scripts
 lint: ## Run ruff linter on src and tests
-	uv run ruff check src tests
+	uv run ruff check src tests scripts
 
 # Format code with black and isort
 format: ## Format code with black and isort
-	uv run isort src tests
-	uv run black src tests
+	uv run isort src tests scripts
+	uv run black src tests scripts
 
 # Run test suite
 test: ## Run test suite
@@ -28,10 +28,10 @@ test: ## Run test suite
 
 # Run all checks (isort, black, ruff, mypy)
 ci: ## Run all checks (isort, black, ruff, mypy)
-	uv run isort --check-only src tests
-	uv run black --check src tests
-	uv run ruff check src tests
-	uv run mypy src tests
+	uv run isort --check-only src tests scripts
+	uv run black --check src tests scripts
+	uv run ruff check src tests scripts
+	uv run mypy src tests scripts
 
 # Serve docs locally with autoreload
 docs-serve: ## Serve docs locally
