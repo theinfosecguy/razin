@@ -95,3 +95,4 @@ razin scan -r . -o output/ --output-format json,csv,sarif
 - [Config details and `rule_overrides`](configuration.md)
 - [Output format schemas](output-formats.md)
 - [CI behavior](ci-and-exit-codes.md)
+- [Optional sealed sandbox artifacts](sandbox-verification.md)

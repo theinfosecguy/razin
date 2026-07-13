@@ -1,0 +1,372 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://theinfosecguy.github.io/razin/schemas/sandbox_verification_plan.schema.json",
+  "title": "Razin sandbox verification plan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "bundle",
+    "command",
+    "runtime",
+    "policy",
+    "limits",
+    "approval",
+    "provenance"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "artifact_type": {
+      "const": "sandbox-verification-plan"
+    },
+    "bundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "digest_version",
+        "archive_format",
+        "archive_file",
+        "sha256",
+        "archive_bytes",
+        "file_count",
+        "total_bytes",
+        "members"
+      ],
+      "properties": {
+        "digest_version": {
+          "const": 1
+        },
+        "archive_format": {
+          "const": "ustar-v1"
+        },
+        "archive_file": {
+          "type": "string",
+          "pattern": "^sandbox-bundle-[0-9a-f]{64}\\.tar$"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "archive_bytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "file_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1024
+        },
+        "total_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 67108864
+        },
+        "members": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1024,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "size_bytes",
+              "sha256",
+              "mode"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100,
+                "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*//)(?!.*\\\\)[^\\u0000-\\u001f\\u007f]+$"
+              },
+              "size_bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 16777216
+              },
+              "sha256": {
+                "$ref": "#/$defs/sha256"
+              },
+              "mode": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 511
+              }
+            }
+          }
+        }
+      }
+    },
+    "command": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "argv",
+        "cwd"
+      ],
+      "properties": {
+        "argv": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 128,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "cwd": {
+          "const": "."
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "backend",
+        "backend_adapter_version",
+        "image_reference"
+      ],
+      "properties": {
+        "backend": {
+          "const": "simulated"
+        },
+        "backend_adapter_version": {
+          "const": "1.0"
+        },
+        "image_reference": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,254}@sha256:[0-9a-f]{64}$"
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy_version",
+        "network",
+        "read_only_rootfs",
+        "bundle_mount_target",
+        "bundle_mount_mode",
+        "tmpfs_target",
+        "inherit_environment",
+        "environment",
+        "stdin",
+        "tty",
+        "uid",
+        "gid",
+        "privileged",
+        "capabilities",
+        "no_new_privileges",
+        "host_network",
+        "host_pid",
+        "host_ipc",
+        "host_mounts",
+        "devices"
+      ],
+      "properties": {
+        "policy_version": {
+          "const": "1.0"
+        },
+        "network": {
+          "const": "none"
+        },
+        "read_only_rootfs": {
+          "const": true
+        },
+        "bundle_mount_target": {
+          "const": "/workspace"
+        },
+        "bundle_mount_mode": {
+          "const": "read-only"
+        },
+        "tmpfs_target": {
+          "const": "/tmp"
+        },
+        "inherit_environment": {
+          "const": false
+        },
+        "environment": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "HOME",
+            "LANG",
+            "PATH",
+            "TMPDIR",
+            "TZ"
+          ],
+          "properties": {
+            "HOME": {
+              "const": "/tmp"
+            },
+            "LANG": {
+              "const": "C.UTF-8"
+            },
+            "PATH": {
+              "const": "/usr/local/bin:/usr/bin:/bin"
+            },
+            "TMPDIR": {
+              "const": "/tmp"
+            },
+            "TZ": {
+              "const": "UTC"
+            }
+          }
+        },
+        "stdin": {
+          "const": "closed"
+        },
+        "tty": {
+          "const": false
+        },
+        "uid": {
+          "const": 65534
+        },
+        "gid": {
+          "const": 65534
+        },
+        "privileged": {
+          "const": false
+        },
+        "capabilities": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "no_new_privileges": {
+          "const": true
+        },
+        "host_network": {
+          "const": false
+        },
+        "host_pid": {
+          "const": false
+        },
+        "host_ipc": {
+          "const": false
+        },
+        "host_mounts": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "devices": {
+          "type": "array",
+          "maxItems": 0
+        }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bundle_files",
+        "bundle_bytes",
+        "file_bytes",
+        "wall_time_seconds",
+        "cpu_time_seconds",
+        "cpu_millis",
+        "memory_bytes",
+        "pids",
+        "open_files",
+        "tmpfs_bytes",
+        "stdout_bytes",
+        "stderr_bytes"
+      ],
+      "properties": {
+        "bundle_files": {
+          "const": 1024
+        },
+        "bundle_bytes": {
+          "const": 67108864
+        },
+        "file_bytes": {
+          "const": 16777216
+        },
+        "wall_time_seconds": {
+          "const": 30
+        },
+        "cpu_time_seconds": {
+          "const": 10
+        },
+        "cpu_millis": {
+          "const": 1000
+        },
+        "memory_bytes": {
+          "const": 268435456
+        },
+        "pids": {
+          "const": 64
+        },
+        "open_files": {
+          "const": 256
+        },
+        "tmpfs_bytes": {
+          "const": 67108864
+        },
+        "stdout_bytes": {
+          "const": 1048576
+        },
+        "stderr_bytes": {
+          "const": 1048576
+        }
+      }
+    },
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required",
+        "method",
+        "binding_version",
+        "binding_sha256"
+      ],
+      "properties": {
+        "required": {
+          "const": true
+        },
+        "method": {
+          "const": "exact-binding-sha256"
+        },
+        "binding_version": {
+          "const": 1
+        },
+        "binding_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "razin_version",
+        "planner_contract_sha256",
+        "executor_contract_sha256"
+      ],
+      "properties": {
+        "razin_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "planner_contract_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "executor_contract_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

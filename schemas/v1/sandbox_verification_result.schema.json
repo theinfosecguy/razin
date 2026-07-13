@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://theinfosecguy.github.io/razin/schemas/v1/sandbox_verification_result.schema.json",
+  "title": "Razin sandbox verification result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "execution_status",
+    "reason_codes",
+    "plan",
+    "approval",
+    "snapshot",
+    "runtime",
+    "enforcement",
+    "backend_instance_id",
+    "process",
+    "conclusion"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "artifact_type": {
+      "const": "sandbox-verification-result"
+    },
+    "execution_status": {
+      "const": "simulated"
+    },
+    "reason_codes": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "const": "simulation-only"
+        }
+      ],
+      "items": false,
+      "minItems": 1,
+      "maxItems": 1
+    },
+    "plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_sha256",
+        "approval_binding_sha256",
+        "bundle_sha256"
+      ],
+      "properties": {
+        "artifact_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "approval_binding_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "bundle_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required",
+        "status",
+        "provided_binding_sha256"
+      ],
+      "properties": {
+        "required": {
+          "const": true
+        },
+        "status": {
+          "const": "matched"
+        },
+        "provided_binding_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bundle_sha256",
+        "matches_plan"
+      ],
+      "properties": {
+        "bundle_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "matches_plan": {
+          "const": true
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "backend",
+        "backend_adapter_version",
+        "image_reference"
+      ],
+      "properties": {
+        "backend": {
+          "const": "simulated"
+        },
+        "backend_adapter_version": {
+          "const": "1.0"
+        },
+        "image_reference": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,254}@sha256:[0-9a-f]{64}$"
+        }
+      }
+    },
+    "enforcement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "policy_sha256",
+        "limits_sha256",
+        "backend_invocation_sha256"
+      ],
+      "properties": {
+        "status": {
+          "const": "not-applied"
+        },
+        "policy_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "limits_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "backend_invocation_sha256": {
+          "type": "null"
+        }
+      }
+    },
+    "backend_instance_id": {
+      "type": "null"
+    },
+    "process": {
+      "type": "null"
+    },
+    "conclusion": {
+      "const": "not-run"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

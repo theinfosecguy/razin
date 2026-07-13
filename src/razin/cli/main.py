@@ -10,6 +10,7 @@ from pathlib import Path
 from razin import __version__
 from razin.cli.domain_analysis import build_dominant_domain_hints
 from razin.cli.handlers import evaluate_fail_thresholds, handle_init, handle_validate_config
+from razin.cli.sandbox import handle_sandbox, register_sandbox_parser
 from razin.config.loader import load_config
 from razin.constants.branding import CLI_DESCRIPTION
 from razin.constants.reporting import VALID_OUTPUT_FORMATS
@@ -192,6 +193,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="Scan output directory used to generate commented allowlist candidates",
     )
 
+    register_sandbox_parser(subparsers)
+
     return parser
 
 
@@ -207,6 +210,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "init":
         return handle_init(args)
+
+    if args.command == "sandbox":
+        return handle_sandbox(args)
 
     if args.command != "scan":
         parser.error(f"Unsupported command: {args.command}")
