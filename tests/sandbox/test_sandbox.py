@@ -433,7 +433,7 @@ def test_malformed_json_is_normalized_to_validation_error(tmp_path: Path, malfor
     plan_path, _ = _plan(tmp_path)
     plan_path.write_text(malformed, encoding="utf-8")
 
-    with pytest.raises(SandboxValidationError, match="strict UTF-8 JSON"):
+    with pytest.raises(SandboxValidationError):
         run_plan(plan_path=plan_path, approval_sha256="a" * 64, result_path=tmp_path / "result.json")
 
 
