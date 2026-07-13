@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 import razin.scanner.features as feature_module
 from razin.model import Evidence, Finding
 from razin.scanner.features import (
@@ -116,7 +118,7 @@ def test_feature_contract_hash_is_stable_and_documents_forbidden_inputs() -> Non
     assert len(feature_contract_sha256()) == 64
 
 
-def test_feature_contract_hash_changes_with_rule_registry(monkeypatch) -> None:
+def test_feature_contract_hash_changes_with_rule_registry(monkeypatch: pytest.MonkeyPatch) -> None:
     original = feature_contract_sha256()
     monkeypatch.setitem(feature_module.RULE_SIGNAL_KINDS, "NEW_REVIEWED_RULE", "review")
 
