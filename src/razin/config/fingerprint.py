@@ -67,3 +67,23 @@ def config_fingerprint(config: RazinConfig, max_file_mb_override: int | None = N
     }
     blob = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(blob).hexdigest()
+
+
+def package_analysis_fingerprint(
+    config: RazinConfig,
+    *,
+    max_findings_per_rule_floor: int = 0,
+) -> str:
+    """Hash only configuration that can change whole-package analysis facts."""
+    analysis = config.package_analysis
+    payload = {
+        "enabled": analysis.enabled,
+        "max_files": analysis.max_files,
+        "max_directories": analysis.max_directories,
+        "max_total_mb": analysis.max_total_mb,
+        "max_file_mb": analysis.max_file_mb,
+        "effective_max_findings_per_rule": max(analysis.max_findings_per_rule, max_findings_per_rule_floor),
+        "known_bad_domains": list(analysis.known_bad.domains),
+    }
+    blob = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(blob).hexdigest()

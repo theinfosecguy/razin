@@ -13,6 +13,7 @@ Writes per-skill artifacts:
 
 - `output/<skill-name>/findings.json`
 - `output/<skill-name>/summary.json`
+- `output/<skill-name>/purpose_alignment.json`
 
 JSON details:
 
@@ -31,6 +32,8 @@ JSON details:
   - optional `output_filter` metadata (`shown`, `total`, `filtered`, `min_severity`, `security_only`)
   - optional `rule_overrides` metadata
   - optional rule-selection metadata: `rules_executed`, `rules_disabled`, `disable_sources`
+- `purpose_alignment.json` contains an independent instruction-to-code
+  comparison. It never changes findings, evidence verdicts, or coverage.
 
 ## CSV
 
@@ -94,6 +97,7 @@ razin scan -r . -o output/ --output-format json,csv,sarif
 - `findings.sarif`
 
 They do not change which rules run.
+They also do not change `purpose_alignment.json`.
 
 ## Stdout grouping
 

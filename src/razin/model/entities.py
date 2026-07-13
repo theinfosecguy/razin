@@ -7,11 +7,15 @@ from pathlib import Path
 from typing import Any
 
 from razin.types import (
+    AlignmentRelation,
     AssessmentState,
+    ClaimPolarity,
     Classification,
     Confidence,
     CoverageStatus,
     EvidenceVerdict,
+    PurposeAlignmentVerdict,
+    PurposeBehavior,
     RuleDisableSource,
     Severity,
     SignalKind,
@@ -79,6 +83,83 @@ class Finding:
 
 
 @dataclass(frozen=True)
+class SourceProvenance:
+    """Deterministic provenance for one purpose claim or behavior fact."""
+
+    path: str
+    line: int | None
+    snippet: str
+    source_sha256: str | None
+    extractor_id: str
+    extractor_version: str
+
+
+@dataclass(frozen=True)
+class InstructionClaim:
+    """Explicit purpose or permission claim extracted from instructions."""
+
+    id: str
+    behavior: PurposeBehavior
+    polarity: ClaimPolarity
+    provenance: SourceProvenance
+
+
+@dataclass(frozen=True)
+class CodeBehaviorFact:
+    """Observed static behavior fact, independent of documented intent."""
+
+    id: str
+    behavior: PurposeBehavior
+    confidence: Confidence
+    rule_id: str
+    provenance: SourceProvenance
+
+
+@dataclass(frozen=True)
+class AlignmentLink:
+    """Comparison between one behavior fact and explicit instruction claims."""
+
+    fact_id: str
+    claim_ids: tuple[str, ...]
+    relation: AlignmentRelation
+    reason_code: str
+
+
+@dataclass(frozen=True)
+class PurposeAlignmentAssessment:
+    """Independent instruction-to-code alignment assessment."""
+
+    schema_version: str
+    contract_sha256: str
+    fact_policy_sha256: str
+    verdict: PurposeAlignmentVerdict
+    coverage_status: CoverageStatus
+    coverage_reasons: tuple[str, ...]
+    reason_codes: tuple[str, ...]
+    package_analysis_digest: str | None
+    package_analysis_digest_version: int | None
+    claims: tuple[InstructionClaim, ...]
+    facts: tuple[CodeBehaviorFact, ...]
+    links: tuple[AlignmentLink, ...]
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return the strict JSON artifact representation."""
+        data = asdict(self)
+        data["coverage_reasons"] = list(self.coverage_reasons)
+        data["reason_codes"] = list(self.reason_codes)
+        data["claims"] = [asdict(claim) for claim in self.claims]
+        data["facts"] = [asdict(fact) for fact in self.facts]
+        data["links"] = [
+            {
+                **asdict(link),
+                "claim_ids": list(link.claim_ids),
+            }
+            for link in self.links
+        ]
+        return data
+
+
+@dataclass(frozen=True)
 class PackageOutcome:
     """Independent evidence and coverage axes for one scanned package."""
 
@@ -88,6 +169,7 @@ class PackageOutcome:
     coverage_reasons: tuple[str, ...] = ()
     package_analysis_digest: str | None = None
     package_analysis_digest_version: int | None = None
+    purpose_alignment: PurposeAlignmentAssessment | None = None
 
 
 @dataclass(frozen=True)
@@ -197,6 +279,7 @@ class ScanResult:
     engine: str | None = None
     rulepack_fingerprint: str | None = None
     scan_fingerprint: str | None = None
+    purpose_alignment_counts: dict[PurposeAlignmentVerdict, int] = field(default_factory=dict)
 
     @property
     def assessment_counts(self) -> dict[AssessmentState, int]:

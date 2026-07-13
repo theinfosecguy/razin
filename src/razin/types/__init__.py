@@ -2,7 +2,9 @@
 
 from .cache import CacheFileEntry, CacheNamespace, CachePayload
 from .common import (
+    AlignmentRelation,
     AssessmentState,
+    ClaimPolarity,
     Classification,
     Confidence,
     CoverageStatus,
@@ -10,6 +12,8 @@ from .common import (
     JsonObject,
     JsonScalar,
     JsonValue,
+    PurposeAlignmentVerdict,
+    PurposeBehavior,
     RuleDisableSource,
     Severity,
     SignalKind,
@@ -31,7 +35,9 @@ __all__ = [
     "CacheNamespace",
     "CachePayload",
     "AssessmentState",
+    "AlignmentRelation",
     "Classification",
+    "ClaimPolarity",
     "Confidence",
     "CoverageStatus",
     "DataSensitivityConfig",
@@ -49,6 +55,8 @@ __all__ = [
     "Severity",
     "SignalKind",
     "PackageAnalysisConfig",
+    "PurposeAlignmentVerdict",
+    "PurposeBehavior",
     "ToolTierConfig",
     "WorkspaceEvidenceVerdict",
     "WorkspaceAssessment",

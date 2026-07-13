@@ -6,13 +6,14 @@ from pathlib import Path
 
 from razin.constants.reporting import (
     FINDINGS_FILENAME,
+    PURPOSE_ALIGNMENT_FILENAME,
     REPORT_TEMP_PREFIX,
     REPORT_TEMP_SUFFIX,
     SCHEMA_VERSION,
     SUMMARY_FILENAME,
 )
 from razin.io import write_json_atomic
-from razin.model import Finding, Summary
+from razin.model import Finding, PurposeAlignmentAssessment, Summary
 from razin.scanner.assessment import evidence_verdict_for_package
 from razin.scanner.score import (
     aggregate_overall_score,
@@ -41,6 +42,7 @@ def write_skill_reports(
     disable_sources: dict[str, RuleDisableSource] | None = None,
     coverage_status: CoverageStatus = "not-evaluated",
     coverage_reasons: tuple[str, ...] = (),
+    purpose_alignment: PurposeAlignmentAssessment | None = None,
 ) -> Summary:
     """Write findings and summary JSON for a skill and return the summary."""
     skill_dir = out_root / skill_name
@@ -76,6 +78,13 @@ def write_skill_reports(
         temp_prefix=REPORT_TEMP_PREFIX,
         temp_suffix=REPORT_TEMP_SUFFIX,
     )
+    if purpose_alignment is not None:
+        write_json_atomic(
+            path=skill_dir / PURPOSE_ALIGNMENT_FILENAME,
+            payload=purpose_alignment.to_dict(),
+            temp_prefix=REPORT_TEMP_PREFIX,
+            temp_suffix=REPORT_TEMP_SUFFIX,
+        )
 
     return summary
 

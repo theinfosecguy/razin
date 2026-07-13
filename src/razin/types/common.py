@@ -30,6 +30,18 @@ type WorkspaceEvidenceVerdict = Literal[
     "no-actionable-malicious-evidence",
 ]
 type CoverageStatus = Literal["complete", "incomplete", "not-evaluated"]
+type PurposeBehavior = Literal[
+    "sensitive-data-transmission",
+    "remote-content-execution",
+]
+type ClaimPolarity = Literal["declared", "denied"]
+type AlignmentRelation = Literal["supported", "contradicted", "undocumented", "unresolved"]
+type PurposeAlignmentVerdict = Literal[
+    "consistent-with-declared-purpose",
+    "misaligned-with-declared-purpose",
+    "unknown",
+    "not-applicable",
+]
 
 # Deprecated Python compatibility aliases. Version 3 reports no longer
 # serialize these lossy composite states.
