@@ -19,7 +19,7 @@ env:
 jobs:
   benchmark:
     if: ${{ inputs.confirm_academic_license }}
-    name: Real-corpus quality gates
+    name: Real-corpus measurement and baseline status
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -69,6 +69,14 @@ jobs:
           --gates benchmarks/gates/malskillbench.json
           --output benchmark-results/malskillbench.json
           --features-output benchmark-results/malskillbench-features.json
+
+      - name: Record baseline as not evaluated without trusted grouping
+        if: ${{ always() && hashFiles('benchmark-results/malskillbench-features.json') != '' }}
+        run: >-
+          uv run python scripts/evaluate_baseline.py
+          --features benchmark-results/malskillbench-features.json
+          --config benchmarks/baselines/bernoulli-nb-v1.json
+          --output benchmark-results/malskillbench-baseline.json
 
       - name: Upload benchmark report
         if: always()

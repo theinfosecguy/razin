@@ -14,7 +14,7 @@ env:
 
 jobs:
   benchmark:
-    name: Semantic gate and feature export
+    name: Semantic gate and grouped baseline
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -42,6 +42,15 @@ jobs:
           --gates benchmarks/gates/synthetic.json
           --output benchmark-results/synthetic.json
           --features-output benchmark-results/synthetic-features.json
+
+      - name: Run authoritative grouped reference baseline
+        if: ${{ always() && hashFiles('benchmark-results/synthetic-features.json') != '' }}
+        run: >-
+          uv run python scripts/evaluate_baseline.py
+          --features benchmark-results/synthetic-features.json
+          --groups benchmarks/synthetic/groups.json
+          --config benchmarks/baselines/bernoulli-nb-v1.json
+          --output benchmark-results/synthetic-baseline.json
 
       - name: Upload benchmark report
         if: always()

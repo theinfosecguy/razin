@@ -1,0 +1,387 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/theinfosecguy/razin/schemas/baseline_report.schema.json",
+  "title": "Razin Grouped Interpretable Baseline Report",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "status",
+    "purpose",
+    "reason_codes",
+    "configuration",
+    "provenance",
+    "grouping",
+    "metrics",
+    "folds",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "status": { "enum": ["evaluated", "not-evaluated"] },
+    "purpose": { "const": "research-only-interpretable-baseline" },
+    "reason_codes": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "configuration": { "$ref": "#/$defs/Configuration" },
+    "provenance": { "$ref": "#/$defs/Provenance" },
+    "grouping": {
+      "anyOf": [
+        { "$ref": "#/$defs/Grouping" },
+        { "type": "null" }
+      ]
+    },
+    "metrics": {
+      "anyOf": [
+        { "$ref": "#/$defs/MetricsBundle" },
+        { "type": "null" }
+      ]
+    },
+    "folds": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Fold" }
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "evaluated" } } },
+      "then": {
+        "properties": {
+          "reason_codes": { "maxItems": 0 },
+          "grouping": { "$ref": "#/$defs/Grouping" },
+          "metrics": { "$ref": "#/$defs/MetricsBundle" },
+          "folds": { "minItems": 2 }
+        }
+      },
+      "else": {
+        "properties": {
+          "reason_codes": { "minItems": 1 },
+          "grouping": { "type": "null" },
+          "metrics": { "type": "null" },
+          "folds": { "maxItems": 0 }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "Sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "Configuration": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "method",
+        "alpha",
+        "folds",
+        "class_prior",
+        "decision_threshold",
+        "tie_break",
+        "feature_space",
+        "component_policy",
+        "fold_assignment",
+        "coverage_policy"
+      ],
+      "properties": {
+        "schema_version": { "const": "1.0" },
+        "method": { "const": "bernoulli-nb" },
+        "alpha": { "const": 1.0 },
+        "folds": { "const": 3 },
+        "class_prior": { "const": "empirical" },
+        "decision_threshold": { "const": 0.0 },
+        "tie_break": { "const": "benign" },
+        "feature_space": { "const": "training-fold-only" },
+        "component_policy": { "const": "campaign-lineage-connected-components" },
+        "fold_assignment": { "const": "deterministic-label-balanced-components" },
+        "coverage_policy": { "const": "abstain-and-count-as-opposite-class-error" }
+      },
+      "additionalProperties": false
+    },
+    "Provenance": {
+      "type": "object",
+      "required": [
+        "feature_artifact_sha256",
+        "feature_contract_sha256",
+        "config_sha256",
+        "grouping_sidecar_sha256",
+        "baseline_source_sha256",
+        "baseline_report_schema_sha256",
+        "baseline_config_schema_sha256",
+        "benchmark_groups_schema_sha256"
+      ],
+      "properties": {
+        "feature_artifact_sha256": { "$ref": "#/$defs/Sha256" },
+        "feature_contract_sha256": { "$ref": "#/$defs/Sha256" },
+        "config_sha256": { "$ref": "#/$defs/Sha256" },
+        "grouping_sidecar_sha256": {
+          "anyOf": [{ "$ref": "#/$defs/Sha256" }, { "type": "null" }]
+        },
+        "baseline_source_sha256": { "$ref": "#/$defs/Sha256" },
+        "baseline_report_schema_sha256": { "$ref": "#/$defs/Sha256" },
+        "baseline_config_schema_sha256": { "$ref": "#/$defs/Sha256" },
+        "benchmark_groups_schema_sha256": { "$ref": "#/$defs/Sha256" }
+      },
+      "additionalProperties": false
+    },
+    "Authority": {
+      "type": "object",
+      "required": ["status", "source", "manifest_sha256"],
+      "properties": {
+        "status": { "const": "authoritative" },
+        "source": { "type": "string", "minLength": 1 },
+        "manifest_sha256": { "$ref": "#/$defs/Sha256" }
+      },
+      "additionalProperties": false
+    },
+    "Component": {
+      "type": "object",
+      "required": ["component_id", "sample_ids", "relationship_ids"],
+      "properties": {
+        "component_id": { "type": "string", "pattern": "^component-[0-9a-f]{16}$" },
+        "sample_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "relationship_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "Grouping": {
+      "type": "object",
+      "required": [
+        "authority",
+        "relationship_count",
+        "component_count",
+        "requested_folds",
+        "used_folds",
+        "components"
+      ],
+      "properties": {
+        "authority": { "$ref": "#/$defs/Authority" },
+        "relationship_count": { "type": "integer", "minimum": 1 },
+        "component_count": { "type": "integer", "minimum": 2 },
+        "requested_folds": { "type": "integer", "minimum": 2 },
+        "used_folds": { "type": "integer", "minimum": 2 },
+        "components": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "$ref": "#/$defs/Component" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Metrics": {
+      "type": "object",
+      "required": [
+        "samples",
+        "positive",
+        "negative",
+        "true_positive",
+        "false_positive",
+        "false_negative",
+        "true_negative",
+        "abstentions",
+        "abstention_rate",
+        "coverage_failures",
+        "coverage_failure_rate",
+        "precision",
+        "recall",
+        "f1",
+        "specificity",
+        "false_positive_rate",
+        "balanced_accuracy",
+        "matthews_correlation_coefficient"
+      ],
+      "properties": {
+        "samples": { "type": "integer", "minimum": 0 },
+        "positive": { "type": "integer", "minimum": 0 },
+        "negative": { "type": "integer", "minimum": 0 },
+        "true_positive": { "type": "integer", "minimum": 0 },
+        "false_positive": { "type": "integer", "minimum": 0 },
+        "false_negative": { "type": "integer", "minimum": 0 },
+        "true_negative": { "type": "integer", "minimum": 0 },
+        "abstentions": { "type": "integer", "minimum": 0 },
+        "abstention_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "coverage_failures": { "type": "integer", "minimum": 0 },
+        "coverage_failure_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "precision": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "recall": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "f1": { "type": "number", "minimum": 0, "maximum": 1 },
+        "specificity": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "false_positive_rate": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "balanced_accuracy": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "matthews_correlation_coefficient": { "type": ["number", "null"], "minimum": -1, "maximum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "Range": {
+      "type": "object",
+      "required": ["min", "max"],
+      "properties": {
+        "min": { "type": "number" },
+        "max": { "type": "number" }
+      },
+      "additionalProperties": false
+    },
+    "MetricRanges": {
+      "type": "object",
+      "required": [
+        "precision",
+        "recall",
+        "specificity",
+        "false_positive_rate",
+        "balanced_accuracy",
+        "matthews_correlation_coefficient"
+      ],
+      "properties": {
+        "precision": { "anyOf": [{ "$ref": "#/$defs/Range" }, { "type": "null" }] },
+        "recall": { "anyOf": [{ "$ref": "#/$defs/Range" }, { "type": "null" }] },
+        "specificity": { "anyOf": [{ "$ref": "#/$defs/Range" }, { "type": "null" }] },
+        "false_positive_rate": { "anyOf": [{ "$ref": "#/$defs/Range" }, { "type": "null" }] },
+        "balanced_accuracy": { "anyOf": [{ "$ref": "#/$defs/Range" }, { "type": "null" }] },
+        "matthews_correlation_coefficient": {
+          "anyOf": [{ "$ref": "#/$defs/Range" }, { "type": "null" }]
+        }
+      },
+      "additionalProperties": false
+    },
+    "MetricsBundle": {
+      "type": "object",
+      "required": ["bernoulli_nb", "majority", "bernoulli_nb_fold_ranges", "majority_fold_ranges"],
+      "properties": {
+        "bernoulli_nb": { "$ref": "#/$defs/Metrics" },
+        "majority": { "$ref": "#/$defs/Metrics" },
+        "bernoulli_nb_fold_ranges": { "$ref": "#/$defs/MetricRanges" },
+        "majority_fold_ranges": { "$ref": "#/$defs/MetricRanges" }
+      },
+      "additionalProperties": false
+    },
+    "Support": {
+      "type": "object",
+      "required": ["samples", "complete", "malicious_complete", "benign_complete"],
+      "properties": {
+        "samples": { "type": "integer", "minimum": 0 },
+        "complete": { "type": "integer", "minimum": 0 },
+        "malicious_complete": { "type": "integer", "minimum": 0 },
+        "benign_complete": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "TestSupport": {
+      "type": "object",
+      "required": ["samples", "malicious", "benign"],
+      "properties": {
+        "samples": { "type": "integer", "minimum": 1 },
+        "malicious": { "type": "integer", "minimum": 0 },
+        "benign": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "FeatureParameter": {
+      "type": "object",
+      "required": [
+        "rule_id",
+        "malicious_presence_probability",
+        "benign_presence_probability",
+        "present_log_odds_contribution",
+        "absent_log_odds_contribution"
+      ],
+      "properties": {
+        "rule_id": { "type": "string" },
+        "malicious_presence_probability": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
+        "benign_presence_probability": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
+        "present_log_odds_contribution": { "type": "number" },
+        "absent_log_odds_contribution": { "type": "number" }
+      },
+      "additionalProperties": false
+    },
+    "Model": {
+      "type": "object",
+      "required": ["prior_log_odds", "vocabulary", "feature_parameters"],
+      "properties": {
+        "prior_log_odds": { "type": "number" },
+        "vocabulary": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "feature_parameters": { "type": "array", "items": { "$ref": "#/$defs/FeatureParameter" } }
+      },
+      "additionalProperties": false
+    },
+    "Contribution": {
+      "type": "object",
+      "required": ["rule_id", "present", "malicious_log_odds_contribution"],
+      "properties": {
+        "rule_id": { "type": "string" },
+        "present": { "type": "boolean" },
+        "malicious_log_odds_contribution": { "type": "number" }
+      },
+      "additionalProperties": false
+    },
+    "Prediction": {
+      "type": "object",
+      "required": [
+        "sample_id",
+        "label",
+        "coverage_status",
+        "decision",
+        "penalized_prediction",
+        "malicious_log_odds",
+        "feature_contributions"
+      ],
+      "properties": {
+        "sample_id": { "type": "string" },
+        "label": { "enum": ["benign", "malicious"] },
+        "coverage_status": { "enum": ["complete", "incomplete", "not-evaluated"] },
+        "decision": { "enum": ["benign", "malicious", "abstain"] },
+        "penalized_prediction": { "enum": ["benign", "malicious"] },
+        "malicious_log_odds": { "type": ["number", "null"] },
+        "feature_contributions": { "type": "array", "items": { "$ref": "#/$defs/Contribution" } }
+      },
+      "additionalProperties": false
+    },
+    "Fold": {
+      "type": "object",
+      "required": [
+        "fold",
+        "held_out_component_ids",
+        "train_support",
+        "test_support",
+        "model",
+        "majority_training_label",
+        "bernoulli_nb_metrics",
+        "majority_metrics",
+        "bernoulli_nb_predictions",
+        "majority_predictions"
+      ],
+      "properties": {
+        "fold": { "type": "integer", "minimum": 0 },
+        "held_out_component_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "train_support": { "$ref": "#/$defs/Support" },
+        "test_support": { "$ref": "#/$defs/TestSupport" },
+        "model": { "$ref": "#/$defs/Model" },
+        "majority_training_label": { "enum": ["benign", "malicious"] },
+        "bernoulli_nb_metrics": { "$ref": "#/$defs/Metrics" },
+        "majority_metrics": { "$ref": "#/$defs/Metrics" },
+        "bernoulli_nb_predictions": { "type": "array", "items": { "$ref": "#/$defs/Prediction" } },
+        "majority_predictions": { "type": "array", "items": { "$ref": "#/$defs/Prediction" } }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

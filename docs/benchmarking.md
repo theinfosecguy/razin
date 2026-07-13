@@ -67,6 +67,39 @@ gates, trusted configuration, scanner source, engine, rulepack, scan
 fingerprint, evaluator source, feature schema, profile, effective file-size
 limit, and executed/disabled rule surface.
 
+## Grouped interpretable baseline
+
+The reference baseline is a standard-library Bernoulli Naive Bayes model over
+eligible binary rule presence. It uses alpha 1 smoothing, empirical class
+priors, a fixed three-fold contract, a zero log-odds threshold, and benign
+tie-breaking. Each fold learns its vocabulary and parameters from its training
+groups only.
+
+```bash
+uv run python scripts/evaluate_baseline.py \
+  --features benchmark-results/synthetic-features.json \
+  --groups benchmarks/synthetic/groups.json \
+  --config benchmarks/baselines/bernoulli-nb-v1.json \
+  --output benchmark-results/synthetic-baseline.json
+```
+
+The grouping sidecar must be explicitly authoritative, bind the exact feature
+artifact manifest digest, and cover every sample.
+Campaign and lineage relationships plus singleton independent samples are
+collapsed into connected components before deterministic label-balanced fold assignment, so no related
+component can cross train and test. Missing authoritative grouping produces a
+`not-evaluated` report, not a random or filename-derived split. The pinned
+MalSkillBench workflow intentionally records that state because its released
+corpus does not provide an authoritative campaign/lineage mapping.
+
+Samples with incomplete or unevaluated static coverage abstain. They remain in
+the denominator and are conservatively counted as the opposite-class error, so
+coverage gaps cannot improve the reference score. Reports include the complete
+confusion matrix, precision, recall, specificity, false-positive rate,
+balanced accuracy, Matthews correlation coefficient, fold ranges, majority
+comparison, and per-feature log-odds contributions. This remains a research
+diagnostic, not a deployable malicious-skill classifier.
+
 ## Manifest format
 
 ```json
