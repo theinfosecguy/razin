@@ -609,6 +609,9 @@ def scan_workspace(
         evidence_verdict_counts=evidence_verdict_counts,
         coverage_counts=coverage_counts,
         package_outcomes=package_outcomes,
+        engine=resolved_engine,
+        rulepack_fingerprint=rulepack_fingerprint,
+        scan_fingerprint=scan_fp,
     )
 
 

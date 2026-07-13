@@ -33,10 +33,39 @@ green.
 uv run python scripts/evaluate_corpus.py \
   --manifest benchmarks/synthetic/manifest.json \
   --gates benchmarks/gates/synthetic.json \
-  --output benchmark-results/synthetic.json
+  --output benchmark-results/synthetic.json \
+  --features-output benchmark-results/synthetic-features.json
 ```
 
 This is a regression gate, not evidence of real-world detector quality.
+
+## Detector feature export
+
+`--features-output` writes a deterministic, research-only artifact. The
+extractor sees findings only: labels, sample IDs, paths, evidence text,
+coverage, grouping metadata, and package digests cannot influence feature
+selection. Each sample is structurally separated into `features`, `target`,
+`metadata`, and `audit` objects. A baseline may read only
+`features.present_rule_ids` as model input.
+
+Analysis-gap rules, inventory metadata, unknown rules, and `TYPOSQUAT` are
+ineligible. `TYPOSQUAT` is excluded because its automatic workspace baseline
+can observe held-out package names. Rules driven by operator-configured
+indicators, denylists, allowlists, service keywords, tool prefixes, or known-bad
+domains are also excluded because a corpus-tuned configuration could encode
+labels. The artifact records counts and maximum weights under `audit`, while a
+canonical contract hash binds the complete rule-to-eligibility mapping. Stored
+1.0 artifacts remain verifiable against the immutable
+`schemas/v1/detector_features.schema.json` schema; the root schema tracks the
+latest version.
+
+Diagnostic family and filename-derived groups remain metadata. The export
+marks campaign and lineage grouping as unavailable, so they cannot be mistaken
+for authoritative holdout keys. An authoritative grouped evaluation requires a
+separate, trusted grouping sidecar. Provenance records the corpus, manifest,
+gates, trusted configuration, scanner source, engine, rulepack, scan
+fingerprint, evaluator source, feature schema, profile, effective file-size
+limit, and executed/disabled rule surface.
 
 ## Manifest format
 
@@ -118,7 +147,8 @@ uv run python scripts/build_malskillbench_manifest.py \
 uv run python scripts/evaluate_corpus.py \
   --manifest /tmp/malskillbench-manifest.json \
   --gates benchmarks/gates/malskillbench.json \
-  --output benchmark-results/malskillbench.json
+  --output benchmark-results/malskillbench.json \
+  --features-output benchmark-results/malskillbench-features.json
 ```
 
 The real gate intentionally remains `review-required` until a corrected

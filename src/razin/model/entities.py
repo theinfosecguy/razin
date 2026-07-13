@@ -194,6 +194,9 @@ class ScanResult:
     evidence_verdict_counts: dict[EvidenceVerdict, int] = field(default_factory=dict)
     coverage_counts: dict[CoverageStatus, int] = field(default_factory=dict)
     package_outcomes: tuple[PackageOutcome, ...] = field(default_factory=tuple)
+    engine: str | None = None
+    rulepack_fingerprint: str | None = None
+    scan_fingerprint: str | None = None
 
     @property
     def assessment_counts(self) -> dict[AssessmentState, int]:

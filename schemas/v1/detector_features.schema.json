@@ -1,0 +1,206 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/theinfosecguy/razin/schemas/v1/detector_features.schema.json",
+  "title": "Razin Detector Feature Artifact",
+  "type": "object",
+  "required": ["schema_version", "benchmark", "status", "contract", "provenance", "scanner", "samples"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "benchmark": { "type": "string" },
+    "status": { "const": "research-only" },
+    "contract": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "representation",
+        "model_input",
+        "model_input_fields",
+        "evaluation_metadata_fields",
+        "excluded_signal_kinds",
+        "excluded_rule_ids",
+        "rule_eligibility",
+        "unknown_rule_policy",
+        "forbidden_inputs"
+      ],
+      "properties": {
+        "schema_version": { "const": "1.0" },
+        "representation": { "const": "binary-rule-presence-v1" },
+        "model_input": { "type": "string" },
+        "model_input_fields": { "const": ["features.present_rule_ids"] },
+        "evaluation_metadata_fields": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "excluded_signal_kinds": { "type": "object", "additionalProperties": { "type": "string" } },
+        "excluded_rule_ids": { "type": "object", "additionalProperties": { "type": "string" } },
+        "rule_eligibility": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/Eligibility" }
+        },
+        "unknown_rule_policy": { "$ref": "#/$defs/Eligibility" },
+        "forbidden_inputs": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+      },
+      "additionalProperties": false
+    },
+    "provenance": {
+      "type": "object",
+      "required": [
+        "manifest_sha256",
+        "gates_sha256",
+        "trusted_config_sha256",
+        "corpus_sha256",
+        "scanner_version",
+        "scanner_source_sha256",
+        "evaluator_source_sha256",
+        "feature_schema_sha256",
+        "feature_contract_sha256"
+      ],
+      "properties": {
+        "manifest_sha256": { "$ref": "#/$defs/Sha256" },
+        "gates_sha256": { "anyOf": [{ "$ref": "#/$defs/Sha256" }, { "type": "null" }] },
+        "trusted_config_sha256": { "$ref": "#/$defs/Sha256" },
+        "corpus_sha256": { "$ref": "#/$defs/Sha256" },
+        "scanner_version": { "type": "string", "minLength": 1 },
+        "scanner_source_sha256": { "$ref": "#/$defs/Sha256" },
+        "evaluator_source_sha256": { "$ref": "#/$defs/Sha256" },
+        "feature_schema_sha256": { "$ref": "#/$defs/Sha256" },
+        "feature_contract_sha256": { "$ref": "#/$defs/Sha256" }
+      },
+      "additionalProperties": false
+    },
+    "scanner": {
+      "type": "object",
+      "required": [
+        "engine",
+        "rulepack_fingerprint",
+        "scan_fingerprint",
+        "profile",
+        "max_file_mb",
+        "rules_executed",
+        "rules_disabled"
+      ],
+      "properties": {
+        "engine": { "type": "string", "minLength": 1 },
+        "rulepack_fingerprint": { "$ref": "#/$defs/Sha256" },
+        "scan_fingerprint": { "$ref": "#/$defs/Sha256" },
+        "profile": { "type": "string", "minLength": 1 },
+        "max_file_mb": { "type": "integer", "minimum": 1 },
+        "rules_executed": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "rules_disabled": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+      },
+      "additionalProperties": false
+    },
+    "samples": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["features", "target", "metadata", "audit"],
+        "properties": {
+          "features": {
+            "type": "object",
+            "required": ["present_rule_ids"],
+            "properties": {
+              "present_rule_ids": {
+                "type": "array",
+                "items": { "type": "string" },
+                "uniqueItems": true
+              }
+            },
+            "additionalProperties": false
+          },
+          "target": {
+            "type": "object",
+            "required": ["label"],
+            "properties": { "label": { "enum": ["benign", "malicious"] } },
+            "additionalProperties": false
+          },
+          "metadata": {
+            "type": "object",
+            "required": [
+              "id",
+              "coverage_status",
+              "package_analysis_digest",
+              "package_analysis_digest_version",
+              "diagnostic_family",
+              "diagnostic_group",
+              "diagnostic_family_authoritative",
+              "diagnostic_group_authoritative",
+              "campaign_lineage_authoritative"
+            ],
+            "properties": {
+              "id": { "type": "string" },
+              "coverage_status": { "enum": ["complete", "incomplete", "not-evaluated"] },
+              "package_analysis_digest": {
+                "anyOf": [{ "$ref": "#/$defs/Sha256" }, { "type": "null" }]
+              },
+              "package_analysis_digest_version": { "type": ["integer", "null"], "minimum": 1 },
+              "diagnostic_family": { "type": "string" },
+              "diagnostic_group": { "type": ["string", "null"] },
+              "diagnostic_family_authoritative": { "type": "boolean" },
+              "diagnostic_group_authoritative": { "const": false },
+              "campaign_lineage_authoritative": { "const": false }
+            },
+            "additionalProperties": false
+          },
+          "audit": {
+            "type": "object",
+            "required": ["rules"],
+            "properties": {
+              "rules": { "type": "array", "items": { "$ref": "#/$defs/RuleFeature" } }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "$defs": {
+    "Sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "Eligibility": {
+      "type": "object",
+      "required": ["signal_kind", "model_eligible", "exclusion_reason"],
+      "properties": {
+        "signal_kind": {
+          "enum": [
+            "capability",
+            "review",
+            "dangerous_behavior",
+            "known_malicious_ioc",
+            "integrity_violation",
+            "attack_chain",
+            "analysis_gap"
+          ]
+        },
+        "model_eligible": { "type": "boolean" },
+        "exclusion_reason": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "RuleFeature": {
+      "type": "object",
+      "required": ["rule_id", "count", "max_score", "signal_kind", "model_eligible", "exclusion_reason"],
+      "properties": {
+        "rule_id": { "type": "string" },
+        "count": { "type": "integer", "minimum": 1 },
+        "max_score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "signal_kind": {
+          "enum": [
+            "capability",
+            "review",
+            "dangerous_behavior",
+            "known_malicious_ioc",
+            "integrity_violation",
+            "attack_chain",
+            "analysis_gap"
+          ]
+        },
+        "model_eligible": { "type": "boolean" },
+        "exclusion_reason": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
