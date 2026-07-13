@@ -185,10 +185,10 @@ _AFFIRMATIVE_HELPER_REFERENCE_PATTERN = re.compile(
     r"(?:call(?:s)?|execute(?:s)?|invoke(?:s)?|launch(?:es)?|load(?:s)?|run(?:s)?|start(?:s)?|use(?:s)?)\b",
     re.IGNORECASE,
 )
-_HELPER_LAUNCH_PREFIX_PATTERN = re.compile(
-    r"^\s*[`'\"(]*\s*(?:(?:bash|bun|deno|node|perl|python3?|ruby|sh|zsh)\s+)?" r"(?:(?:--?[A-Za-z0-9_-]+)\s+)*$",
-    re.IGNORECASE,
+_HELPER_INTERPRETERS = frozenset(
+    {"bash", "bun", "deno", "node", "perl", "python", "python2", "python3", "ruby", "sh", "zsh"}
 )
+_HELPER_FLAG_PATTERN = re.compile(r"-{1,2}[A-Za-z0-9_-]+\Z")
 _HELPER_TERMINAL_TAIL_PATTERN = re.compile(r"^\s*[`'\"\])}]*\s*[.!;:]?\s*$")
 _NON_AFFIRMATIVE_HELPER_REFERENCE_PATTERN = re.compile(
     r"\b(?:avoid|benchmarks?|ci|comparisons?|demos?|deprecated|development|dev|do not|docs?|"
@@ -345,7 +345,8 @@ def purpose_alignment_contract() -> dict[str, object]:
             "html_tag_strip": _HTML_TAG_STRIP_PATTERN.pattern,
             "html_void_tags": sorted(_HTML_VOID_TAGS),
             "affirmative_helper_reference": _AFFIRMATIVE_HELPER_REFERENCE_PATTERN.pattern,
-            "helper_launch_prefix": _HELPER_LAUNCH_PREFIX_PATTERN.pattern,
+            "helper_interpreters": sorted(_HELPER_INTERPRETERS),
+            "helper_flag": _HELPER_FLAG_PATTERN.pattern,
             "helper_terminal_tail": _HELPER_TERMINAL_TAIL_PATTERN.pattern,
             "non_affirmative_helper_reference": _NON_AFFIRMATIVE_HELPER_REFERENCE_PATTERN.pattern,
             "execution_surface": _EXECUTION_SURFACE_PATTERN.pattern,
@@ -496,6 +497,17 @@ def _advance_excluded_html_stack(raw_line: str, stack: list[str]) -> None:
             stack.append(tag)
 
 
+def _strip_inline_html_comments(raw_line: str) -> str:
+    stripped = raw_line
+    while "<!--" in stripped:
+        before, _marker, remainder = stripped.partition("<!--")
+        _comment, closing, after = remainder.partition("-->")
+        if not closing:
+            return before
+        stripped = before + after
+    return stripped
+
+
 def _instruction_lines(skill_text: str) -> Iterable[tuple[int, str]]:
     """Yield claim-eligible prose while excluding examples, comments, and code."""
     lines = skill_text.splitlines()
@@ -535,7 +547,7 @@ def _instruction_lines(skill_text: str) -> Iterable[tuple[int, str]]:
                 in_html_comment = True
                 index += 1
                 continue
-            raw_line = re.sub(r"<!--.*?-->", "", raw_line)
+            raw_line = _strip_inline_html_comments(raw_line)
             stripped = raw_line.strip()
         if _MARKDOWN_COMMENT_PATTERN.match(raw_line):
             index += 1
@@ -623,6 +635,18 @@ def _eligible_instruction_source_lines(skill_text: str) -> dict[int, str]:
     return {line_number: raw_lines[line_number - 1] for line_number, _processed_line in _instruction_lines(skill_text)}
 
 
+def _valid_helper_launch_prefix(prefix: str) -> bool:
+    normalized = prefix.strip()
+    while normalized.startswith(("`", "'", '"', "(")):
+        normalized = normalized[1:].lstrip()
+    if not normalized:
+        return True
+    tokens = normalized.split()
+    if tokens and tokens[0].lower() in _HELPER_INTERPRETERS:
+        tokens = tokens[1:]
+    return all(_HELPER_FLAG_PATTERN.fullmatch(token) is not None for token in tokens)
+
+
 def _has_affirmative_helper_reference(
     line: str,
     relative_path: str,
@@ -643,7 +667,7 @@ def _has_affirmative_helper_reference(
     target = target_pattern.search(line, action.end())
     if target is None:
         return False
-    if _HELPER_LAUNCH_PREFIX_PATTERN.fullmatch(line[action.end() : target.start()]) is None:
+    if not _valid_helper_launch_prefix(line[action.end() : target.start()]):
         return False
     return _HELPER_TERMINAL_TAIL_PATTERN.fullmatch(line[target.end() :]) is not None
 
