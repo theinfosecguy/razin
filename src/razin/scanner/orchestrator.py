@@ -10,7 +10,7 @@ import time
 from dataclasses import replace
 from pathlib import Path
 
-from razin.config import config_fingerprint, load_config
+from razin.config import config_fingerprint, load_config, package_analysis_fingerprint
 from razin.constants.cache import CACHE_FILENAME
 from razin.constants.config import CONFIG_FILENAME
 from razin.constants.discovery import AUTO_TYPOSQUAT_BASELINE_MAX_SKILLS
@@ -21,6 +21,7 @@ from razin.constants.profiles import VALID_PROFILES
 from razin.constants.reporting import (
     CSV_FINDINGS_FILENAME,
     FINDINGS_FILENAME,
+    PURPOSE_ALIGNMENT_FILENAME,
     SARIF_FINDINGS_FILENAME,
     SUMMARY_FILENAME,
     VALID_OUTPUT_FORMATS,
@@ -29,7 +30,7 @@ from razin.dsl import DslEngine
 from razin.exceptions import ConfigError, SkillParseError
 from razin.exceptions.dsl import DslError
 from razin.io import file_sha256
-from razin.model import PackageOutcome, ScanResult
+from razin.model import FindingCandidate, PackageOutcome, PurposeAlignmentAssessment, ScanResult
 from razin.parsers import parse_skill_markdown_file
 from razin.reporting.filters import OutputFilters, build_filter_metadata, filter_findings
 from razin.scanner.assessment import (
@@ -71,8 +72,24 @@ from razin.scanner.pipeline.rule_selection import (
     resolve_detector_toggles,
     resolve_effective_rule_selection,
 )
+from razin.scanner.purpose_alignment import (
+    FACT_RULE_BEHAVIORS,
+    PURPOSE_FACT_CANDIDATE_LIMIT,
+    PurposeAlignmentInputs,
+    collect_purpose_alignment_inputs,
+    finalize_purpose_alignment,
+    has_potential_executable_implementation,
+    purpose_fact_policy_sha256,
+)
 from razin.scanner.score import aggregate_overall_score, aggregate_severity, rule_counts, severity_counts
-from razin.types import CacheFileEntry, CoverageStatus, RuleDisableSource, RuleOverrideConfig, Severity
+from razin.types import (
+    CacheFileEntry,
+    CoverageStatus,
+    PurposeAlignmentVerdict,
+    RuleDisableSource,
+    RuleOverrideConfig,
+    Severity,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -105,9 +122,32 @@ def _generated_output_exclusions(
     skill_paths = tuple(
         path
         for skill_name in skill_names
-        for path in (out / skill_name / FINDINGS_FILENAME, out / skill_name / SUMMARY_FILENAME)
+        for path in (
+            out / skill_name / FINDINGS_FILENAME,
+            out / skill_name / SUMMARY_FILENAME,
+            out / skill_name / PURPOSE_ALIGNMENT_FILENAME,
+        )
     )
     return (*global_paths, *skill_paths)
+
+
+def _limit_emitted_package_candidates(
+    candidates: tuple[FindingCandidate, ...],
+    *,
+    executed_rule_ids: frozenset[str],
+    max_per_rule: int,
+) -> list[FindingCandidate]:
+    counts: dict[str, int] = {}
+    selected: list[FindingCandidate] = []
+    for candidate in candidates:
+        if candidate.rule_id not in executed_rule_ids:
+            continue
+        count = counts.get(candidate.rule_id, 0)
+        if count >= max_per_rule:
+            continue
+        counts[candidate.rule_id] = count + 1
+        selected.append(candidate)
+    return selected
 
 
 def scan_workspace(
@@ -264,6 +304,18 @@ def scan_workspace(
     executed_package_rule_ids = frozenset(
         rule_id for rule_id in selection.executed_rule_ids if rule_id in PACKAGE_RULE_IDS
     )
+    purpose_analysis_rule_ids = executed_package_rule_ids | frozenset(FACT_RULE_BEHAVIORS)
+    purpose_candidate_limit = max(
+        config.package_analysis.max_findings_per_rule,
+        PURPOSE_FACT_CANDIDATE_LIMIT,
+    )
+    purpose_analysis_config = replace(
+        config,
+        package_analysis=replace(
+            config.package_analysis,
+            max_findings_per_rule=purpose_candidate_limit,
+        ),
+    )
     rulepack_fingerprint = dsl_engine.fingerprint()
     active_rule_overrides = selection.active_rule_overrides
     serialized_rule_overrides = _serialize_rule_overrides(active_rule_overrides)
@@ -275,6 +327,7 @@ def scan_workspace(
     coverage_by_skill: dict[str, CoverageStatus] = {}
     coverage_reasons_by_skill: dict[str, tuple[str, ...]] = {}
     package_analysis_digest_by_skill: dict[str, str | None] = {}
+    purpose_inputs_by_skill: dict[str, PurposeAlignmentInputs] = {}
     for issue in discovery_issues:
         skill_name = issue_names_by_path[issue.path]
         findings_by_skill.setdefault(skill_name, [])
@@ -299,6 +352,12 @@ def scan_workspace(
     cache_path = (out / CACHE_FILENAME) if out is not None else None
     cache_payload = new_cache() if (no_cache or out is None) else load_cache(cache_path)  # type: ignore[arg-type]
     fingerprint = config_fingerprint(config, resolved_max_file_mb)
+    purpose_fact_policy = purpose_fact_policy_sha256(
+        package_analysis_fingerprint(
+            config,
+            max_findings_per_rule_floor=PURPOSE_FACT_CANDIDATE_LIMIT,
+        )
+    )
     scan_fp = build_scan_fingerprint(
         config_fingerprint=fingerprint,
         engine=resolved_engine,
@@ -346,8 +405,8 @@ def scan_workspace(
         package_result = analyze_skill_package(
             skill_path=path,
             skill_text=skill_text,
-            config=config,
-            active_rule_ids=executed_package_rule_ids,
+            config=purpose_analysis_config,
+            active_rule_ids=purpose_analysis_rule_ids,
             excluded_paths=(
                 *excluded_paths,
                 effective_config_path,
@@ -365,6 +424,25 @@ def scan_workspace(
         coverage_reasons_by_skill[skill_name] = package_result.coverage_markers
         package_sha256 = package_result.package_sha256 if config.package_analysis.enabled else None
         package_analysis_digest_by_skill[skill_name] = package_sha256
+        manifest_sha256 = {entry.path: entry.sha256 for entry in package_result.manifest}
+        purpose_inputs_by_skill[skill_name] = collect_purpose_alignment_inputs(
+            skill_path=path,
+            skill_text=skill_text,
+            skill_source_sha256=sha256,
+            package_candidates=package_result.candidates,
+            manifest_sha256=manifest_sha256,
+            package_analysis_digest=package_sha256,
+            has_executable_implementation=has_potential_executable_implementation(
+                skill_text,
+                package_members=((entry.path, entry.mode) for entry in package_result.manifest),
+                coverage_markers=package_result.coverage_markers,
+            ),
+            fact_policy_sha256=purpose_fact_policy,
+            fact_surface_truncated=any(
+                sum(candidate.rule_id == rule_id for candidate in package_result.candidates) >= purpose_candidate_limit
+                for rule_id in FACT_RULE_BEHAVIORS
+            ),
+        )
         if mcp_dependency is not None and mcp_dependency[1] < 0:
             coverage_by_skill[skill_name] = "incomplete"
             coverage_reasons_by_skill[skill_name] = _merge_coverage_reasons(
@@ -398,7 +476,11 @@ def scan_workspace(
             continue
 
         cache_misses += 1
-        candidates = list(package_result.candidates)
+        candidates = _limit_emitted_package_candidates(
+            package_result.candidates,
+            executed_rule_ids=executed_package_rule_ids,
+            max_per_rule=config.package_analysis.max_findings_per_rule,
+        )
         try:
             parsed = parse_skill_markdown_file(path)
         except SkillParseError as exc:
@@ -486,6 +568,24 @@ def scan_workspace(
     for stale_key in set(cache_files) - discovered_keys:
         cache_files.pop(stale_key, None)
 
+    purpose_alignment_by_skill: dict[str, PurposeAlignmentAssessment] = {}
+    for skill_name in sorted(findings_by_skill):
+        purpose_input = purpose_inputs_by_skill.get(
+            skill_name,
+            PurposeAlignmentInputs(
+                claims=(),
+                facts=(),
+                package_analysis_digest=None,
+                has_executable_implementation=False,
+                fact_policy_sha256=purpose_fact_policy,
+            ),
+        )
+        purpose_alignment_by_skill[skill_name] = finalize_purpose_alignment(
+            purpose_input,
+            coverage_status=coverage_by_skill.get(skill_name, "incomplete"),
+            coverage_reasons=coverage_reasons_by_skill.get(skill_name, ("outcome-missing",)),
+        )
+
     all_findings = []
     output_filters = OutputFilters(min_severity=min_severity, security_only=security_only)
     min_rule_score = config.aggregate_min_rule_score
@@ -516,6 +616,7 @@ def scan_workspace(
                 disable_sources=_serialize_disable_sources(disable_sources),
                 coverage_status=coverage_by_skill.get(skill_name, "incomplete"),
                 coverage_reasons=coverage_reasons_by_skill.get(skill_name, ("outcome-missing",)),
+                purpose_alignment=purpose_alignment_by_skill[skill_name],
             )
         all_findings.extend(skill_findings)
 
@@ -577,9 +678,20 @@ def scan_workspace(
                 if package_analysis_digest_by_skill.get(skill_name) is not None
                 else None
             ),
+            purpose_alignment=purpose_alignment_by_skill.get(skill_name),
         )
         for skill_name in sorted(findings_by_skill)
     )
+    purpose_alignment_verdicts: tuple[PurposeAlignmentVerdict, ...] = (
+        "consistent-with-declared-purpose",
+        "misaligned-with-declared-purpose",
+        "unknown",
+        "not-applicable",
+    )
+    purpose_alignment_counts: dict[PurposeAlignmentVerdict, int] = {
+        verdict: sum(assessment.verdict == verdict for assessment in purpose_alignment_by_skill.values())
+        for verdict in purpose_alignment_verdicts
+    }
 
     sorted_findings = sorted(all_findings, key=lambda f: (-f.score, f.id))
 
@@ -609,6 +721,7 @@ def scan_workspace(
         evidence_verdict_counts=evidence_verdict_counts,
         coverage_counts=coverage_counts,
         package_outcomes=package_outcomes,
+        purpose_alignment_counts=purpose_alignment_counts,
         engine=resolved_engine,
         rulepack_fingerprint=rulepack_fingerprint,
         scan_fingerprint=scan_fp,

@@ -29,7 +29,13 @@ from razin.scanner.assessment import (
     workspace_evidence_verdict,
 )
 from razin.scanner.score import aggregate_overall_score, aggregate_severity, rule_counts
-from razin.types import CoverageStatus, EvidenceVerdict, RuleDisableSource, Severity
+from razin.types import (
+    CoverageStatus,
+    EvidenceVerdict,
+    PurposeAlignmentVerdict,
+    RuleDisableSource,
+    Severity,
+)
 
 
 def _colorize(text: str, color: str) -> str:
@@ -115,6 +121,27 @@ class StdoutReporter:
         coverage_counts = r.coverage_counts or fallback_coverage_counts
         workspace_verdict = r.workspace_evidence_verdict or workspace_evidence_verdict(evidence_verdict_counts)
         workspace_coverage = r.workspace_coverage_status or workspace_coverage_status(coverage_counts)
+        purpose_verdicts: tuple[PurposeAlignmentVerdict, ...] = (
+            "consistent-with-declared-purpose",
+            "misaligned-with-declared-purpose",
+            "unknown",
+            "not-applicable",
+        )
+        if r.purpose_alignment_counts:
+            derived_purpose_counts: dict[PurposeAlignmentVerdict, int] = {
+                verdict: r.purpose_alignment_counts.get(verdict, 0) for verdict in purpose_verdicts
+            }
+        else:
+            derived_purpose_counts = {
+                verdict: sum(
+                    outcome.purpose_alignment is not None and outcome.purpose_alignment.verdict == verdict
+                    for outcome in r.package_outcomes
+                )
+                for verdict in purpose_verdicts
+            }
+        represented_purpose_packages = sum(derived_purpose_counts.values())
+        derived_purpose_counts["unknown"] += max(0, r.scanned_files - represented_purpose_packages)
+        purpose_counts: Mapping[PurposeAlignmentVerdict, int] = derived_purpose_counts
 
         skills_with_findings = len({finding.skill for finding in r.findings})
         files_without_findings = max(0, r.scanned_files - skills_with_findings)
@@ -132,6 +159,7 @@ class StdoutReporter:
             f"  Evidence    {workspace_verdict}",
             f"  Coverage    {workspace_coverage} ({self._format_coverage_counts(coverage_counts)})",
             f"  Packages    {self._format_evidence_verdict_counts(evidence_verdict_counts)}",
+            f"  Purpose     {self._format_purpose_alignment_counts(purpose_counts)}",
             (
                 f"  Files       {r.scanned_files} scanned / {skills_with_findings} with findings / "
                 f"{files_without_findings} without findings"
@@ -351,6 +379,17 @@ class StdoutReporter:
         """Render coverage counts without combining them with evidence verdicts."""
         ordered: tuple[CoverageStatus, ...] = ("complete", "incomplete", "not-evaluated")
         return " · ".join(f"{counts.get(status, 0)} {status}" for status in ordered)
+
+    @staticmethod
+    def _format_purpose_alignment_counts(counts: Mapping[PurposeAlignmentVerdict, int]) -> str:
+        """Render the independent instruction-to-code alignment axis."""
+        ordered: tuple[tuple[PurposeAlignmentVerdict, str], ...] = (
+            ("consistent-with-declared-purpose", "consistent"),
+            ("misaligned-with-declared-purpose", "misaligned"),
+            ("unknown", "unknown"),
+            ("not-applicable", "n/a"),
+        )
+        return " · ".join(f"{counts.get(verdict, 0)} {label}" for verdict, label in ordered)
 
     def _format_filtered_summary(self, total_findings: int, shown_findings: int) -> str:
         """Render deterministic filtered-count details for header output."""

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 FINDINGS_FILENAME: str = "findings.json"
 SUMMARY_FILENAME: str = "summary.json"
+PURPOSE_ALIGNMENT_FILENAME: str = "purpose_alignment.json"
 CSV_FINDINGS_FILENAME: str = "findings.csv"
 SARIF_FINDINGS_FILENAME: str = "findings.sarif"
 REPORT_TEMP_PREFIX: str = ".tmp-"

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from dataclasses import fields
 from typing import Literal
 
 import pytest
@@ -10,7 +11,7 @@ import pytest
 from razin.constants.reporting import ANSI_GREEN, ANSI_RED, ANSI_YELLOW
 from razin.model import Evidence, Finding, ScanResult
 from razin.reporting.stdout import StdoutReporter
-from razin.types import Severity
+from razin.types import PurposeAlignmentVerdict, Severity
 
 _ANSI_PATTERN = re.compile(r"\x1b\[[0-9;]*m")
 
@@ -56,6 +57,7 @@ def _make_result(
     rules_executed: tuple[str, ...] = (),
     rules_disabled: tuple[str, ...] = (),
     disable_sources: dict[str, Literal["config", "cli-disable", "cli-only"]] | None = None,
+    purpose_alignment_counts: dict[PurposeAlignmentVerdict, int] | None = None,
 ) -> ScanResult:
     resolved_counts: dict[Severity, int] = {"high": 3, "medium": 4, "low": 3} if counts is None else counts
 
@@ -76,6 +78,7 @@ def _make_result(
         rules_executed=rules_executed,
         rules_disabled=rules_disabled,
         disable_sources=(disable_sources or {}),
+        purpose_alignment_counts=(purpose_alignment_counts or {}),
     )
 
 
@@ -99,6 +102,41 @@ def test_header_shows_review_priority() -> None:
     assert "Evidence" in output
     assert "Coverage" in output
     assert "Packages" in output
+
+
+def test_legacy_result_counts_unrepresented_purpose_assessments_as_unknown() -> None:
+    result = _make_result(scanned_files=5)
+
+    output = StdoutReporter(result, color=False).render()
+    purpose_line = next(line for line in output.splitlines() if "Purpose" in line)
+
+    assert "5 unknown" in purpose_line
+    assert "0 consistent" in purpose_line
+    assert "0 misaligned" in purpose_line
+
+
+def test_partial_purpose_counts_leave_unrepresented_packages_unknown() -> None:
+    result = _make_result(
+        scanned_files=5,
+        purpose_alignment_counts={"consistent-with-declared-purpose": 1},
+    )
+
+    output = StdoutReporter(result, color=False).render()
+    purpose_line = next(line for line in output.splitlines() if "Purpose" in line)
+
+    assert "1 consistent" in purpose_line
+    assert "4 unknown" in purpose_line
+
+
+def test_scan_result_appends_purpose_counts_after_existing_positional_fields() -> None:
+    field_names = [field.name for field in fields(ScanResult)]
+
+    assert field_names[-4:] == [
+        "engine",
+        "rulepack_fingerprint",
+        "scan_fingerprint",
+        "purpose_alignment_counts",
+    ]
 
 
 def test_header_shows_file_count() -> None:

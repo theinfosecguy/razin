@@ -11,11 +11,12 @@ from razin.config import (
     config_fingerprint,
     effective_detector_ids,
     load_config,
+    package_analysis_fingerprint,
 )
 from razin.constants.config import DEFAULT_DETECTORS, DEFAULT_MAX_FILE_MB
 from razin.constants.domains import DEFAULT_ALLOWLISTED_DOMAINS
 from razin.exceptions import ConfigError
-from razin.types.config import DetectorConfig, RuleOverrideConfig
+from razin.types.config import DetectorConfig, IocConfig, PackageAnalysisConfig, RuleOverrideConfig
 
 
 def test_load_config_defaults_when_missing(tmp_path: Path) -> None:
@@ -93,6 +94,42 @@ def test_config_fingerprint_is_stable() -> None:
     second = config_fingerprint(config)
 
     assert first == second
+
+
+def test_package_analysis_fingerprint_excludes_detector_selection() -> None:
+    default = RazinConfig()
+    detector_changed = RazinConfig(detectors=DetectorConfig(disabled=("PACKAGE_SENSITIVE_NETWORK_FLOW",)))
+    package_changed = RazinConfig(package_analysis=PackageAnalysisConfig(known_bad=IocConfig(domains=("bad.example",))))
+
+    assert package_analysis_fingerprint(default) == package_analysis_fingerprint(detector_changed)
+    assert package_analysis_fingerprint(default) != package_analysis_fingerprint(package_changed)
+
+
+def test_package_analysis_fingerprint_uses_effective_purpose_limit() -> None:
+    default = RazinConfig()
+    output_only_changed = RazinConfig(
+        package_analysis=PackageAnalysisConfig(
+            max_findings_per_rule=1,
+            emit_inventory=False,
+            known_bad=IocConfig(sha256=("a" * 64,), indicators=("marker",)),
+        )
+    )
+    higher_limit = RazinConfig(package_analysis=PackageAnalysisConfig(max_findings_per_rule=500))
+
+    assert package_analysis_fingerprint(
+        default,
+        max_findings_per_rule_floor=129,
+    ) == package_analysis_fingerprint(
+        output_only_changed,
+        max_findings_per_rule_floor=129,
+    )
+    assert package_analysis_fingerprint(
+        default,
+        max_findings_per_rule_floor=129,
+    ) != package_analysis_fingerprint(
+        higher_limit,
+        max_findings_per_rule_floor=129,
+    )
 
 
 def test_load_config_reads_mcp_and_tool_prefixes(tmp_path: Path) -> None:

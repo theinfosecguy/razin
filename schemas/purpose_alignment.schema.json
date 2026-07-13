@@ -1,0 +1,396 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/theinfosecguy/razin/schemas/purpose_alignment.schema.json",
+  "title": "Razin Purpose Alignment Assessment",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "contract_sha256",
+    "fact_policy_sha256",
+    "verdict",
+    "coverage_status",
+    "coverage_reasons",
+    "reason_codes",
+    "package_analysis_digest",
+    "package_analysis_digest_version",
+    "claims",
+    "facts",
+    "links"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "contract_sha256": { "$ref": "#/$defs/Sha256" },
+    "fact_policy_sha256": { "$ref": "#/$defs/Sha256" },
+    "verdict": {
+      "enum": [
+        "consistent-with-declared-purpose",
+        "misaligned-with-declared-purpose",
+        "unknown",
+        "not-applicable"
+      ]
+    },
+    "coverage_status": { "enum": ["complete", "incomplete", "not-evaluated"] },
+    "coverage_reasons": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "reason_codes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/ReasonCode" },
+      "uniqueItems": true
+    },
+    "package_analysis_digest": {
+      "anyOf": [{ "$ref": "#/$defs/Sha256" }, { "type": "null" }]
+    },
+    "package_analysis_digest_version": { "type": ["integer", "null"], "minimum": 1 },
+    "claims": {
+      "type": "array",
+      "maxItems": 64,
+      "items": { "$ref": "#/$defs/Claim" }
+    },
+    "facts": {
+      "type": "array",
+      "maxItems": 128,
+      "items": { "$ref": "#/$defs/Fact" }
+    },
+    "links": {
+      "type": "array",
+      "maxItems": 128,
+      "items": { "$ref": "#/$defs/Link" }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "package_analysis_digest": { "type": "null" } },
+        "required": ["package_analysis_digest"]
+      },
+      "then": { "properties": { "package_analysis_digest_version": { "type": "null" } } },
+      "else": { "properties": { "package_analysis_digest_version": { "const": 3 } } }
+    },
+    {
+      "if": {
+        "properties": { "coverage_status": { "const": "complete" } },
+        "required": ["coverage_status"]
+      },
+      "then": {
+        "properties": {
+          "coverage_reasons": { "maxItems": 0 },
+          "package_analysis_digest": { "$ref": "#/$defs/Sha256" },
+          "package_analysis_digest_version": { "const": 3 }
+        }
+      },
+      "else": { "properties": { "coverage_reasons": { "minItems": 1 } } }
+    },
+    {
+      "if": {
+        "properties": { "verdict": { "const": "consistent-with-declared-purpose" } },
+        "required": ["verdict"]
+      },
+      "then": {
+        "properties": {
+          "coverage_status": { "const": "complete" },
+          "reason_codes": { "maxItems": 0 },
+          "claims": { "minItems": 1 },
+          "facts": { "minItems": 1 },
+          "links": {
+            "minItems": 1,
+            "items": {
+              "allOf": [
+                { "$ref": "#/$defs/Link" },
+                {
+                  "properties": {
+                    "relation": { "const": "supported" },
+                    "reason_code": { "const": "explicit-declaration-supports-observed-behavior" }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "verdict": { "const": "misaligned-with-declared-purpose" } },
+        "required": ["verdict"]
+      },
+      "then": {
+        "properties": {
+          "reason_codes": { "const": ["explicit-purpose-contradiction"] },
+          "facts": { "minItems": 1 },
+          "links": {
+            "minItems": 1,
+            "contains": {
+              "properties": { "relation": { "const": "contradicted" } },
+              "required": ["relation"]
+            },
+            "minContains": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "verdict": { "const": "not-applicable" } },
+        "required": ["verdict"]
+      },
+      "then": {
+        "properties": {
+          "coverage_status": { "const": "complete" },
+          "reason_codes": { "const": ["no-executable-implementation"] },
+          "claims": { "maxItems": 0 },
+          "facts": { "maxItems": 0 },
+          "links": { "maxItems": 0 }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "verdict": { "const": "unknown" } },
+        "required": ["verdict"]
+      },
+      "then": {
+        "properties": {
+          "reason_codes": {
+            "minItems": 1,
+            "not": { "contains": { "const": "explicit-purpose-contradiction" } }
+          },
+          "links": {
+            "items": {
+              "allOf": [
+                { "$ref": "#/$defs/Link" },
+                { "properties": { "relation": { "not": { "const": "contradicted" } } } }
+              ]
+            }
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": { "coverage_status": { "const": "complete" } },
+              "required": ["coverage_status"]
+            },
+            "then": {
+              "properties": {
+                "reason_codes": {
+                  "not": { "contains": { "const": "alignment-coverage-incomplete" } }
+                }
+              }
+            },
+            "else": {
+              "properties": { "reason_codes": { "const": ["alignment-coverage-incomplete"] } }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "coverage_reasons": {
+            "contains": { "enum": ["purpose-claim-limit", "purpose-fact-limit"] }
+          }
+        },
+        "required": ["coverage_reasons"]
+      },
+      "then": {
+        "properties": {
+          "coverage_status": { "const": "incomplete" },
+          "verdict": { "const": "unknown" },
+          "reason_codes": { "const": ["alignment-coverage-incomplete"] },
+          "links": {
+            "items": {
+              "allOf": [
+                { "$ref": "#/$defs/Link" },
+                {
+                  "properties": {
+                    "relation": { "const": "unresolved" },
+                    "reason_code": { "const": "alignment-inputs-incomplete" }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "Sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "Behavior": {
+      "enum": [
+        "sensitive-data-transmission",
+        "remote-content-execution"
+      ]
+    },
+    "ReasonCode": {
+      "enum": [
+        "explicit-purpose-contradiction",
+        "alignment-coverage-incomplete",
+        "explicit-claim-not-statically-observed",
+        "no-material-behavior-statically-observed",
+        "no-executable-implementation",
+        "fact-confidence-not-high",
+        "conflicting-explicit-claims",
+        "observed-behavior-not-explicitly-declared"
+      ]
+    },
+    "Provenance": {
+      "type": "object",
+      "required": [
+        "path",
+        "line",
+        "snippet",
+        "source_sha256",
+        "extractor_id",
+        "extractor_version"
+      ],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "line": { "type": ["integer", "null"], "minimum": 1 },
+        "snippet": { "type": "string", "maxLength": 240 },
+        "source_sha256": {
+          "anyOf": [{ "$ref": "#/$defs/Sha256" }, { "type": "null" }]
+        },
+        "extractor_id": { "type": "string", "minLength": 1 },
+        "extractor_version": { "const": "1.0" }
+      },
+      "additionalProperties": false
+    },
+    "Claim": {
+      "type": "object",
+      "required": ["id", "behavior", "polarity", "provenance"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^claim-[0-9a-f]{20}$" },
+        "behavior": { "$ref": "#/$defs/Behavior" },
+        "polarity": { "enum": ["declared", "denied"] },
+        "provenance": { "$ref": "#/$defs/Provenance" }
+      },
+      "additionalProperties": false
+    },
+    "Fact": {
+      "type": "object",
+      "required": ["id", "behavior", "confidence", "rule_id", "provenance"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^fact-[0-9a-f]{20}$" },
+        "behavior": { "$ref": "#/$defs/Behavior" },
+        "confidence": { "enum": ["low", "medium", "high"] },
+        "rule_id": {
+          "enum": [
+            "PACKAGE_DATA_EXFILTRATION",
+            "PACKAGE_REMOTE_CODE_EXECUTION",
+            "PACKAGE_SENSITIVE_NETWORK_FLOW"
+          ]
+        },
+        "provenance": { "$ref": "#/$defs/Provenance" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "behavior": { "const": "remote-content-execution" } },
+            "required": ["behavior"]
+          },
+          "then": { "properties": { "rule_id": { "const": "PACKAGE_REMOTE_CODE_EXECUTION" } } },
+          "else": {
+            "properties": {
+              "rule_id": {
+                "enum": ["PACKAGE_DATA_EXFILTRATION", "PACKAGE_SENSITIVE_NETWORK_FLOW"]
+              }
+            }
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "Link": {
+      "type": "object",
+      "required": ["fact_id", "claim_ids", "relation", "reason_code"],
+      "properties": {
+        "fact_id": { "type": "string", "pattern": "^fact-[0-9a-f]{20}$" },
+        "claim_ids": {
+          "type": "array",
+          "maxItems": 2,
+          "items": { "type": "string", "pattern": "^claim-[0-9a-f]{20}$" },
+          "uniqueItems": true
+        },
+        "relation": { "enum": ["supported", "contradicted", "undocumented", "unresolved"] },
+        "reason_code": {
+          "enum": [
+            "fact-confidence-not-high",
+            "alignment-inputs-incomplete",
+            "conflicting-explicit-claims",
+            "explicit-denial-conflicts-with-observed-behavior",
+            "explicit-declaration-supports-observed-behavior",
+            "observed-behavior-not-explicitly-declared"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "relation": { "const": "supported" } },
+            "required": ["relation"]
+          },
+          "then": {
+            "properties": {
+              "claim_ids": { "minItems": 1 },
+              "reason_code": { "const": "explicit-declaration-supports-observed-behavior" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "relation": { "const": "contradicted" } },
+            "required": ["relation"]
+          },
+          "then": {
+            "properties": {
+              "claim_ids": { "minItems": 1 },
+              "reason_code": { "const": "explicit-denial-conflicts-with-observed-behavior" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "relation": { "const": "undocumented" } },
+            "required": ["relation"]
+          },
+          "then": {
+            "properties": {
+              "claim_ids": { "maxItems": 0 },
+              "reason_code": { "const": "observed-behavior-not-explicitly-declared" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "relation": { "const": "unresolved" } },
+            "required": ["relation"]
+          },
+          "then": {
+            "properties": {
+              "reason_code": {
+                "enum": [
+                  "alignment-inputs-incomplete",
+                  "fact-confidence-not-high",
+                  "conflicting-explicit-claims"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "reason_code": { "const": "conflicting-explicit-claims" } },
+            "required": ["reason_code"]
+          },
+          "then": { "properties": { "claim_ids": { "minItems": 2 } } }
+        }
+      ],
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
