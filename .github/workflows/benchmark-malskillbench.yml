@@ -62,17 +62,18 @@ jobs:
           --commit "${MALSKILLBENCH_COMMIT}"
           --output "${RUNNER_TEMP}/malskillbench-manifest.json"
 
-      - name: Apply overall and per-family quality gates
+      - name: Measure pinned corpus and export detector features
         run: >-
           uv run python scripts/evaluate_corpus.py
           --manifest "${RUNNER_TEMP}/malskillbench-manifest.json"
           --gates benchmarks/gates/malskillbench.json
           --output benchmark-results/malskillbench.json
+          --features-output benchmark-results/malskillbench-features.json
 
       - name: Upload benchmark report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: malskillbench-report-${{ github.run_id }}
-          path: benchmark-results/malskillbench.json
+          path: benchmark-results/
           if-no-files-found: warn

@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import copy
 import json
 from pathlib import Path
 
+import jsonschema
 import pytest
 
+from razin.model import Evidence, Finding
+from razin.scanner.features import extract_detector_features
 from scripts.build_malskillbench_manifest import build_manifest
-from scripts.evaluate_corpus import BenchmarkError, compute_metrics, evaluate
+from scripts.evaluate_corpus import BenchmarkError, build_feature_artifact, compute_metrics, evaluate
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -72,6 +76,84 @@ def test_synthetic_benchmark_enforces_semantic_block_and_review_outcomes() -> No
     samples = {sample["id"]: sample for sample in report["samples"]}
     assert "PACKAGE_DATA_EXFILTRATION" in samples["malicious-data-exfiltration"]["matched_rule_ids"]
     assert "PACKAGE_REMOTE_CODE_EXECUTION" in samples["malicious-remote-code-execution"]["matched_rule_ids"]
+
+
+def test_feature_artifact_is_deterministic_and_separates_model_inputs() -> None:
+    report = evaluate(REPO_ROOT / "benchmarks/synthetic/manifest.json")
+
+    first = build_feature_artifact(report)
+    second = build_feature_artifact(report)
+
+    assert first == second
+    schema = json.loads((REPO_ROOT / "schemas/v1/detector_features.schema.json").read_text(encoding="utf-8"))
+    jsonschema.validate(first, schema)
+    assert first["schema_version"] == "1.0"
+    assert first["status"] == "research-only"
+    assert len(first["provenance"]["feature_contract_sha256"]) == 64
+    assert len(first["provenance"]["scanner_source_sha256"]) == 64
+    assert len(first["provenance"]["evaluator_source_sha256"]) == 64
+    assert len(first["provenance"]["feature_schema_sha256"]) == 64
+    assert len(first["scanner"]["rulepack_fingerprint"]) == 64
+    assert len(first["scanner"]["scan_fingerprint"]) == 64
+    sample = first["samples"][0]
+    assert set(sample) == {"features", "target", "metadata", "audit"}
+    assert set(sample["features"]) == {"present_rule_ids"}
+    assert set(sample["target"]) == {"label"}
+    assert sample["metadata"]["campaign_lineage_authoritative"] is False
+    assert sample["metadata"]["diagnostic_group_authoritative"] is False
+    rendered = json.dumps(sample, sort_keys=True)
+    assert "evidence" not in rendered
+    assert "finding_id" not in rendered
+
+
+def test_feature_artifact_rejects_semantically_tampered_vectors() -> None:
+    report = evaluate(REPO_ROOT / "benchmarks/synthetic/manifest.json")
+    sample = next(item for item in report["samples"] if item["detector_features"]["present_rule_ids"])
+
+    missing_input = copy.deepcopy(report)
+    tampered = next(item for item in missing_input["samples"] if item["id"] == sample["id"])
+    tampered["detector_features"]["present_rule_ids"] = []
+    with pytest.raises(BenchmarkError, match="exactly match eligible audit rules"):
+        build_feature_artifact(missing_input)
+
+    contradictory_audit = copy.deepcopy(report)
+    tampered = next(item for item in contradictory_audit["samples"] if item["id"] == sample["id"])
+    tampered["detector_features"]["rules"][0]["model_eligible"] = not tampered["detector_features"]["rules"][0][
+        "model_eligible"
+    ]
+    with pytest.raises(BenchmarkError, match="contradicts the feature contract"):
+        build_feature_artifact(contradictory_audit)
+
+    duplicate_audit = copy.deepcopy(report)
+    tampered = next(item for item in duplicate_audit["samples"] if item["id"] == sample["id"])
+    tampered["detector_features"]["rules"].append(copy.deepcopy(tampered["detector_features"]["rules"][0]))
+    with pytest.raises(BenchmarkError, match="sorted, unique rule_id"):
+        build_feature_artifact(duplicate_audit)
+
+
+def test_feature_artifact_safely_excludes_an_unknown_rule() -> None:
+    report = evaluate(REPO_ROOT / "benchmarks/synthetic/manifest.json")
+    report["samples"][0]["detector_features"] = extract_detector_features(
+        [
+            Finding(
+                id="custom-rule",
+                severity="medium",
+                score=60,
+                confidence="medium",
+                title="Unregistered custom rule",
+                description="Custom extension output",
+                evidence=Evidence(path="SKILL.md", line=1, snippet="custom"),
+                skill="sample",
+                rule_id="UNREVIEWED_CUSTOM_RULE",
+                recommendation="Review the rule contract.",
+            )
+        ]
+    ).to_dict()
+
+    artifact = build_feature_artifact(report)
+
+    assert artifact["samples"][0]["features"]["present_rule_ids"] == []
+    assert artifact["samples"][0]["audit"]["rules"][0]["model_eligible"] is False
 
 
 def test_evaluate_rejects_unlisted_skill_by_default(tmp_path: Path) -> None:

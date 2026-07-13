@@ -21,6 +21,7 @@ from razin.parsers import parse_skill_markdown_file
 from razin.scanner import scan_workspace
 from razin.scanner.assessment import evidence_verdict_for_package
 from razin.scanner.discovery import assign_unique_skill_names, discover_skill_files
+from razin.scanner.features import detector_feature_contract, extract_detector_features, feature_contract_sha256
 
 MANIFEST_SCHEMA_VERSION = "2.0"
 GATE_SCHEMA_VERSION = "3.0"
@@ -387,6 +388,30 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _scanner_source_sha256() -> str:
+    """Hash scanner Python sources so checkout changes remain visible in provenance."""
+    repo_root = Path(__file__).resolve().parents[1]
+    source_root = repo_root / "src" / "razin"
+    hasher = hashlib.sha256()
+    for path in sorted(source_root.rglob("*.py")):
+        hasher.update(path.relative_to(repo_root).as_posix().encode("utf-8"))
+        hasher.update(b"\0")
+        hasher.update(path.read_bytes())
+        hasher.update(b"\n")
+    return hasher.hexdigest()
+
+
+def _evaluator_source_sha256() -> str:
+    """Hash this benchmark harness independently from scanner implementation."""
+    return _sha256(Path(__file__).resolve())
+
+
+def _feature_schema_sha256() -> str:
+    """Hash the schema that constrains the exported feature artifact."""
+    schema_path = Path(__file__).resolve().parents[1] / "schemas" / "v1" / "detector_features.schema.json"
+    return _sha256(schema_path)
+
+
 def _corpus_sha256(corpus_root: Path, samples: list[dict[str, Any]]) -> str:
     """Hash every labeled package member without following symbolic links."""
     hasher = hashlib.sha256()
@@ -469,6 +494,7 @@ def evaluate(manifest_path: Path, gates_path: Path | None = None) -> dict[str, A
         findings = findings_by_skill[skill] if skill is not None else []
         evidence_verdict = evidence_verdict_for_package(findings)
         package_outcome = package_outcomes.get(skill) if skill is not None else None
+        detector_features = extract_detector_features(findings)
         coverage_status = package_outcome.coverage_status if package_outcome is not None else "incomplete"
         evidence_block_positive = evidence_verdict == "high-confidence-malicious-evidence"
         evidence_review_positive = evidence_verdict in {"high-confidence-malicious-evidence", "review-required"}
@@ -506,6 +532,13 @@ def evaluate(manifest_path: Path, gates_path: Path | None = None) -> dict[str, A
                 "evidence_verdict": evidence_verdict,
                 "coverage_status": coverage_status,
                 "coverage_reasons": sorted(set(incomplete_reasons)),
+                "package_analysis_digest": (
+                    package_outcome.package_analysis_digest if package_outcome is not None else None
+                ),
+                "package_analysis_digest_version": (
+                    package_outcome.package_analysis_digest_version if package_outcome is not None else None
+                ),
+                "detector_features": detector_features.to_dict(),
                 "evidence_block_positive": evidence_block_positive,
                 "evidence_review_positive": evidence_review_positive,
                 "block_positive": block_positive,
@@ -562,6 +595,11 @@ def evaluate(manifest_path: Path, gates_path: Path | None = None) -> dict[str, A
         "metrics": metrics,
         "diagnostic_family_metrics": family_metrics,
         "diagnostic_filename_group_metrics": diagnostic_group_metrics,
+        "diagnostic_grouping": {
+            "family_authoritative": authoritative_families,
+            "filename_group_authoritative": False,
+            "campaign_lineage_authoritative": False,
+        },
         "gates": gates,
         "gate_status": gate_status,
         "gate_passed": None if resolved_gates is None else not gate_failures,
@@ -575,6 +613,9 @@ def evaluate(manifest_path: Path, gates_path: Path | None = None) -> dict[str, A
             "python": platform.python_version(),
             "platform": platform.platform(),
             "scanner_version": __version__,
+            "scanner_source_sha256": _scanner_source_sha256(),
+            "evaluator_source_sha256": _evaluator_source_sha256(),
+            "feature_schema_sha256": _feature_schema_sha256(),
         },
         "scanner": {
             "profile": options["profile"] or discovery_config.profile,
@@ -582,8 +623,137 @@ def evaluate(manifest_path: Path, gates_path: Path | None = None) -> dict[str, A
             "warnings": list(result.warnings),
             "rules_executed": list(result.rules_executed),
             "rules_disabled": list(result.rules_disabled),
+            "engine": result.engine,
+            "rulepack_fingerprint": result.rulepack_fingerprint,
+            "scan_fingerprint": result.scan_fingerprint,
         },
         "samples": outcomes,
+    }
+
+
+def _validated_feature_vector(
+    raw: object,
+    *,
+    sample_index: int,
+    contract: dict[str, object],
+) -> tuple[list[str], list[dict[str, object]]]:
+    """Validate cross-field feature integrity that JSON Schema cannot express."""
+    prefix = f"report.samples[{sample_index}].detector_features"
+    if not isinstance(raw, dict):
+        raise BenchmarkError(f"{prefix} must be an object")
+    if raw.get("schema_version") != contract["schema_version"]:
+        raise BenchmarkError(f"{prefix}.schema_version does not match the feature contract")
+
+    present_rule_ids = raw.get("present_rule_ids")
+    rules = raw.get("rules")
+    if not isinstance(present_rule_ids, list) or not all(isinstance(item, str) for item in present_rule_ids):
+        raise BenchmarkError(f"{prefix}.present_rule_ids must be an array of strings")
+    if present_rule_ids != sorted(set(present_rule_ids)):
+        raise BenchmarkError(f"{prefix}.present_rule_ids must be sorted and unique")
+    if not isinstance(rules, list) or not all(isinstance(item, dict) for item in rules):
+        raise BenchmarkError(f"{prefix}.rules must be an array of objects")
+
+    eligibility = contract["rule_eligibility"]
+    unknown_policy = contract["unknown_rule_policy"]
+    assert isinstance(eligibility, dict)
+    assert isinstance(unknown_policy, dict)
+    validated_rules: list[dict[str, object]] = []
+    observed_rule_ids: list[str] = []
+    eligible_rule_ids: list[str] = []
+    for rule_index, rule in enumerate(rules):
+        rule_id = rule.get("rule_id")
+        if not isinstance(rule_id, str):
+            raise BenchmarkError(f"{prefix}.rules[{rule_index}].rule_id must be a string")
+        expected = eligibility.get(rule_id, unknown_policy)
+        assert isinstance(expected, dict)
+        for field in ("signal_kind", "model_eligible", "exclusion_reason"):
+            if rule.get(field) != expected[field]:
+                raise BenchmarkError(f"{prefix}.rules[{rule_index}].{field} contradicts the feature contract")
+        observed_rule_ids.append(rule_id)
+        if rule["model_eligible"] is True:
+            eligible_rule_ids.append(rule_id)
+        validated_rules.append(dict(rule))
+
+    if observed_rule_ids != sorted(set(observed_rule_ids)):
+        raise BenchmarkError(f"{prefix}.rules must have sorted, unique rule_id values")
+    if present_rule_ids != eligible_rule_ids:
+        raise BenchmarkError(f"{prefix}.present_rule_ids must exactly match eligible audit rules")
+    return list(present_rule_ids), validated_rules
+
+
+def build_feature_artifact(report: dict[str, Any]) -> dict[str, Any]:
+    """Build a deterministic research feature artifact from an evaluation report."""
+    raw_samples = report.get("samples")
+    provenance = report.get("provenance")
+    scanner = report.get("scanner")
+    grouping = report.get("diagnostic_grouping")
+    if (
+        not isinstance(raw_samples, list)
+        or not isinstance(provenance, dict)
+        or not isinstance(scanner, dict)
+        or not isinstance(grouping, dict)
+    ):
+        raise BenchmarkError("report must contain samples, provenance, scanner, and grouping before feature export")
+
+    contract = detector_feature_contract()
+    family_authoritative = grouping.get("family_authoritative")
+    if not isinstance(family_authoritative, bool):
+        raise BenchmarkError("report.diagnostic_grouping.family_authoritative must be a boolean")
+
+    samples: list[dict[str, Any]] = []
+    for index, sample in enumerate(raw_samples):
+        if not isinstance(sample, dict):
+            raise BenchmarkError(f"report.samples[{index}] must be an object")
+        present_rule_ids, rules = _validated_feature_vector(
+            sample.get("detector_features"),
+            sample_index=index,
+            contract=contract,
+        )
+        samples.append(
+            {
+                "features": {"present_rule_ids": present_rule_ids},
+                "target": {"label": sample.get("label")},
+                "metadata": {
+                    "id": sample.get("id"),
+                    "coverage_status": sample.get("coverage_status"),
+                    "package_analysis_digest": sample.get("package_analysis_digest"),
+                    "package_analysis_digest_version": sample.get("package_analysis_digest_version"),
+                    "diagnostic_family": sample.get("family"),
+                    "diagnostic_group": sample.get("diagnostic_group"),
+                    "diagnostic_family_authoritative": family_authoritative,
+                    "diagnostic_group_authoritative": False,
+                    "campaign_lineage_authoritative": False,
+                },
+                "audit": {"rules": rules},
+            }
+        )
+
+    return {
+        "schema_version": "1.0",
+        "benchmark": report.get("benchmark"),
+        "status": "research-only",
+        "contract": contract,
+        "provenance": {
+            "manifest_sha256": provenance.get("manifest_sha256"),
+            "gates_sha256": provenance.get("gates_sha256"),
+            "trusted_config_sha256": provenance.get("trusted_config_sha256"),
+            "corpus_sha256": provenance.get("corpus_sha256"),
+            "scanner_version": provenance.get("scanner_version"),
+            "scanner_source_sha256": provenance.get("scanner_source_sha256"),
+            "evaluator_source_sha256": provenance.get("evaluator_source_sha256"),
+            "feature_schema_sha256": provenance.get("feature_schema_sha256"),
+            "feature_contract_sha256": feature_contract_sha256(),
+        },
+        "scanner": {
+            "engine": scanner.get("engine"),
+            "rulepack_fingerprint": scanner.get("rulepack_fingerprint"),
+            "scan_fingerprint": scanner.get("scan_fingerprint"),
+            "profile": scanner.get("profile"),
+            "max_file_mb": scanner.get("max_file_mb"),
+            "rules_executed": scanner.get("rules_executed"),
+            "rules_disabled": scanner.get("rules_disabled"),
+        },
+        "samples": samples,
     }
 
 
@@ -592,6 +762,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--manifest", required=True, type=Path, help="Package-level benchmark manifest")
     parser.add_argument("--gates", type=Path, help="Optional quality-gate configuration")
     parser.add_argument("--output", type=Path, help="Write the complete JSON report to this path")
+    parser.add_argument("--features-output", type=Path, help="Write a research-only detector feature artifact")
     return parser.parse_args()
 
 
@@ -603,6 +774,13 @@ def main() -> int:
         if args.output is not None:
             args.output.parent.mkdir(parents=True, exist_ok=True)
             args.output.write_text(rendered, encoding="utf-8")
+        if args.features_output is not None:
+            feature_artifact = build_feature_artifact(report)
+            args.features_output.parent.mkdir(parents=True, exist_ok=True)
+            args.features_output.write_text(
+                json.dumps(feature_artifact, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
         for outcome in OUTCOMES:
             metrics = report["metrics"][outcome]
             print(
