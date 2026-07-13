@@ -152,3 +152,16 @@ quiet_mode:
 When output is enabled and caching is on, Razin also writes:
 
 - `output/.razin-cache.json`
+
+## Sandbox plan and result
+
+`razin sandbox` writes separate, user-selected plan, bundle, and simulation
+result paths. They are not scan outputs and never affect scan findings or gates.
+Their schemas are:
+
+- `schemas/sandbox_verification_plan.schema.json`
+- `schemas/sandbox_verification_result.schema.json`
+- immutable v1 copies under `schemas/v1/`
+
+The v1 result always states that execution was simulated and no process ran.
+See [Sandbox verification artifacts](sandbox-verification.md).

@@ -17,6 +17,7 @@ razin scan -r . -o output/
 - Rule coverage: [Detectors](detectors.md)
 - CI integration: [CI and Exit Codes](ci-and-exit-codes.md)
 - Deployment and local parity: [Docker](docker.md)
+- Optional sealed execution-plan provenance: [Sandbox Verification](sandbox-verification.md)
 - Common failures: [Troubleshooting](troubleshooting.md)
 
 ## Canonical docs policy

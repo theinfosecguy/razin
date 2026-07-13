@@ -15,6 +15,7 @@ nav:
   - Detectors: detectors.md
   - Whole-package Analysis: package-analysis.md
   - Purpose Alignment: purpose-alignment.md
+  - Sandbox Verification: sandbox-verification.md
   - Benchmarking: benchmarking.md
   - Output Formats: output-formats.md
   - Docker: docker.md

@@ -1,15 +1,18 @@
 # CLI reference
 
-Razin exposes two primary commands:
+Razin exposes four command groups:
 
 - `razin scan`
 - `razin validate-config`
+- `razin init`
+- `razin sandbox`
 
 Get command help locally:
 
 ```bash
 razin scan -h
 razin validate-config -h
+razin sandbox -h
 ```
 
 ## `razin scan`
@@ -151,13 +154,38 @@ Validation command constraints:
 - Validation returns deterministic error codes/messages for config/rule issues.
 - Use validation first when authoring rulepacks. See [How to write custom rules](custom-rules.md).
 
+## `razin sandbox`
+
+Sandbox verification is an explicit two-phase artifact workflow. It is never
+triggered by `scan` or configuration:
+
+```bash
+razin sandbox plan \
+  -r ./skill \
+  -o ./audit/plan.json \
+  --backend simulated \
+  --image example.invalid/razin@sha256:0000000000000000000000000000000000000000000000000000000000000000 \
+  -- python3 scripts/helper.py
+
+razin sandbox run \
+  --plan ./audit/plan.json \
+  --approve-plan-sha256 <digest-printed-by-plan> \
+  -o ./audit/result.json
+```
+
+The v1 backend only verifies the sealed plan, explicit approval, and immutable
+bundle before returning a `simulated`/`not-run` result. It executes no code and
+provides no dynamic evidence or safety verdict. See
+[Sandbox verification artifacts](sandbox-verification.md) for the complete
+contract and threat boundary.
+
 ## Exit codes
 
 For automation and CI:
 
-- `0`: success, thresholds not exceeded
-- `1`: scan completed but failed CI threshold (`--fail-on`, `--fail-on-score`) or runtime scanner error
-- `2`: CLI/config/preflight validation error
+- `0`: success, thresholds not exceeded, or sandbox simulation artifact written
+- `1`: scan threshold/runtime failure or sandbox backend failure
+- `2`: CLI/config/preflight or sandbox artifact/approval validation error
 
 ## Common recipes
 

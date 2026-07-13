@@ -6,6 +6,8 @@
 
 Razin is a local scanner for `SKILL.md`-defined agent skills.
 It performs static analysis only (no execution) and writes deterministic findings.
+An optional sandbox-artifact workflow seals an approval-bound plan and simulates
+verification without running skill code.
 
 ## Table of contents
 
@@ -113,6 +115,7 @@ uv run mdformat --check README.md docs
 - [Configuration](https://theinfosecguy.github.io/razin/configuration/)
 - [Detectors](https://theinfosecguy.github.io/razin/detectors/)
 - [Output formats](https://theinfosecguy.github.io/razin/output-formats/)
+- [Sandbox verification artifacts](https://theinfosecguy.github.io/razin/sandbox-verification/)
 - [Docker workflow](https://theinfosecguy.github.io/razin/docker/)
 - [CI and exit codes](https://theinfosecguy.github.io/razin/ci-and-exit-codes/)
 - [Troubleshooting](https://theinfosecguy.github.io/razin/troubleshooting/)

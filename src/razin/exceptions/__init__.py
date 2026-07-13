@@ -6,6 +6,7 @@ from .base import RazinError
 from .config import ConfigError
 from .dsl import DslCompileError, DslError, DslRuntimeError, DslSchemaError
 from .parsing import SkillParseError
+from .sandbox import SandboxBackendError, SandboxError, SandboxValidationError
 
 __all__ = [
     "ConfigError",
@@ -14,5 +15,8 @@ __all__ = [
     "DslRuntimeError",
     "DslSchemaError",
     "RazinError",
+    "SandboxBackendError",
+    "SandboxError",
+    "SandboxValidationError",
     "SkillParseError",
 ]
