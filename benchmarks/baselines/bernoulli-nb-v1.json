@@ -1,0 +1,9 @@
+{
+  "alpha": 1.0,
+  "class_prior": "empirical",
+  "decision_threshold": 0.0,
+  "folds": 3,
+  "method": "bernoulli-nb",
+  "schema_version": "1.0",
+  "tie_break": "benign"
+}

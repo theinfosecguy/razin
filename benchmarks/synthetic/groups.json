@@ -1,0 +1,52 @@
+{
+  "authority": {
+    "source": "benchmarks/synthetic/manifest.json curated fixture relationships",
+    "manifest_sha256": "06beaf681eed26ff6d9e12764925180b85c3732345b621d30dadca3e4c40ea4f",
+    "status": "authoritative"
+  },
+  "relationships": [
+    {
+      "id": "synthetic-data-exfiltration",
+      "kind": "campaign",
+      "sample_ids": [
+        "malicious-data-exfiltration"
+      ]
+    },
+    {
+      "id": "synthetic-prompt-injection",
+      "kind": "campaign",
+      "sample_ids": [
+        "malicious-prompt-injection"
+      ]
+    },
+    {
+      "id": "synthetic-remote-code-execution",
+      "kind": "lineage",
+      "sample_ids": [
+        "malicious-remote-code-execution"
+      ]
+    },
+    {
+      "id": "independent-formatting-helper",
+      "kind": "independent",
+      "sample_ids": [
+        "benign-formatting-helper"
+      ]
+    },
+    {
+      "id": "independent-oauth-client",
+      "kind": "independent",
+      "sample_ids": [
+        "benign-oauth-client"
+      ]
+    },
+    {
+      "id": "independent-release-notes",
+      "kind": "independent",
+      "sample_ids": [
+        "benign-release-notes"
+      ]
+    }
+  ],
+  "schema_version": "1.0"
+}

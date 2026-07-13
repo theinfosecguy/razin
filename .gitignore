@@ -44,6 +44,7 @@ scripts/*
 !scripts/__init__.py
 !scripts/build_malskillbench_manifest.py
 !scripts/evaluate_corpus.py
+!scripts/evaluate_baseline.py
 .claude/
 tmp/
 sprints/

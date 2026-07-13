@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/theinfosecguy/razin/schemas/baseline_config.schema.json",
+  "title": "Razin Interpretable Baseline Configuration",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "method",
+    "alpha",
+    "folds",
+    "class_prior",
+    "decision_threshold",
+    "tie_break"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "method": { "const": "bernoulli-nb" },
+    "alpha": { "const": 1.0 },
+    "folds": { "const": 3 },
+    "class_prior": { "const": "empirical" },
+    "decision_threshold": { "const": 0.0 },
+    "tie_break": { "const": "benign" }
+  },
+  "additionalProperties": false
+}
