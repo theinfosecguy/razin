@@ -5,14 +5,16 @@ from __future__ import annotations
 from pathlib import Path
 
 from razin.constants.reporting import (
+    CSV_FINDINGS_FILENAME,
     FINDINGS_FILENAME,
     PURPOSE_ALIGNMENT_FILENAME,
     REPORT_TEMP_PREFIX,
     REPORT_TEMP_SUFFIX,
+    SARIF_FINDINGS_FILENAME,
     SCHEMA_VERSION,
     SUMMARY_FILENAME,
 )
-from razin.io import write_json_atomic
+from razin.io import load_json_file, write_json_atomic
 from razin.model import Finding, PurposeAlignmentAssessment, Summary
 from razin.scanner.assessment import evidence_verdict_for_package
 from razin.scanner.score import (
@@ -87,6 +89,41 @@ def write_skill_reports(
         )
 
     return summary
+
+
+def remove_stale_reports(out_root: Path, active_names: set[str], output_formats: tuple[str, ...]) -> None:
+    """Remove reports absent from this scan, leaving unrelated files alone."""
+    for output_format, filename in (("csv", CSV_FINDINGS_FILENAME), ("sarif", SARIF_FINDINGS_FILENAME)):
+        path = out_root / filename
+        if output_format not in output_formats and not path.is_symlink() and path.is_file():
+            path.unlink()
+
+    report_names = (FINDINGS_FILENAME, SUMMARY_FILENAME, PURPOSE_ALIGNMENT_FILENAME)
+    for skill_dir in tuple(out_root.iterdir()):
+        if skill_dir.name in active_names or skill_dir.is_symlink() or not skill_dir.is_dir():
+            continue
+        reports = [skill_dir / name for name in report_names]
+        summary_path = skill_dir / SUMMARY_FILENAME
+        if summary_path.is_symlink() or not summary_path.is_file():
+            continue
+        try:
+            summary = load_json_file(summary_path)
+        except (OSError, ValueError):
+            continue
+        if not (
+            isinstance(summary, dict)
+            and summary.get("skill") == skill_dir.name
+            and isinstance(summary.get("schema_version"), str)
+            and isinstance(summary.get("finding_count"), int)
+        ):
+            continue
+        if any(path.is_symlink() or (path.exists() and not path.is_file()) for path in reports):
+            continue
+        for path in reports:
+            if path.is_file():
+                path.unlink()
+        if not any(skill_dir.iterdir()):
+            skill_dir.rmdir()
 
 
 def build_summary(

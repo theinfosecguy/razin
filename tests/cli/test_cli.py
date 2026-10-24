@@ -299,6 +299,17 @@ def test_unknown_disable_rule_returns_configuration_error(tmp_path: Path, capsys
     assert "Unknown rule IDs for --disable-rule" in captured.err
 
 
+def test_nonpositive_max_file_mb_returns_configuration_error(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (tmp_path / "SKILL.md").write_text("---\nname: sample\n---\n# Sample\n", encoding="utf-8")
+
+    code = main(["scan", "--root", str(tmp_path), "--max-file-mb", "-1", "--fail-on", "medium", "--no-stdout"])
+
+    assert code == 2
+    assert "max_file_mb must be a positive integer" in capsys.readouterr().err
+
+
 def test_build_parser_help_includes_ascii_banner() -> None:
     parser = build_parser()
     help_text = parser.format_help()

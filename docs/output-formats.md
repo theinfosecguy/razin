@@ -2,6 +2,8 @@
 
 By default, Razin writes per-skill JSON reports when `--output-dir` is set.
 You can also request CSV and SARIF global exports.
+On later scans into the same output directory, reports for removed skills and
+CSV/SARIF exports not requested on the later scan are deleted.
 
 ## JSON
 

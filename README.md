@@ -56,6 +56,10 @@ pip install razin
 razin --help
 ```
 
+PyPI currently provides 1.5.0. These docs describe the 1.6.0 checkout; to use
+the documented 1.6.0 commands before that release is published, install from
+this repository with `pip install .`.
+
 ## Quick start
 
 Run a scan:

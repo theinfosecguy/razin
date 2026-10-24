@@ -72,6 +72,58 @@ def test_scan_writes_reports_and_is_deterministic(tmp_path: Path, basic_repo_roo
     assert first_summary_payload["overall_severity"] in {"medium", "high"}
 
 
+@pytest.mark.parametrize("no_cache", [False, True])
+def test_reused_output_removes_only_stale_skill_reports(tmp_path: Path, no_cache: bool) -> None:
+    root = tmp_path / "workspace"
+    _write_skill(root / "removed", "removed")
+    _write_skill(root / "kept", "kept")
+    out = tmp_path / "output"
+    scan_workspace(root=root, out=out, no_cache=no_cache, output_formats=("json", "csv", "sarif"))
+    (out / "removed" / "user-notes.txt").write_text("keep me", encoding="utf-8")
+    unrelated = out / "unrelated"
+    unrelated.mkdir()
+    (unrelated / "summary.json").write_text('{"skill": "unrelated"}', encoding="utf-8")
+
+    (root / "removed" / "SKILL.md").unlink()
+    result = scan_workspace(root=root, out=out, no_cache=no_cache)
+
+    assert result.scanned_files == 1
+    assert (out / "kept" / "summary.json").is_file()
+    assert not (out / "removed" / "findings.json").exists()
+    assert not (out / "removed" / "summary.json").exists()
+    assert not (out / "removed" / "purpose_alignment.json").exists()
+    assert (out / "removed" / "user-notes.txt").read_text(encoding="utf-8") == "keep me"
+    assert (unrelated / "summary.json").is_file()
+    assert not (out / "findings.csv").exists()
+    assert not (out / "findings.sarif").exists()
+
+
+def test_stale_report_cleanup_does_not_follow_symlink(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    _write_skill(root / "linked", "linked")
+    out = tmp_path / "output"
+    scan_workspace(root=root, out=out)
+    external = tmp_path / "external"
+    (out / "linked").rename(external)
+    (out / "linked").symlink_to(external, target_is_directory=True)
+
+    (root / "linked" / "SKILL.md").unlink()
+    scan_workspace(root=root, out=out)
+
+    assert (out / "linked").is_symlink()
+    assert (external / "summary.json").is_file()
+
+
+@pytest.mark.parametrize("max_file_mb", [0, -1, True])
+def test_scan_rejects_invalid_file_size_limit(tmp_path: Path, max_file_mb: int) -> None:
+    out = tmp_path / "output"
+
+    with pytest.raises(ConfigError, match="max_file_mb must be a positive integer"):
+        scan_workspace(root=tmp_path, out=out, max_file_mb=max_file_mb)
+
+    assert not out.exists()
+
+
 def test_scan_applies_mcp_allowlist_cli_override(tmp_path: Path, basic_repo_root: Path) -> None:
     """CLI MCP allowlist override should suppress matching MCP endpoint findings."""
     out_root = tmp_path / "output"

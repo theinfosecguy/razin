@@ -40,7 +40,7 @@ razin scan -r . -o output/ --profile balanced
 | `--duplicate-policy {error,override}` | Duplicate `rule_id` behavior for overlay mode. |
 | `--disable-rule RULE_ID` | Disable a public `rule_id` for this invocation; repeat for multiple values. |
 | `--only-rules RULE_ID` | Execute only listed public `rule_id` values; repeat for multiple values. |
-| `--max-file-mb MAX_FILE_MB` | Skip `SKILL.md` files larger than this size. |
+| `--max-file-mb MAX_FILE_MB` | Skip `SKILL.md` files larger than this positive integer size. |
 | `--output-format OUTPUT_FORMAT` | Comma-separated formats: `json`, `csv`, `sarif`. |
 | `--no-stdout` | Silence stdout output. |
 | `--no-color` | Disable colored output. |
@@ -62,6 +62,7 @@ razin scan -r . -o output/ --profile balanced
 | `--duplicate-policy` without `--rules-mode overlay` | Invalid. Returns exit code `2` with a configuration error. |
 | `--disable-rule` with `--only-rules` | Invalid. They are mutually exclusive. |
 | `--fail-on-score` outside `0..100` | Invalid. Returns exit code `2`. |
+| `--max-file-mb` at `0` or below | Invalid. Returns exit code `2`. |
 | `--output-format` containing empty tokens (for example `json,,csv`) | Invalid. Returns exit code `2`. |
 | Unknown output format token | Invalid. Allowed values are only `json`, `csv`, `sarif`. |
 | `--summary-only` with `--group-by` | `--summary-only` wins; no table is rendered. |

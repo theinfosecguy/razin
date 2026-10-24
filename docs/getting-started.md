@@ -13,6 +13,10 @@ From PyPI:
 pip install razin
 ```
 
+PyPI currently provides 1.5.0. This documentation describes the 1.6.0
+checkout. To use its commands before that release is published, clone this
+repository and run `pip install .` there.
+
 From Homebrew core:
 
 ```bash

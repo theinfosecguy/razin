@@ -186,6 +186,8 @@ def scan_workspace(
 
     if not root.is_dir():
         raise ConfigError(f"Scan root does not exist or is not a directory: {root}")
+    if max_file_mb is not None and (isinstance(max_file_mb, bool) or max_file_mb <= 0):
+        raise ConfigError("max_file_mb must be a positive integer")
 
     if out is not None:
         try:
@@ -645,6 +647,13 @@ def scan_workspace(
                 rules_disabled=rules_disabled,
                 disable_sources=_serialize_disable_sources(disable_sources),
             )
+
+        from razin.reporting.writer import remove_stale_reports
+
+        try:
+            remove_stale_reports(out, set(findings_by_skill), output_formats)
+        except OSError as exc:
+            raise ConfigError(f"Could not remove stale reports from {out}: {exc}") from exc
 
     if not no_cache and out is not None and cache_path is not None:
         cache_namespace["files"] = cache_files
