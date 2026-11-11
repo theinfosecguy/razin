@@ -24,7 +24,12 @@ from razin.constants.scoring import SEVERITY_RANK
 from razin.exceptions.validation import ValidationError, format_errors
 from razin.io.json_io import write_text_atomic
 from razin.model import ScanResult
-from razin.scanner.assessment import review_priority_score, signal_kind_for_rule
+from razin.scanner.assessment import (
+    package_state_counts_from_findings,
+    review_priority_score,
+    signal_kind_for_rule,
+    workspace_coverage_status,
+)
 from razin.validation import preflight_validate
 
 
@@ -33,14 +38,23 @@ def evaluate_fail_thresholds(
     *,
     fail_on: str | None,
     fail_on_score: int | None,
+    require_complete_coverage: bool = False,
 ) -> int:
-    """Return 1 if result exceeds CI thresholds, 0 otherwise.
+    """Return 1 if an enabled CI gate fails, 0 otherwise.
 
-    When both ``--fail-on`` and ``--fail-on-score`` are provided, either
-    condition being met causes failure (logical OR).
+    Any enabled gate can cause failure (logical OR).
     """
     if result.aggregate_min_rule_score > 100:
         return 0
+
+    if require_complete_coverage:
+        coverage_counts = (
+            result.coverage_counts
+            or package_state_counts_from_findings(result.findings, total_packages=result.scanned_files)[1]
+        )
+        coverage = result.workspace_coverage_status or workspace_coverage_status(coverage_counts)
+        if coverage != "complete":
+            return 1
 
     if fail_on is not None:
         threshold = SEVERITY_RANK.get(fail_on, 0)

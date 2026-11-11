@@ -44,10 +44,18 @@ from `no-actionable-malicious-evidence` to `capability-only`. API callers can us
 manifest and versioned coverage digest directly; enabling this setting also emits a
 `PACKAGE_INVENTORY` capability finding.
 
-The v3 package-analysis digest binds the bounded static inventory and its
+The v4 package-analysis digest binds the bounded static inventory and its
 package-level coverage markers. It is not an execution-approval or sandbox
 snapshot digest: outer parsing and MCP failures are reported separately in
 `coverage_reasons`.
+
+Python bytecode in skill-owned `__pycache__` directories is included in the
+bounded inventory and coverage digest. Each `.pyc` or `.pyo` file produces a
+path-specific `DYNAMIC_ANALYSIS_REQUIRED` finding and a `python-bytecode` coverage
+reason. Razin does not execute or interpret bytecode; its presence is an analysis
+gap, not evidence of malicious behavior. Use `--require-complete-coverage` in CI
+if an incomplete package must fail the scan. Unreadable cache directories also
+keep coverage incomplete.
 
 ## Known-bad indicators
 

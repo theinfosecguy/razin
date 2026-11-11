@@ -1,6 +1,7 @@
 # CI and exit codes
 
-Razin supports CI gating by actionable severity and non-probabilistic review priority.
+Razin supports CI gating by actionable severity, non-probabilistic review priority,
+and scan coverage.
 
 ## Exit code controls
 
@@ -13,6 +14,9 @@ razin scan -r . --fail-on-score 70 --no-stdout
 
 # Either condition can fail the job
 razin scan -r . --fail-on medium --fail-on-score 50 --no-stdout
+
+# Fail if any package has incomplete coverage, or no package was evaluated
+razin scan -r . --require-complete-coverage --no-stdout
 ```
 
 ## Display filters vs gating
@@ -27,6 +31,7 @@ Gating behavior:
 
 - `--fail-on` evaluates security findings from the full scan (after rule overrides). Informational capability inventory cannot fail this gate.
 - `--fail-on-score` evaluates review priority from full findings. Priority is the strongest actionable signal, not a maliciousness probability, and does not combine correlated detector weights.
+- `--require-complete-coverage` evaluates unfiltered workspace coverage. It fails on `incomplete` or `not-evaluated`, even when no security finding is present. It can be combined with the other gates.
 - The `audit` profile is always non-blocking, even when fail flags are supplied.
 
 Example:

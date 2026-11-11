@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -520,6 +522,27 @@ def test_quiet_mode_gate_evaluates_all_findings(tmp_path: Path) -> None:
         ]
     )
     assert exit_code == 1
+
+
+def test_quiet_mode_coverage_gate_sets_summary_failure(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    out_file = tmp_path / "out.jsonl"
+    result = replace(_dummy_result(), workspace_coverage_status="incomplete")
+    with patch("razin.cli.main.scan_workspace", return_value=result):
+        code = main(
+            [
+                "scan",
+                "--root",
+                str(tmp_path),
+                "--quiet-output",
+                str(out_file),
+                "--require-complete-coverage",
+            ]
+        )
+    summary = json.loads(out_file.read_text(encoding="utf-8").strip())
+    assert code == 1
+    assert capsys.readouterr().out == ""
+    assert summary["data"]["workspace_coverage_status"] == "incomplete"
+    assert summary["data"]["gate_failed"] is True
 
 
 def test_quiet_summary_gate_scope_field(tmp_path: Path) -> None:

@@ -66,6 +66,12 @@ def test_build_parser_fail_on_defaults_none(tmp_path: Path) -> None:
     args = parser.parse_args(["scan", "--root", str(tmp_path)])
     assert args.fail_on is None
     assert args.fail_on_score is None
+    assert args.require_complete_coverage is False
+
+
+def test_build_parser_accepts_complete_coverage_gate(tmp_path: Path) -> None:
+    args = build_parser().parse_args(["scan", "--root", str(tmp_path), "--require-complete-coverage"])
+    assert args.require_complete_coverage is True
 
 
 def test_build_parser_fail_on_score_parses_int(tmp_path: Path) -> None:
@@ -187,6 +193,33 @@ def test_evaluate_no_fail_flags_returns_0() -> None:
     assert evaluate_fail_thresholds(result, fail_on=None, fail_on_score=None) == 0
 
 
+@pytest.mark.parametrize(
+    ("coverage", "expected"),
+    [("complete", 0), ("incomplete", 1), ("not-evaluated", 1)],
+)
+def test_require_complete_coverage_gate(coverage: str, expected: int) -> None:
+    result = _empty_result(workspace_coverage_status=coverage)
+    assert (
+        evaluate_fail_thresholds(result, fail_on=None, fail_on_score=None, require_complete_coverage=True) == expected
+    )
+
+
+def test_require_complete_coverage_uses_fallback_for_unstructured_result() -> None:
+    gap = _make_finding(rule_id="DYNAMIC_ANALYSIS_REQUIRED")
+    result = _empty_result(total_findings=1, findings=(gap,))
+    assert evaluate_fail_thresholds(result, fail_on=None, fail_on_score=None, require_complete_coverage=True) == 1
+
+
+def test_coverage_gate_is_opt_in() -> None:
+    result = _empty_result(workspace_coverage_status="incomplete")
+    assert evaluate_fail_thresholds(result, fail_on=None, fail_on_score=None) == 0
+
+
+def test_require_complete_coverage_rejects_empty_workspace() -> None:
+    result = _empty_result(scanned_files=0, cache_misses=0)
+    assert evaluate_fail_thresholds(result, fail_on=None, fail_on_score=None, require_complete_coverage=True) == 1
+
+
 def test_audit_profile_is_non_blocking() -> None:
     result = _empty_result(
         total_findings=1,
@@ -197,6 +230,7 @@ def test_audit_profile_is_non_blocking() -> None:
     )
 
     assert evaluate_fail_thresholds(result, fail_on="low", fail_on_score=1) == 0
+    assert evaluate_fail_thresholds(result, fail_on="low", fail_on_score=1, require_complete_coverage=True) == 0
 
 
 def test_evaluate_both_flags_either_triggers() -> None:
@@ -256,6 +290,16 @@ def test_main_no_fail_flags_returns_0(mock_scan: MagicMock) -> None:
     )
     code = main(["scan", "--root", ".", "--no-stdout"])
     assert code == 0
+
+
+@patch("razin.cli.main.scan_workspace")
+def test_main_coverage_gate_summary_verdict(mock_scan: MagicMock, capsys: pytest.CaptureFixture[str]) -> None:
+    mock_scan.return_value = _empty_result(workspace_coverage_status="incomplete")
+    code = main(["scan", "--root", ".", "--require-complete-coverage", "--summary-only", "--no-color"])
+    output = capsys.readouterr().out
+    assert code == 1
+    assert "Verdict     FAIL (coverage incomplete)" in output
+    assert "\n  Findings\n" not in output
 
 
 @patch("razin.cli.main.scan_workspace")

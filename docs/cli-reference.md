@@ -51,6 +51,7 @@ razin scan -r . -o output/ --profile balanced
 | `--summary-only` | Stdout-only mode: show summary block, no finding rows. |
 | `--fail-on {high,medium,low}` | Exit 1 if any finding meets or exceeds this severity. |
 | `--fail-on-score N` | Exit 1 if non-probabilistic review priority meets or exceeds `N` (0-100). |
+| `--require-complete-coverage` | Exit 1 unless workspace coverage is `complete`. |
 | `--quiet-mode` | Enable quiet mode: write to file only, no stdout output. |
 | `--quiet-output PATH` | Quiet mode output file path. Implies `--quiet-mode` when provided. |
 
@@ -68,6 +69,7 @@ razin scan -r . -o output/ --profile balanced
 | `--summary-only` with `--group-by` | `--summary-only` wins; no table is rendered. |
 | `--min-severity` with `--security-only` | Both filters are applied to stdout and artifact outputs. |
 | `--min-severity` / `--security-only` with `--fail-on` / `--fail-on-score` | Exit logic uses all findings from the scan, not filtered output. |
+| `--require-complete-coverage` with output filters | Exit logic uses workspace coverage before filtering; `incomplete` and `not-evaluated` both fail. |
 | `--quiet-mode` without `--quiet-output` | Invalid unless config provides `quiet_mode.output_path`. Returns exit code `2`. |
 | `--quiet-output PATH` without `--quiet-mode` | Valid. `--quiet-output` implies quiet mode. |
 | `--quiet-mode` with `-o` / `--output-format` / `--group-by` / `--summary-only` | Invalid. Quiet mode conflicts with these output flags. Returns exit code `2`. |

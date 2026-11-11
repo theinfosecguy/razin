@@ -133,7 +133,7 @@ Summary record transparency fields:
 - `workspace_coverage_status`: independent workspace coverage (`complete`, `incomplete`, or `not-evaluated`).
 - `evidence_verdict_counts`: package counts for each evidence verdict.
 - `coverage_counts`: package counts for each coverage state.
-- `gate_scope`: always `all_findings` (gate evaluation is never affected by output filters).
+- `gate_scope`: always `all_findings` for compatibility. Severity and priority gates use all findings; the optional coverage gate uses unfiltered workspace coverage.
 - `gate_failed`: boolean reflecting the exit code decision.
 
 Summary and quiet-stream outputs use schema version `3.0.0`. Frozen v2 schemas
