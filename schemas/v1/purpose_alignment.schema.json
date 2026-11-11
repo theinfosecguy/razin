@@ -67,7 +67,7 @@
         "required": ["package_analysis_digest"]
       },
       "then": { "properties": { "package_analysis_digest_version": { "type": "null" } } },
-      "else": { "properties": { "package_analysis_digest_version": { "const": 3 } } }
+      "else": { "properties": { "package_analysis_digest_version": { "enum": [3, 4] } } }
     },
     {
       "if": {
@@ -78,7 +78,7 @@
         "properties": {
           "coverage_reasons": { "maxItems": 0 },
           "package_analysis_digest": { "$ref": "#/$defs/Sha256" },
-          "package_analysis_digest_version": { "const": 3 }
+          "package_analysis_digest_version": { "enum": [3, 4] }
         }
       },
       "else": { "properties": { "coverage_reasons": { "minItems": 1 } } }

@@ -129,6 +129,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Exit 1 if review priority meets or exceeds N (0-100, for CI gating)",
     )
     scan.add_argument(
+        "--require-complete-coverage",
+        action="store_true",
+        help="Exit 1 unless workspace scan coverage is complete (for CI gating)",
+    )
+    scan.add_argument(
         "--min-severity",
         choices=["high", "medium", "low"],
         default=None,
@@ -336,7 +341,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Scanner error: {exc}", file=sys.stderr)
         return 1
 
-    exit_code = evaluate_fail_thresholds(result, fail_on=args.fail_on, fail_on_score=args.fail_on_score)
+    exit_code = evaluate_fail_thresholds(
+        result,
+        fail_on=args.fail_on,
+        fail_on_score=args.fail_on_score,
+        require_complete_coverage=args.require_complete_coverage,
+    )
 
     if quiet_enabled:
         write_quiet_output(
@@ -361,6 +371,7 @@ def main(argv: list[str] | None = None) -> int:
             summary_only=args.summary_only,
             fail_on=args.fail_on,
             fail_on_score=args.fail_on_score,
+            require_complete_coverage=args.require_complete_coverage,
             exit_code=exit_code,
         )
         print(reporter.render())

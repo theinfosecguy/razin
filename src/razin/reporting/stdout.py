@@ -78,6 +78,7 @@ class StdoutReporter:
         summary_only: bool = False,
         fail_on: Severity | None = None,
         fail_on_score: int | None = None,
+        require_complete_coverage: bool = False,
         exit_code: int = 0,
     ) -> None:
         """Initialise the reporter."""
@@ -88,6 +89,7 @@ class StdoutReporter:
         self._summary_only = summary_only
         self._fail_on = fail_on
         self._fail_on_score = fail_on_score
+        self._require_complete_coverage = require_complete_coverage
         self._exit_code = exit_code
         self._filters = OutputFilters(
             min_severity=min_severity,
@@ -197,7 +199,7 @@ class StdoutReporter:
         if r.disable_sources:
             lines.append(f"  Off source  {self._format_disable_sources(r.disable_sources)}")
 
-        verdict = self._render_verdict()
+        verdict = self._render_verdict(workspace_coverage)
         if verdict is not None:
             lines.append(f"  Verdict     {verdict}")
 
@@ -441,9 +443,9 @@ class StdoutReporter:
                 parts.append(f"{source} {count}")
         return " · ".join(parts) if parts else "none"
 
-    def _render_verdict(self) -> str | None:
+    def _render_verdict(self, coverage: CoverageStatus) -> str | None:
         """Render CI threshold verdict when fail flags are configured."""
-        if self._fail_on is None and self._fail_on_score is None:
+        if self._fail_on is None and self._fail_on_score is None and not self._require_complete_coverage:
             return None
         if self._result.aggregate_min_rule_score > 100:
             return "PASS (audit profile is non-blocking)"
@@ -471,6 +473,9 @@ class StdoutReporter:
                 clauses.append(f"review priority {score} >= {self._fail_on_score}")
             else:
                 clauses.append(f"review priority {score} < {self._fail_on_score}")
+
+        if self._require_complete_coverage:
+            clauses.append(f"coverage {coverage}")
 
         state = "FAIL" if self._exit_code == 1 else "PASS"
         return f"{state} ({'; '.join(clauses)})"

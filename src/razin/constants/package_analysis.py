@@ -74,7 +74,6 @@ IGNORED_PACKAGE_DIRECTORIES: frozenset[str] = frozenset(
         ".ruff_cache",
         ".tox",
         ".venv",
-        "__pycache__",
         "node_modules",
         "venv",
     }
@@ -104,7 +103,7 @@ DEFAULT_PACKAGE_MAX_DIRECTORIES: int = 128
 DEFAULT_PACKAGE_MAX_TOTAL_MB: int = 16
 DEFAULT_PACKAGE_MAX_FILE_MB: int = 2
 DEFAULT_PACKAGE_MAX_FINDINGS_PER_RULE: int = 20
-PACKAGE_COVERAGE_DIGEST_VERSION: int = 3
+PACKAGE_COVERAGE_DIGEST_VERSION: int = 4
 MAX_IOC_ENTRIES_PER_KIND: int = 256
 MAX_IOC_INDICATOR_LENGTH: int = 256
 SUSPICIOUS_COLLECTION_DOMAINS: frozenset[str] = frozenset(

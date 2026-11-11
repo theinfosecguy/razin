@@ -134,10 +134,11 @@ def analyze_skill_package(
     truncated_bytes = False
     truncated_directories = False
     dynamic_members: set[str] = set()
+    bytecode_members: set[str] = set()
     max_total_bytes = analysis.max_total_mb * 1024 * 1024
     max_file_bytes = analysis.max_file_mb * 1024 * 1024
 
-    paths, enumeration_truncated, truncated_directories, ignored_directories = _bounded_package_paths(
+    paths, enumeration_truncated, truncated_directories, ignored_directories, traversal_gaps = _bounded_package_paths(
         package_root,
         analysis.max_files,
         analysis.max_directories,
@@ -221,10 +222,15 @@ def analyze_skill_package(
 
         suffix = path.suffix.lower()
         if suffix in UNSUPPORTED_EXECUTABLE_SUFFIXES:
-            dynamic_members.add(relative)
+            if suffix in {".pyc", ".pyo"}:
+                bytecode_members.add(relative)
+                reason = "Python bytecode is not statically analyzed and may be loaded instead of source."
+            else:
+                dynamic_members.add(relative)
+                reason = "Compiled executable content requires isolated dynamic analysis."
             _append_candidate(
                 candidates,
-                _dynamic_candidate(path, relative, "Compiled executable content requires isolated dynamic analysis."),
+                _dynamic_candidate(path, relative, reason),
                 allowed,
                 analysis.max_findings_per_rule,
             )
@@ -298,6 +304,13 @@ def analyze_skill_package(
             allowed,
             analysis.max_findings_per_rule,
         )
+    for marker, reason in traversal_gaps:
+        _append_candidate(
+            candidates,
+            _gap_candidate(skill_path, marker.split(":", 1)[1], reason),
+            allowed,
+            analysis.max_findings_per_rule,
+        )
 
     ignored_references = tuple(
         sorted(
@@ -348,7 +361,9 @@ def analyze_skill_package(
         if present
     ) + tuple(f"ignored-reference:{reference}" for reference in ignored_references)
     coverage_markers += tuple(f"ignored-directory:{path}" for path in ignored_directories)
+    coverage_markers += tuple(marker for marker, _ in traversal_gaps)
     coverage_markers += tuple(f"dynamic-analysis:{path}" for path in sorted(dynamic_members))
+    coverage_markers += tuple(f"python-bytecode:{path}" for path in sorted(bytecode_members))
     coverage_markers += tuple(sorted(helper_coverage_markers))
     coverage_markers += tuple(f"unhashed-member:{entry.path}" for entry in manifest if entry.sha256 is None)
     coverage_markers = tuple(sorted(set(coverage_markers)))
@@ -407,26 +422,41 @@ def _bounded_package_paths(
     max_files: int,
     max_directories: int,
     excluded_paths: tuple[Path, ...],
-) -> tuple[list[Path], bool, bool, tuple[str, ...]]:
+) -> tuple[list[Path], bool, bool, tuple[str, ...], tuple[tuple[str, str], ...]]:
     paths: list[Path] = []
     truncated = False
     directory_count = 0
     ignored_directories: set[str] = set()
+    traversal_gaps: dict[str, str] = {}
     excluded = tuple(
         path.resolve() for path in excluded_paths if path.resolve() != root.resolve() and _is_within(path, root)
     )
-    for current, dirnames, filenames in os.walk(root, topdown=True, followlinks=False):
+
+    def onerror(error: OSError) -> None:
+        try:
+            relative = Path(error.filename).relative_to(root).as_posix() if error.filename else "."
+        except ValueError:
+            relative = "."
+        traversal_gaps[f"directory-read-error:{relative}"] = "Package directory could not be traversed."
+
+    for current, dirnames, filenames in os.walk(root, topdown=True, onerror=onerror, followlinks=False):
         current_path = Path(current)
         if any(_is_within(current_path, excluded_path) for excluded_path in excluded):
             dirnames[:] = []
             continue
         directory_count += 1
         if directory_count > max_directories:
-            return paths, truncated, True, tuple(sorted(ignored_directories))
+            return paths, truncated, True, tuple(sorted(ignored_directories)), tuple(sorted(traversal_gaps.items()))
         symlinked_dirs = sorted(name for name in dirnames if (current_path / name).is_symlink())
         paths.extend(current_path / name for name in symlinked_dirs)
         if len(paths) > max_files:
-            return paths[:max_files], True, False, tuple(sorted(ignored_directories))
+            return (
+                paths[:max_files],
+                True,
+                False,
+                tuple(sorted(ignored_directories)),
+                tuple(sorted(traversal_gaps.items())),
+            )
         ignored_directories.update(
             (current_path / name).relative_to(root).as_posix()
             for name in dirnames
@@ -441,6 +471,11 @@ def _bounded_package_paths(
         )
         filenames.sort()
         if current_path != root and "SKILL.md" in filenames:
+            if "__pycache__" in current_path.relative_to(root).parts:
+                relative = current_path.relative_to(root).as_posix()
+                traversal_gaps[f"nested-skill-cache:{relative}"] = (
+                    "Nested skill in a Python cache directory was not analyzed as part of this package."
+                )
             dirnames[:] = []
             continue
         for filename in filenames:
@@ -450,8 +485,14 @@ def _bounded_package_paths(
             paths.append(file_path)
             if len(paths) > max_files:
                 truncated = True
-                return paths[:max_files], truncated, False, tuple(sorted(ignored_directories))
-    return paths, truncated, False, tuple(sorted(ignored_directories))
+                return (
+                    paths[:max_files],
+                    truncated,
+                    False,
+                    tuple(sorted(ignored_directories)),
+                    tuple(sorted(traversal_gaps.items())),
+                )
+    return paths, truncated, False, tuple(sorted(ignored_directories)), tuple(sorted(traversal_gaps.items()))
 
 
 def _is_within(path: Path, parent: Path) -> bool:
